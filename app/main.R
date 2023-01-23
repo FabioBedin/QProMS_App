@@ -1,5 +1,5 @@
 box::use(
-  shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput],
+  shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow],
   bs4Dash[...]
 )
 
@@ -8,11 +8,104 @@ ui <- function(id) {
   ns <- NS(id)
   dashboardPage(
     title = "QProMS",
-    header = dashboardHeader(),
-    sidebar = dashboardSidebar(),
+    fullscreen = TRUE,
+    header = dashboardHeader(
+      title =  dashboardBrand(
+        title = "QProMS",
+        color = "primary",
+        href = NULL,
+        image = NULL
+      )
+    ),
+    sidebar = dashboardSidebar(
+      tags$br(),
+      # sidebarHeader("Workflow"),
+      # tags$br(),
+      sidebarMenu(
+        id = "sidebarMenu",
+        menuItem(
+          text = "Upload Data",
+          tabName = "upload_data"
+        ),
+        menuItem(
+          text = "Wrangling Data",
+          tabName = "wrangling_data"
+        ),
+        menuItem(
+          text = "Missing Data",
+          tabName = "missing_data"
+        ),
+        menuItem(
+          text = "Imputation",
+          tabName = "imputation"
+        ),
+        menuItem(
+          text = "Statistics",
+          tabName = "statistics"
+        )
+      )
+    ),
     controlbar = dashboardControlbar(),
     footer = dashboardFooter(),
-    body = dashboardBody()
+    body = dashboardBody(
+      tabItems(
+        tabItem(
+          tabName = "upload_data",
+          fluidRow(
+            infoBox(
+              title = "N° Proteins",
+              value = 1410,
+              icon = icon("envelope"),
+              width = 3, 
+              color = "primary",
+              fill = TRUE
+            ),
+            infoBox(
+              title = "Missing Values",
+              value = 240,
+              icon = icon("envelope"),
+              width = 3,
+              color = "primary",
+              fill = TRUE
+            ),
+            infoBox(
+              title = "Condition",
+              value = 4,
+              icon = icon("envelope"),
+              width = 3,
+              color = "primary",
+              fill = TRUE
+            ),
+            infoBox(
+              title = "Replicate",
+              value = 5,
+              icon = icon("envelope"),
+              width = 3,
+              color = "primary",
+              fill = TRUE
+            )
+          ),
+          fluidRow(
+            box(
+              title = "Upload",
+              status = "primary",
+              width = 3,
+              height = 700
+            ),
+            box(
+              title = "Experimental Design",
+              status = "primary",
+              width = 9,
+              height = 700,
+              maximizable = TRUE
+            )
+          )
+        ),
+        tabItem(
+          tabName = "wrangling_data"
+        )
+      )
+    )
   )
 }
 
