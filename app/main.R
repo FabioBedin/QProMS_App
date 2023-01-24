@@ -25,23 +25,28 @@ ui <- function(id) {
         id = "sidebarMenu",
         menuItem(
           text = "Upload Data",
-          tabName = "upload_data"
+          tabName = "upload_data",
+          icon = icon("upload")
         ),
         menuItem(
           text = "Wrangling Data",
-          tabName = "wrangling_data"
+          tabName = "wrangling_data",
+          icon = icon("filter")
         ),
         menuItem(
           text = "Missing Data",
-          tabName = "missing_data"
+          tabName = "missing_data",
+          icon = icon("magnifying-glass")
         ),
         menuItem(
           text = "Imputation",
-          tabName = "imputation"
+          tabName = "imputation",
+          icon = icon("wand-magic-sparkles")
         ),
         menuItem(
           text = "Statistics",
-          tabName = "statistics"
+          tabName = "statistics",
+          icon = icon("circle-half-stroke")
         )
       )
     ),
