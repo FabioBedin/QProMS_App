@@ -6,6 +6,7 @@ box::use(
 box::use(
   app/view/tab1_upload_data_page,
   app/view/tab2_wrangling_data_page,
+  app/view/tab3_missing_data_page,
 )
 
 #' @export
@@ -34,7 +35,7 @@ ui <- function(id) {
           icon = icon("upload")
         ),
         menuItem(
-          text = "Wrangling Data",
+          text = "Filter Data",
           tabName = "wrangling_data",
           icon = icon("filter")
         ),
@@ -44,14 +45,14 @@ ui <- function(id) {
           icon = icon("magnifying-glass")
         ),
         menuItem(
-          text = "Imputation",
-          tabName = "imputation",
-          icon = icon("wand-magic-sparkles")
-        ),
-        menuItem(
           text = "Statistics",
           tabName = "statistics",
           icon = icon("circle-half-stroke")
+        ),
+        menuItem(
+          text = "Function Analysis",
+          tabName = "function_analysis",
+          icon = icon("chart-column")
         )
       )
     ),
@@ -60,7 +61,8 @@ ui <- function(id) {
     body = dashboardBody(
       tabItems(
         tab1_upload_data_page$ui(ns("tab1_upload_data_page")),
-        tab2_wrangling_data_page$ui(ns("tab2_wrangling_data_page"))
+        tab2_wrangling_data_page$ui(ns("tab2_wrangling_data_page")),
+        tab3_missing_data_page$ui(ns("tab3_missing_data_page"))
       )
     )
   )
@@ -71,5 +73,6 @@ server <- function(id) {
   moduleServer(id, function(input, output, session) {
     tab1_upload_data_page$server("tab1_upload_data_page")
     tab2_wrangling_data_page$server("tab2_wrangling_data_page")
+    tab3_missing_data_page$server("tab3_missing_data_page")
   })
 }

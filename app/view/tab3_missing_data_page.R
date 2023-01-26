@@ -8,7 +8,7 @@ ui <- function(id) {
   ns <- NS(id)
   
   tabItem(
-    tabName = "wrangling_data",
+    tabName = "missing_data",
     fluidRow(
       infoBox(
         title = "N° Proteins",
@@ -27,7 +27,7 @@ ui <- function(id) {
         fill = TRUE
       ),
       infoBox(
-        title = "Average mean",
+        title = "MNAR",
         value = 4,
         icon = icon("envelope"),
         width = 3,
@@ -35,7 +35,7 @@ ui <- function(id) {
         fill = TRUE
       ),
       infoBox(
-        title = "average CV score",
+        title = "MAR",
         value = 5,
         icon = icon("envelope"),
         width = 3,
@@ -45,49 +45,41 @@ ui <- function(id) {
     ),
     fluidRow(
       box(
-        title = "Protein Counts",
-        status = "primary",
-        width = 3,
-        height = 500,
-        maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = "filters_sidebar",
-          p("Filters options")
-        )
-      ),
-      box(
-        title = "Upset Plot",
-        status = "primary",
-        width = 3,
-        height = 500,
-        maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = "valid_values_sidebar",
-          p("Valid values options")
-        )
-      ),
-      box(
-        title = "Intensity distribution",
-        status = "primary",
-        width = 3,
-        height = 500,
-        maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = "normalization_sidebar",
-          p("Normalization")
-        )
-      ),
-      box(
-        title = "CV score",
+        title = "Missing data Counts",
         status = "primary",
         width = 3,
         height = 500,
         maximizable = TRUE
+      ),
+      box(
+        title = "Missing data distribution",
+        status = "primary",
+        width = 3,
+        height = 500,
+        maximizable = TRUE
+      ),
+      box(
+        title = "Effect of imputation: Before",
+        status = "primary",
+        width = 3,
+        height = 500,
+        maximizable = TRUE
+      ),
+      box(
+        title = "Effect of imputation: After",
+        status = "primary",
+        width = 3,
+        height = 500,
+        maximizable = TRUE,
+        sidebar = boxSidebar(
+          id = "imputation_sidebar",
+          p("Imputation parameters")
+        )
       )
     ),
     fluidRow(
       box(
-        title = "Filtred Table",
+        title = "Imputed Table",
         status = "primary",
         width = 12,
         maximizable = TRUE,
