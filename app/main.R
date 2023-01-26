@@ -1,10 +1,11 @@
 box::use(
   shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow],
-  bs4Dash[...]
+  bs4Dash[...],
 )
 
 box::use(
   app/view/tab1_upload_data_page,
+  app/view/tab2_wrangling_data_page,
 )
 
 #' @export
@@ -59,9 +60,7 @@ ui <- function(id) {
     body = dashboardBody(
       tabItems(
         tab1_upload_data_page$ui(ns("tab1_upload_data_page")),
-        tabItem(
-          tabName = "wrangling_data"
-        )
+        tab2_wrangling_data_page$ui(ns("tab2_wrangling_data_page"))
       )
     )
   )
@@ -71,5 +70,6 @@ ui <- function(id) {
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
     tab1_upload_data_page$server("tab1_upload_data_page")
+    tab2_wrangling_data_page$server("tab2_wrangling_data_page")
   })
 }
