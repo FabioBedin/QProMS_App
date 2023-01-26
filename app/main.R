@@ -45,6 +45,11 @@ ui <- function(id) {
           icon = icon("magnifying-glass")
         ),
         menuItem(
+          text = "PCA & Correlation",
+          tabName = "pca_correlation",
+          icon = icon("slack")
+        ),
+        menuItem(
           text = "Statistics",
           tabName = "statistics",
           icon = icon("circle-half-stroke")
