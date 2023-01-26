@@ -3,6 +3,10 @@ box::use(
   bs4Dash[...]
 )
 
+box::use(
+  app/view/tab1_upload_data_page,
+)
+
 #' @export
 ui <- function(id) {
   ns <- NS(id)
@@ -54,58 +58,7 @@ ui <- function(id) {
     footer = dashboardFooter(),
     body = dashboardBody(
       tabItems(
-        tabItem(
-          tabName = "upload_data",
-          fluidRow(
-            infoBox(
-              title = "N° Proteins",
-              value = 1410,
-              icon = icon("envelope"),
-              width = 3, 
-              color = "primary",
-              fill = TRUE
-            ),
-            infoBox(
-              title = "Missing Values",
-              value = 240,
-              icon = icon("envelope"),
-              width = 3,
-              color = "primary",
-              fill = TRUE
-            ),
-            infoBox(
-              title = "Condition",
-              value = 4,
-              icon = icon("envelope"),
-              width = 3,
-              color = "primary",
-              fill = TRUE
-            ),
-            infoBox(
-              title = "Replicate",
-              value = 5,
-              icon = icon("envelope"),
-              width = 3,
-              color = "primary",
-              fill = TRUE
-            )
-          ),
-          fluidRow(
-            box(
-              title = "Upload",
-              status = "primary",
-              width = 3,
-              height = 700
-            ),
-            box(
-              title = "Experimental Design",
-              status = "primary",
-              width = 9,
-              height = 700,
-              maximizable = TRUE
-            )
-          )
-        ),
+        tab1_upload_data_page$ui(ns("tab1_upload_data_page")),
         tabItem(
           tabName = "wrangling_data"
         )
@@ -117,6 +70,6 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
-    
+    tab1_upload_data_page$server("tab1_upload_data_page")
   })
 }
