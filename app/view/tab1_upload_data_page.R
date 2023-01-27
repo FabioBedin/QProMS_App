@@ -51,13 +51,20 @@ ui <- function(id) {
         width = 3,
         height = "70vh",
         accordion(
-          id = "upload_accordion",
+          id = ns("upload_accordion"),
           accordionItem(
             title = "Upload a file",
             status = "primary",
             collapsed = FALSE,
             solidHeader = FALSE,
-            fileInput(inputId = "upload_file", label = NULL, multiple = FALSE, width = "100%", placeholder = "proteinGroups.txt", accept = ".txt")
+            fileInput(
+              inputId = ns("upload_file"),
+              label = NULL,
+              multiple = FALSE,
+              width = "100%",
+              placeholder = "proteinGroups.txt",
+              accept = ".txt"
+            )
           ),
           accordionItem(
             title = "Select intensity",
@@ -65,7 +72,7 @@ ui <- function(id) {
             collapsed = TRUE,
             solidHeader = FALSE,
             radioGroupButtons(
-              inputId = "intensity_type",
+              inputId = ns("intensity_type"),
               label = NULL,
               choices = c("Intensity", "LFQ Intensity", "iBAQ Intensity"),
               selected = "LFQ Intensity",
@@ -78,7 +85,7 @@ ui <- function(id) {
             collapsed = TRUE,
             solidHeader = FALSE,
             radioGroupButtons(
-              inputId = "source_type",
+              inputId = ns("source_type"),
               label = NULL,
               choices = c("MaxQuant", "External table"),
               selected = "MaxQuant",
@@ -91,7 +98,7 @@ ui <- function(id) {
             collapsed = TRUE,
             solidHeader = FALSE,
             radioGroupButtons(
-              inputId = "organism",
+              inputId = ns("organism"),
               label = NULL,
               choices = c("Homo Sapiens", "Mus Musculus"),
               selected = "Homo Sapiens",
@@ -103,7 +110,7 @@ ui <- function(id) {
         div(
           style = "text-align: center; padding: 0.4rem;",
           actionBttn(
-            inputId = "start",
+            inputId = ns("start"),
             label = "Start", 
             style = "material-flat",
             color = "primary",
