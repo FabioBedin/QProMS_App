@@ -7,6 +7,7 @@ box::use(
   app/view/tab1_upload_data_page,
   app/view/tab2_wrangling_data_page,
   app/view/tab3_missing_data_page,
+  app/view/tab4_pca_correlation_page,
 )
 
 #' @export
@@ -67,7 +68,8 @@ ui <- function(id) {
       tabItems(
         tab1_upload_data_page$ui(ns("tab1_upload_data_page")),
         tab2_wrangling_data_page$ui(ns("tab2_wrangling_data_page")),
-        tab3_missing_data_page$ui(ns("tab3_missing_data_page"))
+        tab3_missing_data_page$ui(ns("tab3_missing_data_page")),
+        tab4_pca_correlation_page$ui(ns("tab4_pca_correlation_page"))
       )
     )
   )
@@ -79,5 +81,6 @@ server <- function(id) {
     tab1_upload_data_page$server("tab1_upload_data_page")
     tab2_wrangling_data_page$server("tab2_wrangling_data_page")
     tab3_missing_data_page$server("tab3_missing_data_page")
+    tab4_pca_correlation_page$server("tab4_pca_correlation_page")
   })
 }

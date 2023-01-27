@@ -91,8 +91,7 @@ ui <- function(id) {
         status = "primary",
         width = 12,
         maximizable = TRUE,
-        collapsible = TRUE,
-        collapsed = TRUE
+        collapsible = TRUE
       )
     )
   )
