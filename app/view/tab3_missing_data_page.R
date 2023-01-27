@@ -1,6 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, p],
-  bs4Dash[tabItem, infoBox, box, boxSidebar]
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div],
+  bs4Dash[tabItem, infoBox, box, boxSidebar],
+  shinyWidgets[actionBttn]
 )
 
 #' @export
@@ -73,7 +74,40 @@ ui <- function(id) {
         maximizable = TRUE,
         sidebar = boxSidebar(
           id = "imputation_sidebar",
-          p("Imputation parameters")
+          div(
+            style="padding-right: 0.5rem",
+            h3("Imputation"),
+            selectInput(
+              inputId = ns("imputation_input"),
+              label = "imputation strategy",
+              choices = c("Mixed", "Perseus"),
+              selected = "Mixed"
+            ),
+            sliderInput(
+              inputId = ns("shift_slider"),
+              label = "Down shift",
+              min = 1.6,
+              max = 2,
+              value = 1.8,
+              step = 0.1
+            ),
+            sliderInput(
+              inputId = ns("scale_slider"),
+              label = "Scale",
+              min = 0.1,
+              max = 0.5,
+              value = 0.3,
+              step = 0.1
+            ),
+            actionBttn(
+              inputId = ns("update"),
+              label = "Update", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
         )
       )
     ),

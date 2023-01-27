@@ -1,6 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, p],
-  bs4Dash[tabItem, infoBox, box, boxSidebar]
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div],
+  bs4Dash[tabItem, infoBox, box, boxSidebar],
+  shinyWidgets[actionBttn]
 )
 
 #' @export
@@ -50,8 +51,25 @@ ui <- function(id) {
         height = "70vh",
         maximizable = TRUE,
         sidebar = boxSidebar(
-          id = "correlation_sidebar",
-          p("Correlation parameters")
+          id = ns("correlation_sidebar"),
+          div(
+            style="padding-right: 0.5rem",
+            h3("Correlation methods"),
+            selectInput(
+              inputId = ns("correlation_input"),
+              label = NULL,
+              choices = c("Pearson", "Kendall", "Spearman"),
+              selected = "Pearson"
+            ),
+            actionBttn(
+              inputId = ns("update"),
+              label = "Update", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
         )
       )
     )
