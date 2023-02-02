@@ -9,43 +9,28 @@ ui <- function(id) {
   ns <- NS(id)
   
   tabItem(
-    tabName = "pca_correlation",
+    tabName = "correlation",
     fluidRow(
       infoBox(
-        title = "PC1",
+        title = "Higher correlation",
         value = 1370,
         icon = icon("envelope"),
-        width = 4, 
+        width = 6, 
         color = "primary",
         fill = TRUE
       ),
       infoBox(
-        title = "PC2",
+        title = "Lower correlation",
         value = 170,
         icon = icon("envelope"),
-        width = 4,
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "PC3",
-        value = 4,
-        icon = icon("envelope"),
-        width = 4,
+        width = 6,
         color = "primary",
         fill = TRUE
       )
     ),
     fluidRow(
       box(
-        title = "PCA",
-        status = "primary",
-        width = 6,
-        height = "70vh",
-        maximizable = TRUE
-      ),
-      box(
-        title = "Correlation matrix",
+        title = "Correlation plot",
         status = "primary",
         width = 6,
         height = "70vh",
@@ -71,6 +56,13 @@ ui <- function(id) {
             )
           )
         )
+      ),
+      box(
+        title = "Scatter plot",
+        status = "primary",
+        width = 6,
+        height = "70vh",
+        maximizable = TRUE
       )
     )
   )
