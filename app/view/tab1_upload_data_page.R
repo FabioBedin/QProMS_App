@@ -13,7 +13,7 @@ ui <- function(id) {
     fluidRow(
       infoBox(
         title = "N° Proteins",
-        value = 1410,
+        value = 0,
         icon = icon("envelope"),
         width = 3, 
         color = "primary",
@@ -21,7 +21,7 @@ ui <- function(id) {
       ),
       infoBox(
         title = "Missing Values",
-        value = 240,
+        value = 0,
         icon = icon("envelope"),
         width = 3,
         color = "primary",
@@ -29,7 +29,7 @@ ui <- function(id) {
       ),
       infoBox(
         title = "Condition",
-        value = 4,
+        value = 0,
         icon = icon("envelope"),
         width = 3,
         color = "primary",
@@ -37,7 +37,7 @@ ui <- function(id) {
       ),
       infoBox(
         title = "Replicate",
-        value = 5,
+        value = 0,
         icon = icon("envelope"),
         width = 3,
         color = "primary",
@@ -50,72 +50,64 @@ ui <- function(id) {
         status = "primary",
         width = 3,
         height = "70vh",
-        accordion(
-          id = ns("upload_accordion"),
-          accordionItem(
-            title = "Upload a file",
-            status = "primary",
-            collapsed = FALSE,
-            solidHeader = FALSE,
-            fileInput(
-              inputId = ns("upload_file"),
-              label = NULL,
-              multiple = FALSE,
-              width = "100%",
-              placeholder = "proteinGroups.txt",
-              accept = ".txt"
-            )
-          ),
-          accordionItem(
-            title = "Select intensity",
-            status = "primary",
-            collapsed = TRUE,
-            solidHeader = FALSE,
-            radioGroupButtons(
-              inputId = ns("intensity_type"),
-              label = NULL,
-              choices = c("Intensity", "LFQ Intensity", "iBAQ Intensity"),
-              selected = "LFQ Intensity",
-              justified = TRUE
-            )
-          ),
-          accordionItem(
-            title = "Source from",
-            status = "primary",
-            collapsed = TRUE,
-            solidHeader = FALSE,
-            radioGroupButtons(
-              inputId = ns("source_type"),
-              label = NULL,
-              choices = c("MaxQuant", "External table"),
-              selected = "MaxQuant",
-              justified = TRUE
-            )
-          ),
-          accordionItem(
-            title = "Organism",
-            status = "primary",
-            collapsed = TRUE,
-            solidHeader = FALSE,
-            radioGroupButtons(
-              inputId = ns("organism"),
-              label = NULL,
-              choices = c("Homo Sapiens", "Mus Musculus"),
-              selected = "Homo Sapiens",
-              justified = TRUE
-            )
-          )
+        br(),
+        fileInput(
+          inputId = ns("upload_file"),
+          label = NULL,
+          multiple = FALSE,
+          width = "100%",
+          placeholder = "proteinGroups.txt",
+          accept = ".txt"
         ),
         br(),
+        radioGroupButtons(
+          inputId = ns("intensity_type"),
+          label = NULL,
+          choices = c("Intensity", "LFQ Intensity", "iBAQ Intensity"),
+          selected = "LFQ Intensity",
+          justified = TRUE
+        ),
+        br(),
+        radioGroupButtons(
+          inputId = ns("source_type"),
+          label = NULL,
+          choices = c("MaxQuant", "External table"),
+          selected = "MaxQuant",
+          justified = TRUE
+        ),
+        br(),
+        radioGroupButtons(
+          inputId = ns("organism"),
+          label = NULL,
+          choices = c("Homo Sapiens", "Mus Musculus"),
+          selected = "Homo Sapiens",
+          justified = TRUE
+        ),
+        br(),
+        br(),
         div(
-          style = "text-align: center; padding: 0.4rem;",
-          actionBttn(
-            inputId = ns("start"),
-            label = "Start", 
-            style = "material-flat",
-            color = "primary",
-            size = "md",
-            block = TRUE
+          style = "display: flex; justify-content: center;",
+          div(
+            style = "width: 100%; margin-right: 10px;",
+            actionBttn(
+              inputId = ns("start"),
+              label = "Start", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          ),
+          div(
+            style = "width: 100%; margin-left: 10px;",
+            actionBttn(
+              inputId = ns("tutorial"),
+              label = "Tutorial", 
+              style = "material-flat",
+              color = "default",
+              size = "md",
+              block = TRUE
+            )
           )
         )
       ),
