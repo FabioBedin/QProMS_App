@@ -85,6 +85,8 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
+    options(shiny.maxRequestSize=10000*1024^2)
+    
     tab1_upload_data_page$server("tab1_upload_data_page")
     tab2_wrangling_data_page$server("tab2_wrangling_data_page")
     tab3_missing_data_page$server("tab3_missing_data_page")
