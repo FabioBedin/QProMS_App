@@ -1,7 +1,13 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req],
   bs4Dash[tabItem, infoBox, box, accordion, accordionItem],
-  shinyWidgets[radioGroupButtons, actionBttn]
+  shinyWidgets[radioGroupButtons, actionBttn],
+  rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col],
+  magrittr[`%>%`],
+)
+
+box::use(
+  app/logic/R6Class_QProMS
 )
 
 #' @export
@@ -116,7 +122,8 @@ ui <- function(id) {
         status = "primary",
         width = 9,
         height = "70vh",
-        maximizable = TRUE
+        maximizable = TRUE,
+        rHandsontableOutput(ns("expdesign_table"))
       )
     )
   )
@@ -124,8 +131,28 @@ ui <- function(id) {
 }
 
 #' @export
-server <- function(id) {
+server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
+    
+    observeEvent(input$start, {
+      
+      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      
+      r6$make_expdesign(start_with = "lfq_intensity_bc_")
+      
+    })
+    
+    output$expdesign_table <- renderRHandsontable({
+      
+      req(input$start)
+      
+      if(!is.null(r6$expdesign)){
+        rhandsontable(data = r6$expdesign, width = "100%", stretchH = "all") %>%
+          hot_cols(colWidths = "25%") %>%
+          hot_col("key", readOnly = TRUE)
+      }
+      
+    })
     
   })
 }

@@ -11,6 +11,10 @@ box::use(
   app/view/tab5_pca_page,
 )
 
+box::use(
+  app/logic/R6Class_QProMS,
+)
+
 #' @export
 ui <- function(id) {
   ns <- NS(id)
@@ -87,7 +91,9 @@ server <- function(id) {
   moduleServer(id, function(input, output, session) {
     options(shiny.maxRequestSize=10000*1024^2)
     
-    tab1_upload_data_page$server("tab1_upload_data_page")
+    object <- R6Class_QProMS$QProMS$new()
+    
+    tab1_upload_data_page$server("tab1_upload_data_page", r6 = object)
     tab2_wrangling_data_page$server("tab2_wrangling_data_page")
     tab3_missing_data_page$server("tab3_missing_data_page")
     tab4_correlation_page$server("tab4_correlation_page")

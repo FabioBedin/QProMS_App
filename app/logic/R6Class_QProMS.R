@@ -4,11 +4,13 @@ box::use(
   janitor[make_clean_names, get_dupes],
   tibble[as_tibble],
   viridis[viridis],
+  magrittr[`%>%`],
   dplyr,
   tidyr,
   stringr,
 )
 
+#' @export
 QProMS <- R6Class(
   classname = "QProMS",
   public = list(
