@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req],
-  bs4Dash[tabItem, infoBox, box, accordion, accordionItem],
-  shinyWidgets[radioGroupButtons, actionBttn],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput],
+  bs4Dash[tabItem, infoBox, box, boxSidebar],
+  shinyWidgets[actionBttn],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col],
   magrittr[`%>%`],
 )
@@ -55,7 +55,28 @@ ui <- function(id) {
         title = "Upload",
         status = "primary",
         width = 3,
-        height = "70vh",
+        height = "60vh",
+        sidebar = boxSidebar(
+          id = ns("upload_sidebar"),
+          selectInput(
+            inputId = ns("intensity_type"),
+            label = "Select Intensity type",
+            choices = c("Intensity", "LFQ Intensity", "iBAQ Intensity"),
+            selected = "LFQ Intensity"
+          ),
+          selectInput(
+            inputId = ns("source_type"),
+            label = "Table source",
+            choices = c("MaxQuant", "External table"),
+            selected = "MaxQuant"
+          ),
+          selectInput(
+            inputId = ns("organism"),
+            label = "Organism",
+            choices = c("Homo Sapiens", "Mus Musculus"),
+            selected = "Homo Sapiens"
+          )
+        ),
         br(),
         fileInput(
           inputId = ns("upload_file"),
@@ -65,33 +86,7 @@ ui <- function(id) {
           placeholder = "proteinGroups.txt",
           accept = ".txt"
         ),
-        br(),
-        radioGroupButtons(
-          inputId = ns("intensity_type"),
-          label = NULL,
-          choices = c("Intensity", "LFQ Intensity", "iBAQ Intensity"),
-          selected = "LFQ Intensity",
-          justified = TRUE
-        ),
-        br(),
-        radioGroupButtons(
-          inputId = ns("source_type"),
-          label = NULL,
-          choices = c("MaxQuant", "External table"),
-          selected = "MaxQuant",
-          justified = TRUE
-        ),
-        br(),
-        radioGroupButtons(
-          inputId = ns("organism"),
-          label = NULL,
-          choices = c("Homo Sapiens", "Mus Musculus"),
-          selected = "Homo Sapiens",
-          justified = TRUE
-        ),
-        br(),
-        br(),
-        div(
+        footer = div(
           style = "display: flex; justify-content: center;",
           div(
             style = "width: 100%; margin-right: 10px;",
@@ -121,9 +116,34 @@ ui <- function(id) {
         title = "Experimental Design",
         status = "primary",
         width = 9,
-        height = "70vh",
+        height = "60vh",
         maximizable = TRUE,
-        rHandsontableOutput(ns("expdesign_table"))
+        rHandsontableOutput(ns("expdesign_table")),
+        footer = div(
+          style = "display: flex; justify-content: end;",
+          div(
+            style = "width: 100px; margin-right: 10px;",
+            actionBttn(
+              inputId = ns("reset"),
+              label = "Reset", 
+              style = "material-flat",
+              color = "default",
+              size = "md",
+              block = TRUE
+            )
+          ),
+          div(
+            style = "width: 100px; margin-left: 10px;",
+            actionBttn(
+              inputId = ns("apply"),
+              label = "Apply", 
+              style = "material-flat",
+              color = "default",
+              size = "md",
+              block = TRUE
+            )
+          )
+        )
       )
     )
   )
