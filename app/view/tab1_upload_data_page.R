@@ -1,9 +1,10 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues],
   bs4Dash[tabItem, infoBox, box, boxSidebar],
   shinyWidgets[actionBttn],
-  rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col],
+  rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
   magrittr[`%>%`],
+  gargoyle[init, watch, trigger]
 )
 
 box::use(
@@ -61,8 +62,8 @@ ui <- function(id) {
           selectInput(
             inputId = ns("intensity_type"),
             label = "Select Intensity type",
-            choices = c("Intensity", "LFQ Intensity", "iBAQ Intensity"),
-            selected = "LFQ Intensity"
+            choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
+            selected = "lfq_intensity_"
           ),
           selectInput(
             inputId = ns("source_type"),
@@ -87,20 +88,9 @@ ui <- function(id) {
           accept = ".txt"
         ),
         footer = div(
-          style = "display: flex; justify-content: center;",
+          style = "display: flex; justify-content: end;",
           div(
-            style = "width: 100%; margin-right: 10px;",
-            actionBttn(
-              inputId = ns("start"),
-              label = "Start", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          ),
-          div(
-            style = "width: 100%; margin-left: 10px;",
+            style = "width: 150px;",
             actionBttn(
               inputId = ns("tutorial"),
               label = "Tutorial", 
@@ -120,9 +110,9 @@ ui <- function(id) {
         maximizable = TRUE,
         rHandsontableOutput(ns("expdesign_table")),
         footer = div(
-          style = "display: flex; justify-content: end;",
+          style = "display: flex; justify-content: end; gap: 20px",
           div(
-            style = "width: 100px; margin-right: 10px;",
+            style = "width: 150px;",
             actionBttn(
               inputId = ns("reset"),
               label = "Reset", 
@@ -133,12 +123,12 @@ ui <- function(id) {
             )
           ),
           div(
-            style = "width: 100px; margin-left: 10px;",
+            style = "width: 150px;",
             actionBttn(
-              inputId = ns("apply"),
-              label = "Apply", 
+              inputId = ns("start"),
+              label = "Start", 
               style = "material-flat",
-              color = "default",
+              color = "primary",
               size = "md",
               block = TRUE
             )
@@ -154,23 +144,62 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    observeEvent(input$start, {
+    init("make_expdesign")
+    
+    observeEvent(input$upload_file, {
+      
+      req(input$intensity_type)
+      req(input$source_type)
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
       
-      r6$make_expdesign(start_with = "lfq_intensity_bc_")
+      r6$make_expdesign(start_with = input$intensity_type)
       
     })
     
     output$expdesign_table <- renderRHandsontable({
       
-      req(input$start)
+      watch("make_expdesign")
       
+      req(input$upload_file)
+      # aggiungere una colonna logical per rimuovere i campioni che non si vogliono più tenere
       if(!is.null(r6$expdesign)){
         rhandsontable(data = r6$expdesign, width = "100%", stretchH = "all") %>%
           hot_cols(colWidths = "25%") %>%
           hot_col("key", readOnly = TRUE)
       }
+      
+    })
+    
+    observeEvent(input$reset, {
+      
+      req(input$upload_file)
+      req(input$intensity_type)
+      
+      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      r6$make_expdesign(start_with = input$intensity_type)
+      
+      trigger("make_expdesign")
+      
+    })
+    
+    observeEvent(input$start, {
+      
+      req(input$upload_file)
+      req(input$intensity_type)
+      req(input$expdesign_table)
+      
+      r6$expdesign <- hot_to_r(input$expdesign_table)
+      
+      r6$data_wrangling(
+        valid_val_filter = r6$valid_val_filter,
+        valid_val_thr = r6$valid_val_thr,
+        pep_filter = r6$pep_filter,
+        pep_thr = r6$pep_thr,
+        rev = r6$rev,
+        cont = r6$cont,
+        oibs = r6$oibs
+      )
       
     })
     
