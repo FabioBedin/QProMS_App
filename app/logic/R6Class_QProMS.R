@@ -8,6 +8,7 @@ box::use(
   dplyr,
   tidyr,
   stringr,
+  echarts4r,
 )
 
 #' @export
@@ -22,6 +23,41 @@ QProMS <- R6Class(
     organism = NULL,
     expdesign = NULL,
     color_palette = NULL,
+    # parameters for data wrangling #
+    filtered_data = NULL,
+    valid_val_filter = "alog",
+    valid_val_thr = 0.75,
+    pep_filter = "peptides",
+    pep_thr = 2,
+    rev = TRUE,
+    cont = TRUE,
+    oibs = TRUE,
+    ###############################
+    # parameters for normalization #
+    normalized_data = NULL,
+    norm_methods = NULL,
+    is_norm = FALSE,
+    vsn_norm_run_once = FALSE,
+    ############################
+    # parameters for imputation #
+    imputed_data = NULL,
+    imp_methods = NULL,
+    is_mixed = NULL,
+    is_imp = FALSE,
+    imp_run_once = FALSE,
+    #################
+    # parameters For Statistics #
+    tested_condition = NULL,
+    univariate = NULL,
+    clusters_def = NULL,
+    clusters_number = NULL,
+    stat_table = NULL,
+    fold_change = 1,
+    p_adj_method = NULL,
+    alpha_ttest = NULL,
+    anova_table = NULL,
+    cluster_table = NULL,
+    alpha_anova = NULL,
     ###########
     # Methods #
     loading_data = function(input_path, input_type){
@@ -51,7 +87,7 @@ QProMS <- R6Class(
       
       self$define_colors()
       
-      if(self$input_type == "max_quant"){
+      if(self$input_type == "MaxQuant"){
         self$pg_preprocessing()
       }
     },
@@ -133,6 +169,113 @@ QProMS <- R6Class(
         dplyr$select(-key)
       
       self$data <- data_standardized
+    },
+    data_wrangling = function(valid_val_filter = "alog", valid_val_thr = 0.75, 
+                              pep_filter = "peptides", pep_thr = 2, 
+                              rev = TRUE, cont = TRUE, oibs = TRUE, rescue_cont = NULL) {
+      
+      ##############################################################
+      #### this function is divided in 2 steps:                 ####
+      #### the first apply filer specific to maxquant input.    ####
+      #### the second part filer the data base on valid values. ####
+      ##############################################################
+      
+      # store inputs for summary table
+      # self$valid_val_filter <- valid_val_filter
+      # self$valid_val_thr <- valid_val_thr
+      # self$pep_filter <- pep_filter
+      # self$pep_thr <- pep_thr
+      # self$rev <- rev
+      # self$cont <- cont
+      # self$oibs <- oibs
+      
+      
+      
+      # setup object parameters
+      self$vsn_norm_run_once <- FALSE
+      self$imp_run_once <- FALSE
+      data <- self$data
+      
+      if (self$input_type == "max_quant"){
+        ### pep filter puo essere:
+        ## c("peptides", "unique", "razor")
+        
+        data_wrang <- data %>%
+          dplyr$mutate(potential_contaminant = dplyr$case_when(
+            gene_names %in% rescue_cont ~ "", TRUE ~ potential_contaminant)) %>%
+          ## remove reverse, potentialcontaminant and oibs from data base on user input
+          {if(rev)dplyr$filter(., !reverse == "+") else .} %>%
+          {if(cont)dplyr$filter(., !potential_contaminant == "+") else .} %>%
+          {if(oibs)dplyr$filter(., !only_identified_by_site == "+") else .} %>%
+          ## filter on peptides:
+          {if(pep_filter == "peptides"){dplyr$filter(., peptides >= pep_thr)}
+            else if (pep_filter == "unique") {dplyr$filter(., unique_peptides >= pep_thr)}
+            else {dplyr$filter(., razor_unique_peptides >= pep_thr)}}
+      }else{
+        data_wrang <- data
+      }
+      
+      ## different type of strategy for filter missing data:
+      ## c("alog", "each_grp", "total") alog -> at least one group
+      
+      filtered_data <- data_wrang %>%
+        {if(valid_val_filter == "total")dplyr$group_by(., gene_names)
+          else dplyr$group_by(., gene_names, condition)} %>%
+        dplyr$mutate(miss_val = dplyr$n() - sum(bin_intensity)) %>%
+        dplyr$mutate(n_size = dplyr$n()) %>%
+        dplyr$ungroup() %>%
+        dplyr$group_by(gene_names) %>%
+        ## rage compreso tra 0 e 100% espresso in valori tra 0 e 1
+        {if(valid_val_filter == "alog") dplyr$filter(., any(miss_val <= round(n_size * (1 - valid_val_thr), 0)))
+          else dplyr$filter(., all(miss_val <= round(n_size * (1 - valid_val_thr), 0)))} %>%
+        dplyr$ungroup() %>%
+        dplyr$select(gene_names, label, condition, replicate, bin_intensity, raw_intensity) %>% 
+        dplyr$rename(intensity = raw_intensity)
+      
+      self$filtered_data <- filtered_data
+      
+    },
+    plot_protein_counts = function(){
+      
+      # controllare che ci sia il self$filtered_data
+      data <- self$filtered_data
+      expdes <- self$expdesign
+      
+      p <- data %>%
+        dplyr$group_by(label) %>%
+        dplyr$summarise(counts = sum(bin_intensity)) %>%
+        dplyr$ungroup() %>%
+        dplyr$inner_join(., expdes, by = "label") %>%
+        dplyr$mutate(replicate = as.factor(replicate)) %>%
+        dplyr$group_by(condition) %>%
+        echarts4r$e_charts(replicate, renderer = "svg") %>%
+        echarts4r$e_bar(counts) %>%
+        echarts4r$e_x_axis(name = "Replicates") %>%
+        echarts4r$e_y_axis(name = "Counts") %>%
+        echarts4r$e_tooltip(trigger = "item") %>%
+        echarts4r$e_color(self$color_palette) %>%
+        echarts4r$e_theme("QProMS_theme") %>% 
+        echarts4r$e_y_axis(
+          name = "Counts",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_x_axis(
+          name = "Replicate",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 14,
+            lineHeight = 60
+          )
+        ) %>% 
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+      
+      return(p)
     }
   )
 )

@@ -122,6 +122,16 @@
         "sys"
       ]
     },
+    "attempt": {
+      "Package": "attempt",
+      "Version": "0.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "d7421bb5dfeb2676b9e4a5a60c2fcfd2",
+      "Requirements": [
+        "rlang"
+      ]
+    },
     "backports": {
       "Package": "backports",
       "Version": "1.4.1",
@@ -153,6 +163,25 @@
       "Repository": "CRAN",
       "Hash": "976cf154dfb043c012d87cddd8bca363",
       "Requirements": []
+    },
+    "broom": {
+      "Package": "broom",
+      "Version": "1.0.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ab67f5ce0aa79b8db7ddba5cb0d4012d",
+      "Requirements": [
+        "backports",
+        "dplyr",
+        "ellipsis",
+        "generics",
+        "glue",
+        "purrr",
+        "rlang",
+        "stringr",
+        "tibble",
+        "tidyr"
+      ]
     },
     "bs4Dash": {
       "Package": "bs4Dash",
@@ -252,6 +281,22 @@
         "yaml"
       ]
     },
+    "corrplot": {
+      "Package": "corrplot",
+      "Version": "0.92",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "fcf11a91936fd5047b2ee9bc00595e36",
+      "Requirements": []
+    },
+    "countrycode": {
+      "Package": "countrycode",
+      "Version": "1.4.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2d162e8f29eec5526e362a7415d980ab",
+      "Requirements": []
+    },
     "cpp11": {
       "Package": "cpp11",
       "Version": "0.4.3",
@@ -348,6 +393,26 @@
         "vctrs"
       ]
     },
+    "echarts4r": {
+      "Package": "echarts4r",
+      "Version": "0.4.4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "1ba0af31b6e1aaeaac2817f72135f260",
+      "Requirements": [
+        "broom",
+        "corrplot",
+        "countrycode",
+        "dplyr",
+        "htmltools",
+        "htmlwidgets",
+        "jsonlite",
+        "purrr",
+        "rstudioapi",
+        "scales",
+        "shiny"
+      ]
+    },
     "ellipsis": {
       "Package": "ellipsis",
       "Version": "0.3.2",
@@ -421,6 +486,22 @@
       "Repository": "CRAN",
       "Hash": "7c89603d81793f0d5486d91ab1fc6f1d",
       "Requirements": []
+    },
+    "gargoyle": {
+      "Package": "gargoyle",
+      "Version": "0.0.1",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "ColinFay",
+      "RemoteRepo": "gargoyle",
+      "RemoteRef": "master",
+      "RemoteSha": "abf9120020ac6c0542187d13b458688242212eda",
+      "Hash": "0cc907ae6256c9bbb9767038e6326d97",
+      "Requirements": [
+        "attempt",
+        "shiny"
+      ]
     },
     "generics": {
       "Package": "generics",
