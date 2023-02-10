@@ -1,7 +1,9 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, checkboxGroupInput, br, div],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, checkboxGroupInput, br, div, observeEvent, req, checkboxInput],
   bs4Dash[tabItem, infoBox, box, boxSidebar],
-  shinyWidgets[actionBttn]
+  shinyWidgets[actionBttn],
+  echarts4r[echarts4rOutput, renderEcharts4r],
+  gargoyle[init, watch, trigger]
 )
 
 #' @export
@@ -59,8 +61,8 @@ ui <- function(id) {
             selectInput(
               inputId = ns("peptides_input"),
               label = "Select peptides type",
-              choices = c("Peptides", "Unique peptides", "Razor and unique peptides"),
-              selected = "Peptides"
+              choices = c("Peptides" = "peptides", "Unique peptides" = "unique", "Razor and unique peptides" = "razor"),
+              selected = "peptides"
             ),
             sliderInput(
               inputId = ns("peptides_slider"),
@@ -71,12 +73,29 @@ ui <- function(id) {
               step = 1
             ),
             br(),
-            checkboxGroupInput(
-              inputId = ns("rev_cont_oibs"),
-              label = NULL,
-              choices = c("Reverse", "Contaminant", "Identify by site"),
-              selected = c("Reverse", "Contaminant", "Identify by site")
+            div(
+              checkboxInput(
+                inputId = ns("rev"),
+                label = "Reverse",
+                value = TRUE
+              ),
+              checkboxInput(
+                inputId = ns("cont"),
+                label = "Contaminant",
+                value = TRUE
+              ),
+              checkboxInput(
+                inputId = ns("oibs"),
+                label = "Identify by site",
+                value = TRUE
+              )
             ),
+            # checkboxGroupInput(
+            #   inputId = ns("rev_cont_oibs"),
+            #   label = NULL,
+            #   choices = c("Reverse", "Contaminant", "Identify by site"),
+            #   selected = c("Reverse", "Contaminant", "Identify by site")
+            # ),
             actionBttn(
               inputId = ns("update_filters"),
               label = "Update", 
@@ -86,7 +105,8 @@ ui <- function(id) {
               block = TRUE
             )
           )
-        )
+        ),
+        echarts4rOutput(ns("protein_counts_plot"), height = "450")
       ),
       box(
         title = "Upset Plot",
@@ -174,8 +194,44 @@ ui <- function(id) {
 }
 
 #' @export
-server <- function(id) {
+server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
+    
+    init("plot")
+    
+    output$protein_counts_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      r6$plot_protein_counts() 
+      
+    })
+    
+    observeEvent(input$update_filters, {
+      
+      req(input$peptides_input)
+      req(input$peptides_slider)
+      
+      r6$pep_filter <- input$peptides_input
+      r6$pep_thr <- input$peptides_slider
+      r6$rev <- input$rev
+      r6$cont <- input$cont
+      r6$oibs <- input$oibs
+      
+      
+      r6$data_wrangling(
+        valid_val_filter = r6$valid_val_filter,
+        valid_val_thr = r6$valid_val_thr,
+        pep_filter = r6$pep_filter,
+        pep_thr = r6$pep_thr,
+        rev = r6$rev,
+        cont = r6$cont,
+        oibs = r6$oibs
+      )
+      
+      trigger("plot")
+      
+    })
     
   })
 }

@@ -87,7 +87,7 @@ QProMS <- R6Class(
       
       self$define_colors()
       
-      if(self$input_type == "MaxQuant"){
+      if(self$input_type == "max_quant"){
         self$pg_preprocessing()
       }
     },
@@ -171,7 +171,7 @@ QProMS <- R6Class(
       self$data <- data_standardized
     },
     data_wrangling = function(valid_val_filter = "alog", valid_val_thr = 0.75, 
-                              pep_filter = "peptides", pep_thr = 2, 
+                              pep_filter = "peptides", pep_thr, 
                               rev = TRUE, cont = TRUE, oibs = TRUE, rescue_cont = NULL) {
       
       ##############################################################

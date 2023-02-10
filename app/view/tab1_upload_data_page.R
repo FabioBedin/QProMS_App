@@ -68,8 +68,8 @@ ui <- function(id) {
           selectInput(
             inputId = ns("source_type"),
             label = "Table source",
-            choices = c("MaxQuant", "External table"),
-            selected = "MaxQuant"
+            choices = c("MaxQuant" = "max_quant", "External table"),
+            selected = "max_quant"
           ),
           selectInput(
             inputId = ns("organism"),
@@ -200,6 +200,7 @@ server <- function(id, r6) {
         cont = r6$cont,
         oibs = r6$oibs
       )
+      
       
     })
     
