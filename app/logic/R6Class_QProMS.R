@@ -276,6 +276,38 @@ QProMS <- R6Class(
         echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
       
       return(p)
+    },
+    plot_protein_coverage = function(){
+      
+      # controllare che ci sia il self$filtered_data
+      data <- self$filtered_data
+      
+      p <- data %>%
+        dplyr$group_by(gene_names) %>%
+        dplyr$summarise(counts = sum(bin_intensity)) %>%
+        dplyr$ungroup() %>%
+        dplyr$select(counts) %>%
+        table() %>%
+        as_tibble() %>%
+        dplyr$rename(occurrence = n) %>%
+        echarts4r$e_charts(counts, renderer = "svg") %>%
+        echarts4r$e_bar(occurrence) %>%
+        echarts4r$e_y_axis(name = "Counts") %>%
+        echarts4r$e_tooltip(trigger = "item") %>%
+        echarts4r$e_color(self$color_palette) %>%
+        echarts4r$e_theme("QProMS_theme") %>% 
+        echarts4r$e_y_axis(
+          name = "Counts",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>% 
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+      
+      return(p)
     }
   )
 )
