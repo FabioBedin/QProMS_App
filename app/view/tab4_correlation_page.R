@@ -38,7 +38,7 @@ ui <- function(id) {
         sidebar = boxSidebar(
           id = ns("correlation_sidebar"),
           div(
-            style="padding-right: 0.5rem",
+            style = "padding-right: 0.5rem",
             h3("Correlation methods"),
             selectInput(
               inputId = ns("correlation_input"),

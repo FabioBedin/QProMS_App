@@ -69,7 +69,7 @@ QProMS <- R6Class(
     },
     define_colors = function(){
       n_of_color <- max(self$expdesign %>% dplyr$count(replicate) %>% dplyr$pull(n))
-      self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.75)
+      self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.70, begin = 0.30)
     },
     make_expdesign = function(start_with = "lfq_intensity_"){
       ## qui mettere tutti gli if in base all'intensity type

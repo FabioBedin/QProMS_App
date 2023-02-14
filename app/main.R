@@ -31,8 +31,8 @@ ui <- function(id) {
     ),
     sidebar = dashboardSidebar(
       tags$br(),
-      sidebarHeader("Workflow"),
-      tags$br(),
+      # sidebarHeader("Workflow"),
+      # tags$br(),
       sidebarMenu(
         id = "sidebarMenu",
         menuItem(
