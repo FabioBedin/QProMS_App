@@ -194,7 +194,12 @@ QProMS <- R6Class(
       # setup object parameters
       self$vsn_norm_run_once <- FALSE
       self$imp_run_once <- FALSE
-      data <- self$data
+      selected_cond <-
+        self$expdesign %>% 
+        dplyr$distinct(label) %>% 
+        dplyr$pull()
+      data <- self$data %>% 
+        dplyr$filter(label %in% selected_cond)
       
       if (self$input_type == "max_quant"){
         ### pep filter puo essere:
