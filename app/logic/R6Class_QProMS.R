@@ -18,9 +18,9 @@ QProMS <- R6Class(
     ####################
     # Input parameters #
     data = NULL,
-    input_type = NULL,
-    intensity_type = NULL,
-    organism = NULL,
+    input_type = "max_quant",
+    intensity_type = "lfq_intensity_",
+    organism = NULL, #questo potrebbe essere tolto visto usiamo solo humans
     expdesign = NULL,
     color_palette = NULL,
     # parameters for data wrangling #
@@ -121,7 +121,7 @@ QProMS <- R6Class(
       list_unique_gene_names <- data %>%
         dplyr$select(protein_i_ds, gene_names, id) %>%
         dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>%
-        ## every protein gorups now have only 1 gene name associated to it
+        ## every protein groups now have only 1 gene name associated to it
         dplyr$rename(unique_gene_names = gene_names) %>%
         get_dupes(unique_gene_names) %>%
         dplyr$mutate(unique_gene_names = dplyr$case_when(
@@ -180,24 +180,15 @@ QProMS <- R6Class(
       #### the second part filer the data base on valid values. ####
       ##############################################################
       
-      # store inputs for summary table
-      # self$valid_val_filter <- valid_val_filter
-      # self$valid_val_thr <- valid_val_thr
-      # self$pep_filter <- pep_filter
-      # self$pep_thr <- pep_thr
-      # self$rev <- rev
-      # self$cont <- cont
-      # self$oibs <- oibs
-      
-      
-      
       # setup object parameters
       self$vsn_norm_run_once <- FALSE
       self$imp_run_once <- FALSE
+      
       selected_cond <-
         self$expdesign %>% 
         dplyr$distinct(label) %>% 
         dplyr$pull()
+      
       data <- self$data %>% 
         dplyr$filter(label %in% selected_cond)
       
