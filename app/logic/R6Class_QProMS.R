@@ -118,29 +118,35 @@ QProMS <- R6Class(
       data <- self$data
       expdesign <- self$expdesign
       
-      list_unique_gene_names <- data %>%
+      data_standardized <- data %>%
         dplyr$select(protein_i_ds, gene_names, id) %>%
         dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>%
-        ## every protein groups now have only 1 gene name associated to it
+        ## every protein gorups now have only 1 gene name associated to it
         dplyr$rename(unique_gene_names = gene_names) %>%
         get_dupes(unique_gene_names) %>%
-        dplyr$mutate(unique_gene_names = dplyr$case_when(
-          unique_gene_names != "" ~ paste0(unique_gene_names, "__",
-                                           stringr$str_extract(protein_i_ds, "[^;]*")),
-          TRUE ~ stringr$str_extract(protein_i_ds, "[^;]*"))) %>%
-        dplyr$select(unique_gene_names, id)
-      
-      ## update data that now don't have dupe or missing spot
-      data_unique <- dplyr$left_join(data, list_unique_gene_names, by = "id") %>%
-        dplyr$mutate(gene_names = dplyr$case_when(
-          unique_gene_names != "" ~ unique_gene_names, 
-          TRUE ~ gene_names)) %>%
+        dplyr$mutate(
+          unique_gene_names = dplyr$case_when(
+            unique_gene_names != "" ~ paste0(
+              unique_gene_names,
+              "__",
+              stringr$str_extract(protein_i_ds, "[^;]*")
+            ),
+            TRUE ~ stringr$str_extract(protein_i_ds, "[^;]*")
+          )
+        ) %>%
+        dplyr$select(unique_gene_names, id) %>%
+        dplyr$right_join(self$data, by = "id") %>%
+        dplyr$mutate(
+          gene_names = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
+                                        TRUE ~ gene_names)
+        ) %>%
         dplyr$select(-unique_gene_names) %>%
-        dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*"))
-      
-      ### this second part standardize the data in the right format
-      
-      data_standardized <- data_unique %>% 
+        dplyr$mutate(gene_names = dplyr$if_else(
+          gene_names == "",
+          stringr$str_extract(protein_i_ds, "[^;]*"),
+          gene_names
+        )) %>%
+        dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>% 
         dplyr$select(
           gene_names,
           dplyr$all_of(expdesign$key),
