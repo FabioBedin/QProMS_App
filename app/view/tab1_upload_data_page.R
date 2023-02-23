@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues],
-  bs4Dash[tabItem, infoBox, box, boxSidebar],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p],
+  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
   magrittr[`%>%`],
@@ -18,14 +18,7 @@ ui <- function(id) {
   tabItem(
     tabName = "upload_data",
     fluidRow(
-      infoBox(
-        title = "N° Proteins",
-        value = 0,
-        icon = icon("envelope"),
-        width = 3, 
-        color = "primary",
-        fill = TRUE
-      ),
+      valueBoxOutput(ns("n_proteins"), width = 3),
       infoBox(
         title = "Missing Values",
         value = 0,
@@ -145,6 +138,26 @@ server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
     init("make_expdesign")
+    
+    output$n_proteins <- renderValueBox({
+      
+      if(is.null(input$expdesign_table)){
+        value <- 0
+      }else{
+        # watch("make_expdesign")
+        value <- nrow(r6$data)
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("envelope"),
+        color = "primary",
+        footer = p("Proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
     
     observeEvent(input$upload_file, {
       

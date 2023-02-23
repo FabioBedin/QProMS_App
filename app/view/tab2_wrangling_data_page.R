@@ -165,14 +165,16 @@ ui <- function(id) {
               block = TRUE
             )
           )
-        )
+        ),
+        echarts4rOutput(ns("distribution_plot"), height = "450")
       ),
       box(
         title = "CV score",
         status = "primary",
         width = 3,
         height = 500,
-        maximizable = TRUE
+        maximizable = TRUE,
+        echarts4rOutput(ns("cv_plot"), height = "450")
       )
     ),
     fluidRow(
@@ -207,6 +209,22 @@ server <- function(id, r6) {
       watch("plot")
       
       r6$plot_protein_coverage() 
+      
+    })
+    
+    output$distribution_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      r6$plot_distribution() 
+      
+    })
+    
+    output$cv_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      r6$plot_cv() 
       
     })
     
