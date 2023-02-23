@@ -2,13 +2,15 @@ box::use(
   R6[R6Class],
   data.table[fread],
   janitor[make_clean_names, get_dupes],
-  tibble[as_tibble],
+  tibble[as_tibble, column_to_rownames],
   viridis[viridis],
   magrittr[`%>%`],
+  stats[sd],
   dplyr,
   tidyr,
   stringr,
   echarts4r,
+  vsn[vsn2, predict],
 )
 
 #' @export
@@ -237,6 +239,44 @@ QProMS <- R6Class(
       self$filtered_data <- filtered_data
       
     },
+    normalization = function(norm_methods = "None"){
+      
+      data <- self$filtered_data
+      
+      if(norm_methods == "None"){
+        self$is_norm <- FALSE
+        self$normalized_data <- data
+      }else{
+        self$is_norm <- TRUE
+        
+        ## convert tibble data into a matrix
+        raw_matrix <- data %>%
+          tidyr$pivot_wider(id_cols = gene_names,
+                             names_from = label,
+                             values_from = intensity) %>%
+          column_to_rownames("gene_names") %>%
+          as.matrix()
+        
+        set.seed(11)
+        ## Variance stabilization transformation on matrix
+        vsn_fit <- vsn2(2 ^ raw_matrix, verbose = FALSE)
+        norm_matrix <- predict(vsn_fit, 2 ^ raw_matrix)
+        
+        ## return a table with QProMS object format
+        normalized_data <- norm_matrix %>%
+          as_tibble(rownames = "gene_names") %>%
+          tidyr$pivot_longer(cols = !gene_names,
+                              names_to = "label",
+                              values_to = "norm_intensity") %>%
+          dplyr$full_join(data, .x, by = c("gene_names", "label")) %>%
+          dplyr$mutate(intensity = norm_intensity) %>% 
+          dplyr$select(-norm_intensity) %>% 
+          dplyr$relocate(intensity, .after = dplyr$last_col())
+        
+        self$normalized_data <- normalized_data
+      }
+      
+    },
     plot_protein_counts = function(){
       
       # controllare che ci sia il self$filtered_data
@@ -308,6 +348,67 @@ QProMS <- R6Class(
           )
         ) %>% 
         echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+      
+      return(p)
+    },
+    plot_distribution = function(){
+      
+      if(self$is_norm){
+        data <- self$normalized_data
+      }else{
+        data <- self$filtered_data
+      }
+      
+      p <- data %>%
+        dplyr$mutate(intensity = round(intensity, 2)) %>%
+        dplyr$group_by(condition, label) %>%
+        echarts4r$e_charts(renderer = "svg") %>%
+        echarts4r$e_boxplot(
+          intensity,
+          colorBy = "data",
+          layout = 'horizontal',
+          outliers = FALSE,
+          itemStyle = list(borderWidth = 2)
+        ) %>%
+        echarts4r$e_tooltip(trigger = "item") %>%
+        echarts4r$e_color(self$color_palette) %>%
+        echarts4r$e_theme("QProMS_theme") %>% 
+        echarts4r$e_y_axis(
+          name = "Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>% 
+        echarts4r$e_toolbox_feature(feature = "saveAsImage")
+      
+      return(p)
+    },
+    plot_cv = function(){
+      
+      # controllare che ci sia il self$filtered_data
+      data <- self$filtered_data
+      
+      p <- data %>% 
+        dplyr$group_by(gene_names, condition) %>% 
+        dplyr$summarise(
+          mean = mean(intensity, na.rm = TRUE),
+          sd = sd(intensity, na.rm = TRUE),
+          CV = round(sd / mean, 3)
+        ) %>% 
+        dplyr$ungroup() %>% 
+        dplyr$group_by(condition) %>% 
+        echarts4r$e_chart() %>% 
+        echarts4r$e_boxplot(
+          CV,
+          colorBy = "data",
+          outliers = FALSE,
+          itemStyle = list(borderWidth = 2)
+        ) %>%  
+        echarts4r$e_tooltip(trigger = "axis") %>% 
+        echarts4r$e_color(self$color_palette)
       
       return(p)
     }

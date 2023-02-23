@@ -47,4 +47,7 @@ test_that("define_colors() works", {
 
 test_that("pg_preprocessing() works", {
   expect_equal(object$data %>% filter(gene_names == "prt9") %>% nrow(), 8)
+  expect_equal(object$data %>% colnames() %>% length(), 12)
+  expect_equal(sum(object$data$bin_intensity), 36)
+  expect_equal(object$data %>% filter(gene_names == "gene8") %>% nrow(), 0)
 })
