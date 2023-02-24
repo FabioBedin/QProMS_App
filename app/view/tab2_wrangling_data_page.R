@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, br, div, observeEvent, req, checkboxInput],
-  bs4Dash[tabItem, infoBox, box, boxSidebar],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, br, div, observeEvent, req, checkboxInput, h4, p],
+  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger]
@@ -13,22 +13,8 @@ ui <- function(id) {
   tabItem(
     tabName = "wrangling_data",
     fluidRow(
-      infoBox(
-        title = "N° Proteins",
-        value = 1370,
-        icon = icon("envelope"),
-        width = 3, 
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "Missing Values",
-        value = 170,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      ),
+      valueBoxOutput(ns("n_proteins"), width = 3),
+      valueBoxOutput(ns("total_missing_data"), width = 3),
       infoBox(
         title = "Average mean",
         value = 4,
@@ -195,6 +181,41 @@ server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
     init("plot")
+    init("boxes")
+    
+    output$n_proteins <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- length(unique(r6$filtered_data$gene_names))
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("file"),
+        color = "primary",
+        footer = p("Proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$total_missing_data <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- r6$total_missing_data(raw = FALSE)
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("ban"),
+        color = "primary",
+        footer = p("Missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
     
     output$protein_counts_plot <- renderEcharts4r({
       
@@ -251,6 +272,7 @@ server <- function(id, r6) {
       )
       
       trigger("plot")
+      trigger("boxes")
       
     })
     
@@ -273,6 +295,20 @@ server <- function(id, r6) {
       )
       
       trigger("plot")
+      trigger("boxes")
+      
+    })
+    
+    observeEvent(input$update_normalization ,{
+      
+      req(input$normalization_input)
+      
+      r6$norm_methods <- input$normalization_input
+      
+      r6$normalization(norm_methods = r6$norm_methods)
+      
+      trigger("plot")
+      trigger("boxes")
       
     })
     

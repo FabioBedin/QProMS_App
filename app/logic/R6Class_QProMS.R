@@ -37,7 +37,7 @@ QProMS <- R6Class(
     ###############################
     # parameters for normalization #
     normalized_data = NULL,
-    norm_methods = NULL,
+    norm_methods = "None",
     is_norm = FALSE,
     vsn_norm_run_once = FALSE,
     ############################
@@ -81,11 +81,17 @@ QProMS <- R6Class(
         data <- self$filtered_data
       }
       
-      data %>%
-        dplyr$count(bin_intensity) %>%
-        dplyr$mutate(missing = paste0(round(n/nrow(data)*100,0), " %")) %>%
-        dplyr$filter(bin_intensity == 0) %>%
-        dplyr$pull(missing)
+      if(0 %in% data$bin_intensity){
+        value <- data %>%
+          dplyr$count(bin_intensity) %>%
+          dplyr$mutate(missing = paste0(round(n/nrow(data)*100,0), " %")) %>%
+          dplyr$filter(bin_intensity == 0) %>%
+          dplyr$pull(missing)
+      }else{
+        value <- "0 %"
+      }
+      
+      return(value)
     },
     make_expdesign = function(start_with = "lfq_intensity_"){
       ## qui mettere tutti gli if in base all'intensity type

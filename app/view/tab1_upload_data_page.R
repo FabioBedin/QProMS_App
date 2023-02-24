@@ -155,7 +155,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("ban"),
         color = "primary",
-        footer = p("Missing data", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
