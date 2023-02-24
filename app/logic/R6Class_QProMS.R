@@ -73,6 +73,20 @@ QProMS <- R6Class(
       n_of_color <- max(self$expdesign %>% dplyr$count(replicate) %>% dplyr$pull(n))
       self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.70, begin = 0.30)
     },
+    total_missing_data = function(raw = TRUE){
+      
+      if(raw){
+        data <- self$data
+      }else{
+        data <- self$filtered_data
+      }
+      
+      data %>%
+        dplyr$count(bin_intensity) %>%
+        dplyr$mutate(missing = paste0(round(n/nrow(data)*100,0), " %")) %>%
+        dplyr$filter(bin_intensity == 0) %>%
+        dplyr$pull(missing)
+    },
     make_expdesign = function(start_with = "lfq_intensity_"){
       ## qui mettere tutti gli if in base all'intensity type
       

@@ -19,30 +19,9 @@ ui <- function(id) {
     tabName = "upload_data",
     fluidRow(
       valueBoxOutput(ns("n_proteins"), width = 3),
-      infoBox(
-        title = "Missing Values",
-        value = 0,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "Condition",
-        value = 0,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "Replicate",
-        value = 0,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      )
+      valueBoxOutput(ns("total_missing_data"), width = 3),
+      valueBoxOutput(ns("n_condition"), width = 3),
+      valueBoxOutput(ns("n_replicate"), width = 3)
     ),
     fluidRow(
       box(
@@ -138,22 +117,87 @@ server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
     init("make_expdesign")
+    init("boxes")
     
     output$n_proteins <- renderValueBox({
+      
+      watch("boxes")
       
       if(is.null(input$expdesign_table)){
         value <- 0
       }else{
-        # watch("make_expdesign")
-        value <- nrow(r6$data)
+        value <- length(unique(r6$data$gene_names))
       }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("envelope"),
+        icon = icon("file"),
         color = "primary",
         footer = p("Proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$total_missing_data <- renderValueBox({
+      
+      watch("boxes")
+      
+      if(is.null(input$expdesign_table)){
+        value <- 0
+      }else{
+        value <- r6$total_missing_data(raw = TRUE)
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("ban"),
+        color = "primary",
+        footer = p("Missing data", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$n_condition <- renderValueBox({
+      
+      watch("boxes")
+      
+      if(is.null(input$expdesign_table)){
+        value <- 0
+      }else{
+        value <- length(unique(r6$expdesign$condition))
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("object-group"),
+        color = "primary",
+        footer = p("Condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$n_replicate <- renderValueBox({
+      
+      watch("boxes")
+      
+      if(is.null(input$expdesign_table)){
+        value <- 0
+      }else{
+        value <- length(unique(r6$expdesign$replicate))
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("list-ol"),
+        color = "primary",
+        footer = p("Replicate", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -214,6 +258,7 @@ server <- function(id, r6) {
         oibs = r6$oibs
       )
       
+      trigger("boxes")
       
     })
     
