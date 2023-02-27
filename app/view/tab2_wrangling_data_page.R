@@ -3,7 +3,7 @@ box::use(
   bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  gargoyle[init, watch, trigger]
+  gargoyle[init, watch, trigger],
 )
 
 #' @export
@@ -15,22 +15,8 @@ ui <- function(id) {
     fluidRow(
       valueBoxOutput(ns("n_proteins"), width = 3),
       valueBoxOutput(ns("total_missing_data"), width = 3),
-      infoBox(
-        title = "Average mean",
-        value = 4,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "average CV score",
-        value = 5,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      )
+      valueBoxOutput(ns("max_intensity"), width = 3),
+      valueBoxOutput(ns("min_intensity"), width = 3)
     ),
     fluidRow(
       box(
@@ -155,7 +141,7 @@ ui <- function(id) {
         echarts4rOutput(ns("distribution_plot"), height = "450")
       ),
       box(
-        title = "CV score",
+        title = "Coefficient of variation (CV)",
         status = "primary",
         width = 3,
         height = 500,
@@ -180,8 +166,7 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    init("plot")
-    init("boxes")
+    init("plot", "boxes")
     
     output$n_proteins <- renderValueBox({
       
@@ -194,7 +179,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("file"),
         color = "primary",
-        footer = p("Proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Total N° of proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -211,7 +196,41 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("ban"),
         color = "primary",
-        footer = p("Missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Total missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$max_intensity <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- round(max(r6$filtered_data$intensity, na.rm = TRUE), 2)
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("arrow-up"),
+        color = "primary",
+        footer = p("Max intensity value", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$min_intensity <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- round(min(r6$filtered_data$intensity, na.rm = TRUE), 2)
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("arrow-down"),
+        color = "primary",
+        footer = p("Min intensity value", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       

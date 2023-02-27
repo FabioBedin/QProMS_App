@@ -39,14 +39,12 @@ QProMS <- R6Class(
     normalized_data = NULL,
     norm_methods = "None",
     is_norm = FALSE,
-    vsn_norm_run_once = FALSE,
     ############################
     # parameters for imputation #
     imputed_data = NULL,
     imp_methods = NULL,
     is_mixed = NULL,
     is_imp = FALSE,
-    imp_run_once = FALSE,
     #################
     # parameters For Statistics #
     tested_condition = NULL,
@@ -76,7 +74,13 @@ QProMS <- R6Class(
     total_missing_data = function(raw = TRUE){
       
       if(raw){
-        data <- self$data
+        selected_cond <-
+          self$expdesign %>% 
+          dplyr$distinct(label) %>% 
+          dplyr$pull()
+        
+        data <- self$data %>% 
+          dplyr$filter(label %in% selected_cond)
       }else{
         data <- self$filtered_data
       }
@@ -207,10 +211,6 @@ QProMS <- R6Class(
       #### the first apply filer specific to maxquant input.    ####
       #### the second part filer the data base on valid values. ####
       ##############################################################
-      
-      # setup object parameters
-      self$vsn_norm_run_once <- FALSE
-      self$imp_run_once <- FALSE
       
       selected_cond <-
         self$expdesign %>% 
@@ -379,6 +379,8 @@ QProMS <- R6Class(
         data <- self$filtered_data
       }
       
+      intervals <- length(unique(self$expdesign$replicate))
+      
       p <- data %>%
         dplyr$mutate(intensity = round(intensity, 2)) %>%
         dplyr$group_by(condition, label) %>%
@@ -388,7 +390,7 @@ QProMS <- R6Class(
           colorBy = "data",
           layout = 'horizontal',
           outliers = FALSE,
-          itemStyle = list(borderWidth = 2)
+          itemStyle = list(borderWidth = 3)
         ) %>%
         echarts4r$e_tooltip(trigger = "item") %>%
         echarts4r$e_color(self$color_palette) %>%
@@ -402,6 +404,7 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>% 
+        echarts4r$e_x_axis(axisLabel = list(interval = intervals)) %>% 
         echarts4r$e_toolbox_feature(feature = "saveAsImage")
       
       return(p)
@@ -425,7 +428,7 @@ QProMS <- R6Class(
           CV,
           colorBy = "data",
           outliers = FALSE,
-          itemStyle = list(borderWidth = 2)
+          itemStyle = list(borderWidth = 3)
         ) %>%  
         echarts4r$e_tooltip(trigger = "axis") %>% 
         echarts4r$e_color(self$color_palette)

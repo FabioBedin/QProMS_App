@@ -4,7 +4,8 @@ box::use(
   shinyWidgets[actionBttn],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
   magrittr[`%>%`],
-  gargoyle[init, watch, trigger]
+  gargoyle[init, watch, trigger],
+  dplyr,
 )
 
 box::use(
@@ -60,7 +61,7 @@ ui <- function(id) {
           accept = ".txt"
         ),
         footer = div(
-          style = "display: flex; justify-content: end;",
+          style = "display: flex; justify-content: end; gap: 20px",
           div(
             style = "width: 150px;",
             actionBttn(
@@ -68,6 +69,17 @@ ui <- function(id) {
               label = "Tutorial", 
               style = "material-flat",
               color = "default",
+              size = "md",
+              block = TRUE
+            )
+          ),
+          div(
+            style = "width: 150px;",
+            actionBttn(
+              inputId = ns("start"),
+              label = "Start", 
+              style = "material-flat",
+              color = "primary",
               size = "md",
               block = TRUE
             )
@@ -97,8 +109,8 @@ ui <- function(id) {
           div(
             style = "width: 150px;",
             actionBttn(
-              inputId = ns("start"),
-              label = "Start", 
+              inputId = ns("confirm"),
+              label = "Confirm", 
               style = "material-flat",
               color = "primary",
               size = "md",
@@ -116,8 +128,7 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    init("make_expdesign")
-    init("boxes")
+    init("make_expdesign", "boxes")
     
     output$n_proteins <- renderValueBox({
       
@@ -126,7 +137,15 @@ server <- function(id, r6) {
       if(is.null(input$expdesign_table)){
         value <- 0
       }else{
-        value <- length(unique(r6$data$gene_names))
+        selected_cond <-
+          r6$expdesign %>% 
+          dplyr$distinct(label) %>% 
+          dplyr$pull()
+        
+        data <- r6$data %>% 
+          dplyr$filter(label %in% selected_cond)
+        
+        value <- length(unique(data$gene_names))
       }
       
       valueBox(
@@ -134,7 +153,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("file"),
         color = "primary",
-        footer = p("Proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Total N° of proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -155,7 +174,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("ban"),
         color = "primary",
-        footer = p("Missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Total missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -240,13 +259,23 @@ server <- function(id, r6) {
       
     })
     
+    observeEvent(input$confirm, {
+      
+      req(input$upload_file)
+      req(input$intensity_type)
+      
+      r6$expdesign <- hot_to_r(input$expdesign_table)
+      
+      trigger("boxes")
+      
+    })
+    
     observeEvent(input$start, {
       
       req(input$upload_file)
       req(input$intensity_type)
       req(input$expdesign_table)
-      
-      r6$expdesign <- hot_to_r(input$expdesign_table)
+      req(input$confirm)
       
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,
@@ -257,8 +286,6 @@ server <- function(id, r6) {
         cont = r6$cont,
         oibs = r6$oibs
       )
-      
-      trigger("boxes")
       
     })
     
