@@ -287,6 +287,8 @@ server <- function(id, r6) {
         oibs = r6$oibs
       )
       
+      #updateTabItems(session = getDefaultReactiveDomain(), "wrangling_data")
+      
     })
     
   })

@@ -1,6 +1,6 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, br, div, observeEvent, req, checkboxInput, h4, p],
-  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger],
