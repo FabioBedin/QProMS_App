@@ -93,6 +93,23 @@ QProMS <- R6Class(
       
       return(value)
     },
+    missing_data_type = function(type){
+      
+      value <- self$filtered_data %>% 
+        dplyr$group_by(gene_names, condition) %>%
+        dplyr$mutate(for_mean_imp = dplyr$if_else((sum(bin_intensity) / dplyr$n()) >= 0.75, TRUE, FALSE)) %>%
+        dplyr$ungroup() %>% 
+        dplyr$mutate(missing_type = dplyr$case_when(bin_intensity == 0 & for_mean_imp ~ "MAR",
+                                                      bin_intensity == 0 & !for_mean_imp ~ "MNAR",
+                                                      TRUE ~ "not missing")) %>% 
+        dplyr$count(missing_type) %>%
+        dplyr$mutate(total = sum(n)) %>% 
+        dplyr$mutate(missing_type_perc = paste0(round(n/total*100,0), " %")) %>% 
+        dplyr$filter(!missing_type == "not missing") %>% 
+        dplyr$select(missing_type, missing_type_perc) %>% 
+        dplyr$filter(missing_type == type) %>% 
+        dplyr$pull(missing_type_perc)
+    },
     make_expdesign = function(start_with = "lfq_intensity_"){
       ## qui mettere tutti gli if in base all'intensity type
       

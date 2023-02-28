@@ -95,7 +95,7 @@ server <- function(id) {
     
     tab1_upload_data_page$server("tab1_upload_data_page", r6 = object)
     tab2_wrangling_data_page$server("tab2_wrangling_data_page", r6 = object)
-    tab3_missing_data_page$server("tab3_missing_data_page")
+    tab3_missing_data_page$server("tab3_missing_data_page", r6 = object)
     tab4_correlation_page$server("tab4_correlation_page")
     tab5_pca_page$server("tab5_pca_page")
   })

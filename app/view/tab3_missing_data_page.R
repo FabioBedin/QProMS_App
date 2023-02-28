@@ -1,7 +1,9 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div],
-  bs4Dash[tabItem, infoBox, box, boxSidebar],
-  shinyWidgets[actionBttn]
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div, observeEvent, req, h4, p],
+  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
+  shinyWidgets[actionBttn],
+  echarts4r[echarts4rOutput, renderEcharts4r],
+  gargoyle[init, watch, trigger],
 )
 
 #' @export
@@ -11,38 +13,10 @@ ui <- function(id) {
   tabItem(
     tabName = "missing_data",
     fluidRow(
-      infoBox(
-        title = "N° Proteins",
-        value = 1370,
-        icon = icon("envelope"),
-        width = 3, 
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "Missing Values",
-        value = 170,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "MNAR",
-        value = 4,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      ),
-      infoBox(
-        title = "MAR",
-        value = 5,
-        icon = icon("envelope"),
-        width = 3,
-        color = "primary",
-        fill = TRUE
-      )
+      valueBoxOutput(ns("n_proteins"), width = 3),
+      valueBoxOutput(ns("total_missing_data"), width = 3),
+      valueBoxOutput(ns("missing_mar"), width = 3),
+      valueBoxOutput(ns("missing_mnar"), width = 3)
     ),
     fluidRow(
       box(
@@ -125,8 +99,78 @@ ui <- function(id) {
 }
 
 #' @export
-server <- function(id) {
+server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
+    
+    init("plot", "boxes")
+    
+    output$n_proteins <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- length(unique(r6$filtered_data$gene_names))
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("database"),
+        color = "primary",
+        footer = p("Total N° of proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$total_missing_data <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- r6$total_missing_data(raw = FALSE)
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("eye-slash"),
+        color = "primary",
+        footer = p("Total missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$missing_mar <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- r6$missing_data_type(type = "MAR")
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("random"),
+        color = "primary",
+        footer = p("Missing at random (MAR)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$missing_mnar <- renderValueBox({
+      
+      watch("boxes")
+      
+      value <- r6$missing_data_type(type = "MNAR")
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("low-vision"),
+        color = "primary",
+        footer = p("Missing not at random (MNAR)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
     
   })
 }

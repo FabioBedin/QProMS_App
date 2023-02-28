@@ -177,7 +177,7 @@ server <- function(id, r6) {
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("file"),
+        icon = icon("database"),
         color = "primary",
         footer = p("Total N° of proteins", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -194,7 +194,7 @@ server <- function(id, r6) {
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("ban"),
+        icon = icon("eye-slash"),
         color = "primary",
         footer = p("Total missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
