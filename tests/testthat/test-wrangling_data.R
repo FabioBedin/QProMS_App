@@ -29,9 +29,11 @@ pg_for_test <- tibble::tibble(
 
 object <- R6Class_QProMS$QProMS$new()
 
-object$data <- pg_for_test
+object$raw_data <- pg_for_test
 
 object$make_expdesign(start_with = "lfq_intensity_")
+
+object$pg_preprocessing()
 
 test_that("data_wrangling() works with default", {
   

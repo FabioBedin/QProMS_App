@@ -137,15 +137,7 @@ server <- function(id, r6) {
       if(is.null(input$expdesign_table)){
         value <- 0
       }else{
-        selected_cond <-
-          r6$expdesign %>% 
-          dplyr$distinct(label) %>% 
-          dplyr$pull()
-        
-        data <- r6$data %>% 
-          dplyr$filter(label %in% selected_cond)
-        
-        value <- length(unique(data$gene_names))
+        value <- length(unique(r6$data$gene_names))
       }
       
       valueBox(
@@ -228,8 +220,8 @@ server <- function(id, r6) {
       req(input$source_type)
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
-      
       r6$make_expdesign(start_with = input$intensity_type)
+      r6$pg_preprocessing()
       
     })
     
@@ -254,6 +246,7 @@ server <- function(id, r6) {
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
       r6$make_expdesign(start_with = input$intensity_type)
+      r6$pg_preprocessing()
       
       trigger("make_expdesign")
       
@@ -265,6 +258,8 @@ server <- function(id, r6) {
       req(input$intensity_type)
       
       r6$expdesign <- hot_to_r(input$expdesign_table)
+      
+      r6$pg_preprocessing()
       
       trigger("boxes")
       

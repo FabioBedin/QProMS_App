@@ -19,6 +19,7 @@ QProMS <- R6Class(
   public = list(
     ####################
     # Input parameters #
+    raw_data = NULL,
     data = NULL,
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
@@ -47,6 +48,7 @@ QProMS <- R6Class(
     is_imp = FALSE,
     #################
     # parameters For Statistics #
+    all_test_combination = NULL,
     tested_condition = NULL,
     univariate = NULL,
     clusters_def = NULL,
@@ -62,7 +64,7 @@ QProMS <- R6Class(
     # Methods #
     loading_data = function(input_path, input_type){
       
-      self$data <- fread(input = input_path) %>%
+      self$raw_data <- fread(input = input_path) %>%
         as_tibble(.name_repair = make_clean_names)
       
       self$input_type <- input_type
@@ -74,13 +76,7 @@ QProMS <- R6Class(
     total_missing_data = function(raw = TRUE){
       
       if(raw){
-        selected_cond <-
-          self$expdesign %>% 
-          dplyr$distinct(label) %>% 
-          dplyr$pull()
-        
-        data <- self$data %>% 
-          dplyr$filter(label %in% selected_cond)
+        data <- self$data
       }else{
         data <- self$filtered_data
       }
@@ -100,22 +96,19 @@ QProMS <- R6Class(
     make_expdesign = function(start_with = "lfq_intensity_"){
       ## qui mettere tutti gli if in base all'intensity type
       
-      self$data <- self$data %>%
-        dplyr$mutate(dplyr$across(dplyr$starts_with(start_with), ~ as.numeric(.)))
+      self$intensity_type <- start_with
       
-      self$expdesign <- self$data %>%
+      data <- self$raw_data %>% 
+        dplyr$mutate(dplyr$across(dplyr$starts_with(start_with), ~ log2(.))) %>%
+        dplyr$mutate(dplyr$across(dplyr$starts_with(start_with), ~ dplyr$na_if(.,-Inf)))
+      
+      self$expdesign <- data %>%
         dplyr$select(gene_names, dplyr$starts_with(start_with)) %>%
         tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
         dplyr$distinct(key) %>%
         dplyr$mutate(label = stringr$str_remove(key, start_with)) %>%
         dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>%
         dplyr$mutate(replicate = stringr$str_remove(label, ".*_"))
-      
-      self$define_colors()
-      
-      if(self$input_type == "max_quant"){
-        self$pg_preprocessing()
-      }
     },
     define_tests = function(){
       conditions <-
@@ -127,7 +120,7 @@ QProMS <- R6Class(
         dplyr$mutate(test = paste0(cond1, "_vs_", cond2)) %>%
         dplyr$pull(test)
       
-      return(tests)
+      self$all_test_combination <- tests
     },
     pg_preprocessing = function(){
       ########################################################################
@@ -141,8 +134,14 @@ QProMS <- R6Class(
       ## Indentify all duplicate gene names 
       ## and add after __ the protein iD
       
-      data <- self$data
+      data <- self$raw_data %>%
+        dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ log2(.))) %>%
+        dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ dplyr$na_if(.,-Inf)))
+      
       expdesign <- self$expdesign
+      
+      self$define_colors()
+      self$define_tests()
       
       data_standardized <- data %>%
         dplyr$select(protein_i_ds, gene_names, id) %>%
@@ -161,7 +160,7 @@ QProMS <- R6Class(
           )
         ) %>%
         dplyr$select(unique_gene_names, id) %>%
-        dplyr$right_join(self$data, by = "id") %>%
+        dplyr$right_join(data, by = "id") %>%
         dplyr$mutate(
           gene_names = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
                                         TRUE ~ gene_names)
@@ -195,8 +194,6 @@ QProMS <- R6Class(
           values_to = "raw_intensity"
         ) %>%
         dplyr$inner_join(., expdesign, by = "key") %>%
-        dplyr$mutate(raw_intensity = log2(raw_intensity)) %>%
-        dplyr$mutate(raw_intensity = dplyr$na_if(raw_intensity, -Inf)) %>%
         dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
         dplyr$select(-key)
       
@@ -212,13 +209,7 @@ QProMS <- R6Class(
       #### the second part filer the data base on valid values. ####
       ##############################################################
       
-      selected_cond <-
-        self$expdesign %>% 
-        dplyr$distinct(label) %>% 
-        dplyr$pull()
-      
-      data <- self$data %>% 
-        dplyr$filter(label %in% selected_cond)
+      data <- self$data 
       
       if (self$input_type == "max_quant"){
         ### pep filter puo essere:
