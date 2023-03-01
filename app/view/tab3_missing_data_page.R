@@ -1,6 +1,6 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div, observeEvent, req, h4, p],
-  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger],
@@ -151,7 +151,7 @@ server <- function(id, r6) {
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("random"),
+        icon = icon("random", verify_fa = FALSE),
         color = "primary",
         footer = p("Missing at random (MAR)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -168,7 +168,7 @@ server <- function(id, r6) {
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("low-vision"),
+        icon = icon("low-vision", verify_fa = FALSE),
         color = "primary",
         footer = p("Missing not at random (MNAR)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2

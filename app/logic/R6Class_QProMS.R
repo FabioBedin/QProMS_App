@@ -5,12 +5,15 @@ box::use(
   tibble[as_tibble, column_to_rownames],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm],
+  stats[sd, rnorm, prcomp],
   dplyr,
   tidyr,
   stringr,
   echarts4r,
+  htmlwidgets[JS],
   vsn[vsn2, predict],
+  corrmorant,
+  ggplot2[scale_fill_viridis_c]
 )
 
 #' @export
@@ -46,6 +49,7 @@ QProMS <- R6Class(
     imp_methods = "mixed",
     imp_shift = 1.8,
     imp_scale = 0.3,
+    pcs = NULL,
     is_mixed = NULL,
     is_imp = FALSE,
     #################
@@ -646,6 +650,174 @@ QProMS <- R6Class(
         echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore"))
       
       return(p)
+    },
+    plot_pca = function(view_3d = FALSE){
+      
+      # verificare che ci sia
+      data <- self$imputed_data
+      
+      ## generate a matrix from imputed intensiy
+      mat <- data %>%
+        dplyr$select(gene_names, label, intensity) %>%
+        tidyr$pivot_wider(id_cols = "gene_names",
+                           names_from = "label",
+                           values_from = "intensity") %>%
+        column_to_rownames("gene_names") %>%
+        as.matrix()
+      
+      ## perform PCA
+      
+      pca <- prcomp(t(mat), center = TRUE, scale = TRUE) 
+      
+      ## calculate persentage of each PC
+      pca_var <- pca$sdev^2
+      pca_var_perc <- round(pca_var/sum(pca_var)*100, 1)
+      self$pcs <- pca_var_perc
+      
+      ## create a data.frame for the first 3 PC
+      pca_table <- data.frame(
+        label = rownames(pca$x),
+        x = pca$x[, 1],
+        y = pca$x[, 2],
+        z = pca$x[, 3]
+      ) %>% 
+        dplyr$left_join(self$expdesign, by = "label") 
+      
+      ## generate plot
+      if(!view_3d){
+        p <- pca_table %>%
+          dplyr$group_by(condition) %>%
+          echarts4r$e_chart(x, renderer = "svg") %>%
+          echarts4r$e_scatter(y, symbol_size = c(10, 10), bind = replicate) %>%
+          echarts4r$e_tooltip(
+            trigger = "item",
+            formatter = JS("
+        function(params){
+          return('Rep: ' + params.name);
+        }
+      ")
+          ) %>%
+          echarts4r$e_x_axis(
+            name = paste0("PC1 - ", pca_var_perc[1], " %"),
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 15,
+              lineHeight = 50
+            )
+          ) %>%
+          echarts4r$e_y_axis(
+            name = paste0("PC2 - ", pca_var_perc[2], " %"),
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 15,
+              lineHeight = 50
+            )
+          ) %>% 
+          echarts4r$e_color(self$color_palette) %>% 
+          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+      }else{
+        p <- pca_table %>%
+          dplyr$group_by(condition) %>%
+          echarts4r$e_chart(x) %>%
+          echarts4r$e_scatter_3d(y, z, symbol_size = c(10, 10), bind = replicate) %>%
+          echarts4r$e_tooltip(
+            trigger = "item",
+            formatter = JS("
+        function(params){
+          return('Rep: ' + params.name);
+        }
+      ")
+          ) %>%
+          echarts4r$e_x_axis_3d(
+            name = paste0("PC1 - ", pca_var_perc[1], " %"),
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 15,
+              lineHeight = 50
+            )
+          ) %>%
+          echarts4r$e_y_axis_3d(
+            name = paste0("PC2 - ", pca_var_perc[2], " %"),
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 15,
+              lineHeight = 50
+            )
+          ) %>%
+          echarts4r$e_z_axis_3d(
+            name = paste0("PC3 - ", pca_var_perc[3], " %"),
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 15,
+              lineHeight = 50
+            )
+          ) %>%
+          echarts4r$e_legend() %>% 
+          echarts4r$e_color(self$color_palette) %>% 
+          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore"))
+      }
+      
+      return(p)
+    },
+    plot_correlation_interactive = function(){
+      
+      data <- self$normalized_data
+      
+      color <- viridis(n = 3 , direction = -1, end = 0.70, begin = 0.30)
+      
+      mat <- data %>%
+        dplyr$select(gene_names, label, intensity) %>%
+        tidyr$pivot_wider(names_from = label, values_from = intensity) %>%
+        dplyr$filter(dplyr$if_all(.cols = dplyr$everything(), .fns = ~ !is.na(.x))) %>%
+        column_to_rownames("gene_names") %>%
+        cor() %>% 
+        round(digits = 2)
+      
+      p <- mat %>% 
+        echarts4r$e_charts(renderer = "svg") %>%
+        echarts4r$e_correlations(order = "hclust", visual_map = FALSE) %>%
+        echarts4r$e_x_axis(axisLabel = list(interval = 0, rotate = 45)) %>%
+        echarts4r$e_y_axis(axisLabel = list(interval = 0, rotate = 0), position = "right") %>%
+        echarts4r$e_tooltip(trigger = "item", formatter = JS("
+          function(params){
+          return('X: ' + params.value[0] + '<br />Y: ' + params.value[1] + '<br />Value: ' + params.value[2])
+          }")) %>%
+        echarts4r$e_title("Correlation matrix", subtext = "Pearson correlation") %>%
+        echarts4r$e_visual_map(
+          min = min(mat),
+          max = 1,
+          bottom = 150,
+          inRange = list(color = color)
+        ) %>%
+        echarts4r$e_theme("QProMS_theme") %>% 
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage"))
+      
+      return(p)
+    },
+    plot_correlation_static = function(cor_method = "pearson", single_condition = NULL){
+      
+      data <- self$normalized_data
+      
+      p <- data %>% 
+        {if(!is.null(single_condition)) dplyr$filter(., condition == single_condition) else .}%>%
+        dplyr$select(gene_names, label, intensity) %>%
+        tidyr$pivot_wider(names_from = label, values_from = intensity) %>% 
+        dplyr$ungroup() %>% 
+        corrmorant$ggcorrm(corr_method = cor_method) +
+        corrmorant$utri_heatmap(alpha = 0.5) +
+        corrmorant$utri_corrtext(corr_size = FALSE) +
+        corrmorant$dia_names(y_pos = 0.15, size = 3) +
+        corrmorant$dia_histogram(fill = "white", color = 1) +
+        corrmorant$lotri(geom_point(alpha = 0.5, size = 0.8)) +
+        scale_fill_viridis_c(direction = -1, end = 0.8)
+      
+      return(p)
+      
     }
   )
 )
