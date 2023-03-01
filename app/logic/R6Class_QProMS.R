@@ -5,7 +5,7 @@ box::use(
   tibble[as_tibble, column_to_rownames],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd],
+  stats[sd, rnorm],
   dplyr,
   tidyr,
   stringr,
@@ -43,7 +43,9 @@ QProMS <- R6Class(
     ############################
     # parameters for imputation #
     imputed_data = NULL,
-    imp_methods = NULL,
+    imp_methods = "mixed",
+    imp_shift = 1.8,
+    imp_scale = 0.3,
     is_mixed = NULL,
     is_imp = FALSE,
     #################
@@ -109,6 +111,8 @@ QProMS <- R6Class(
         dplyr$select(missing_type, missing_type_perc) %>% 
         dplyr$filter(missing_type == type) %>% 
         dplyr$pull(missing_type_perc)
+      
+      return(value)
     },
     make_expdesign = function(start_with = "lfq_intensity_"){
       ## qui mettere tutti gli if in base all'intensity type
@@ -216,9 +220,7 @@ QProMS <- R6Class(
       
       self$data <- data_standardized
     },
-    data_wrangling = function(valid_val_filter = "alog", valid_val_thr = 0.75, 
-                              pep_filter = "peptides", pep_thr, 
-                              rev = TRUE, cont = TRUE, oibs = TRUE, rescue_cont = NULL) {
+    data_wrangling = function(valid_val_filter = "alog", valid_val_thr = 0.75, pep_filter = "peptides", pep_thr, rev = TRUE, cont = TRUE, oibs = TRUE, rescue_cont = NULL) {
       
       ##############################################################
       #### this function is divided in 2 steps:                 ####
@@ -304,6 +306,84 @@ QProMS <- R6Class(
         self$normalized_data <- normalized_data
       }
       
+    },
+    imputation = function(imp_methods = "mixed", shift = 1.8, scale = 0.3, unique_visual = FALSE) {
+      
+      data <- self$normalized_data
+      
+      if(imp_methods == "mixed"){
+        self$is_mixed <- TRUE
+      }else{
+        self$is_mixed <- FALSE
+      }
+      
+      if(imp_methods == "mixed" | imp_methods == "perseus"){
+        self$is_imp <- TRUE
+        
+        if(self$is_mixed){
+          data_mixed <- data %>%
+            dplyr$group_by(gene_names, condition) %>%
+            dplyr$mutate(for_mean_imp = dplyr$if_else((sum(bin_intensity) / dplyr$n()) >= 0.75, TRUE, FALSE)) %>%
+            dplyr$mutate(mean_grp = mean(intensity, na.rm = TRUE)) %>%
+            dplyr$ungroup() %>%
+            dplyr$mutate(imp_intensity = dplyr$case_when(
+              bin_intensity == 0 & for_mean_imp ~ mean_grp,
+              TRUE ~ as.numeric(intensity))) %>%
+            dplyr$mutate(intensity = imp_intensity) %>% 
+            dplyr$select(-c(for_mean_imp, mean_grp, imp_intensity))
+          
+          data <- data_mixed
+        }
+        
+        if(unique_visual){
+          data_unique <- data %>%
+            dplyr$group_by(gene_names, condition) %>%
+            dplyr$mutate(miss_val = dplyr$n() - sum(bin_intensity)) %>%
+            dplyr$mutate(n_size = dplyr$n()) %>%
+            dplyr$ungroup() %>%
+            dplyr$group_by(gene_names) %>%
+            dplyr$filter(any(miss_val <= 0)) %>%
+            dplyr$ungroup() %>%
+            dplyr$filter(miss_val == n_size) %>% 
+            dplyr$mutate(intensity = min(data$intensity, na.rm = TRUE), unique = TRUE) %>% 
+            dplyr$select(-c(bin_intensity, miss_val, n_size)) %>% 
+            dplyr$rename(unique_intensity = intensity) 
+          
+          data <- data %>% 
+            dplyr$left_join(data_unique, by = c("gene_names", "label", "condition", "replicate")) %>% 
+            dplyr$mutate(unique = if_else(is.na(unique), FALSE, unique)) %>% 
+            dplyr$mutate(intensity = if_else(unique, unique_intensity, intensity)) %>% 
+            dplyr$mutate(bin_intensity = if_else(unique, 1, bin_intensity)) %>% 
+            dplyr$select(-c(unique_intensity, unique)) 
+        }
+        ## this funcion perform classical Perseus imputation
+        ## sice use random nomral distibution i will set a set.seed()
+        set.seed(11)
+        
+        imputed_data <- data %>%
+          dplyr$group_by(label) %>%
+          # Define statistic to generate the random distribution relative to sample
+          dplyr$mutate(
+            mean = mean(intensity, na.rm = TRUE),
+            sd = sd(intensity, na.rm = TRUE),
+            n = sum(!is.na(intensity)),
+            total = nrow(data) - n
+          ) %>%
+          dplyr$ungroup() %>%
+          # Impute missing values by random draws from a distribution
+          # which is left-shifted by parameter 'shift' * sd and scaled by parameter 'scale' * sd.
+          dplyr$mutate(imp_intensity = dplyr$case_when(
+            is.na(intensity) ~ rnorm(total, mean = (mean - shift * sd), sd = sd * scale),
+            TRUE ~ intensity
+          )) %>%
+          dplyr$mutate(intensity = imp_intensity) %>%
+          dplyr$select(-c(mean, sd, n, total, imp_intensity))
+        
+        self$imputed_data <- imputed_data
+        
+      }else{
+        self$is_imp <- FALSE
+      }
     },
     plot_protein_counts = function(){
       
@@ -404,7 +484,7 @@ QProMS <- R6Class(
         echarts4r$e_color(self$color_palette) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
         echarts4r$e_y_axis(
-          name = "Intensity",
+          name = "log2 Intensity",
           nameLocation = "center",
           nameTextStyle = list(
             fontWeight = "bold",
@@ -439,7 +519,131 @@ QProMS <- R6Class(
           itemStyle = list(borderWidth = 3)
         ) %>%  
         echarts4r$e_tooltip(trigger = "axis") %>% 
+        echarts4r$e_y_axis(
+          name = "Densiry",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%  
         echarts4r$e_color(self$color_palette)
+      
+      return(p)
+    },
+    plot_missing_data = function(){
+      
+      data <- self$filtered_data
+      color <- viridis(n = 2 , direction = -1, end = 0.70, begin = 0.30)
+      
+      p <- data %>%
+        dplyr$group_by(label) %>%
+        dplyr$mutate(bin_intensity = dplyr$if_else(bin_intensity == 1, "Valid", "Missing")) %>%
+        dplyr$count(bin_intensity) %>%
+        tidyr$pivot_wider(id_cols = label, names_from = bin_intensity, values_from = n) %>%
+        {if(ncol(.) == 2) dplyr$mutate(., Missing = 0)else . } %>%
+        dplyr$ungroup() %>%
+        dplyr$mutate(total = Valid + Missing) %>%
+        dplyr$mutate(perc_present = paste0(round(Valid*100/total, 1), "%")) %>%
+        dplyr$mutate(perc_missing = paste0(round(Missing*100/total, 1), "%")) %>%
+        echarts4r$e_charts(label, renderer = "svg") %>%
+        echarts4r$e_bar(Valid, stack = "grp", bind = perc_present) %>%
+        echarts4r$e_bar(Missing, stack = "grp", bind = perc_missing) %>%
+        echarts4r$e_x_axis(name = "", axisLabel = list(interval = 0, rotate = 45)) %>%
+        echarts4r$e_y_axis(name = "Counts") %>%
+        echarts4r$e_tooltip(trigger = "item") %>%
+        echarts4r$e_color(color) %>%
+        echarts4r$e_theme("QProMS_theme") %>% 
+        echarts4r$e_y_axis(
+          name = "Counts",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>% 
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+      
+      return(p)
+    },
+    plot_missval_distribution = function(){
+      
+      # controllare che ci sia il self$filtered_data
+      data <- self$filtered_data
+      color <- viridis(n = 2 , direction = -1, end = 0.70, begin = 0.30)
+      
+      p <- data %>%
+        dplyr$group_by(gene_names) %>%
+        dplyr$summarise(mean = mean(intensity, na.rm = TRUE),
+                         missval = any(is.na(intensity))) %>%
+        dplyr$ungroup() %>%
+        dplyr$mutate(missing_value = dplyr$if_else(missval, "Missing", "Valid")) %>%
+        dplyr$mutate(missing_value = factor(missing_value, levels = c("Valid", "Missing"))) %>%
+        dplyr$group_by(missing_value) %>%
+        echarts4r$e_charts(renderer = "svg") %>%
+        echarts4r$e_density(
+          mean,
+          smooth = TRUE,
+          areaStyle = list(opacity = 0),
+          symbol = "none"
+        ) %>%
+        echarts4r$e_y_axis(
+          name = "Densiry",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%  
+        echarts4r$e_x_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 14,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_color(color) %>% 
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore"))
+      
+      return(p)
+    },
+    plot_imputation = function(data){
+      
+      p <- data %>%
+        dplyr$group_by(condition) %>%
+        echarts4r$e_charts(renderer = "svg") %>%
+        echarts4r$e_density(
+          intensity,
+          smooth = TRUE,
+          areaStyle = list(opacity = 0),
+          symbol = "none"
+        ) %>%
+        echarts4r$e_y_axis(
+          name = "Densiry",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%  
+        echarts4r$e_x_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 14,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_color(self$color_palette) %>%
+        echarts4r$e_theme("QProMS_theme") %>% 
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore"))
       
       return(p)
     }

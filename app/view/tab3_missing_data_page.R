@@ -24,21 +24,24 @@ ui <- function(id) {
         status = "primary",
         width = 3,
         height = 500,
-        maximizable = TRUE
+        maximizable = TRUE,
+        echarts4rOutput(ns("missing_data_counts_plot"), height = "450")
       ),
       box(
         title = "Missing data distribution",
         status = "primary",
         width = 3,
         height = 500,
-        maximizable = TRUE
+        maximizable = TRUE,
+        echarts4rOutput(ns("missval_distribution_plot"), height = "450")
       ),
       box(
         title = "Effect of imputation: Before",
         status = "primary",
         width = 3,
         height = 500,
-        maximizable = TRUE
+        maximizable = TRUE,
+        echarts4rOutput(ns("pre_imputation_plot"), height = "450")
       ),
       box(
         title = "Effect of imputation: After",
@@ -54,8 +57,8 @@ ui <- function(id) {
             selectInput(
               inputId = ns("imputation_input"),
               label = "imputation strategy",
-              choices = c("Mixed", "Perseus"),
-              selected = "Mixed"
+              choices = c("Mixed" = "mixed", "Perseus" = "perseus"),
+              selected = "mixed"
             ),
             sliderInput(
               inputId = ns("shift_slider"),
@@ -82,7 +85,8 @@ ui <- function(id) {
               block = TRUE
             )
           )
-        )
+        ),
+        echarts4rOutput(ns("post_imputation_plot"), height = "450")
       )
     ),
     fluidRow(
@@ -169,6 +173,60 @@ server <- function(id, r6) {
         footer = p("Missing not at random (MNAR)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
+      
+    })
+    
+    output$missing_data_counts_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      r6$plot_missing_data() 
+      
+    })
+    
+    output$missval_distribution_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      r6$plot_missval_distribution() 
+      
+    })
+    
+    output$pre_imputation_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      r6$plot_imputation(data = r6$normalized_data) 
+      
+    })
+    
+    output$post_imputation_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      r6$plot_imputation(data = r6$imputed_data) 
+      
+    })
+    
+    observeEvent(input$update ,{
+      
+      req(input$imputation_input)
+      req(input$shift_slider)
+      req(input$scale_slider)
+      
+      r6$imp_methods <- input$imputation_input
+      r6$imp_shift <- input$shift_slider
+      r6$imp_scale <- input$scale_slider
+      
+      r6$imputation(
+        imp_methods = r6$imp_methods,
+        shift = r6$imp_shift,
+        scale = r6$imp_scale,
+        unique_visual = FALSE
+      )
+      
+      trigger("plot")
+      trigger("boxes")
       
     })
     

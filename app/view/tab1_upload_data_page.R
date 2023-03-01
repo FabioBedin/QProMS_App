@@ -282,7 +282,14 @@ server <- function(id, r6) {
         oibs = r6$oibs
       )
       
-      #updateTabItems(session = getDefaultReactiveDomain(), "wrangling_data")
+      r6$normalization(norm_methods = r6$norm_methods)
+      
+      r6$imputation(
+        imp_methods = r6$imp_methods,
+        shift = r6$imp_shift,
+        scale = r6$imp_scale,
+        unique_visual = FALSE
+      )
       
     })
     
