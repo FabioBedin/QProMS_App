@@ -56,42 +56,42 @@ server <- function(id, r6) {
     
     output$pc_1 <- renderValueBox({
       
-      value <- r6$pcs[1]
+      value <- paste0(r6$pcs[1], " %")
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("thermometer-3", verify_fa = FALSE),
         color = "primary",
-        footer = p("Total missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("PC1", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
     })
     output$pc_2 <- renderValueBox({
       
-      value <- r6$pcs[2]
+      value <- paste0(r6$pcs[2], " %")
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("thermometer-2", verify_fa = FALSE),
         color = "primary",
-        footer = p("Total missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("PC2", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
     })
     output$pc_3 <- renderValueBox({
       
-      value <- r6$pcs[3]
+      value <- paste0(r6$pcs[3], " %")
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("thermometer-1", verify_fa = FALSE),
         color = "primary",
-        footer = p("Total missing values", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("PC3", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       

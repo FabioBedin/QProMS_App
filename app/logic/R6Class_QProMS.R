@@ -5,7 +5,7 @@ box::use(
   tibble[as_tibble, column_to_rownames],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp],
+  stats[sd, rnorm, prcomp, cor],
   dplyr,
   tidyr,
   stringr,
@@ -13,7 +13,7 @@ box::use(
   htmlwidgets[JS],
   vsn[vsn2, predict],
   corrmorant,
-  ggplot2[scale_fill_viridis_c]
+  ggplot2[scale_fill_viridis_c, geom_point]
 )
 
 #' @export
@@ -50,6 +50,7 @@ QProMS <- R6Class(
     imp_shift = 1.8,
     imp_scale = 0.3,
     pcs = NULL,
+    cor_method = "pearson",
     is_mixed = NULL,
     is_imp = FALSE,
     #################
@@ -764,7 +765,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_correlation_interactive = function(){
+    plot_correlation_interactive = function(cor_method = "pearson"){
       
       data <- self$normalized_data
       
@@ -775,7 +776,7 @@ QProMS <- R6Class(
         tidyr$pivot_wider(names_from = label, values_from = intensity) %>%
         dplyr$filter(dplyr$if_all(.cols = dplyr$everything(), .fns = ~ !is.na(.x))) %>%
         column_to_rownames("gene_names") %>%
-        cor() %>% 
+        cor(method = cor_method) %>% 
         round(digits = 2)
       
       p <- mat %>% 
@@ -787,7 +788,6 @@ QProMS <- R6Class(
           function(params){
           return('X: ' + params.value[0] + '<br />Y: ' + params.value[1] + '<br />Value: ' + params.value[2])
           }")) %>%
-        echarts4r$e_title("Correlation matrix", subtext = "Pearson correlation") %>%
         echarts4r$e_visual_map(
           min = min(mat),
           max = 1,
@@ -814,7 +814,7 @@ QProMS <- R6Class(
         corrmorant$dia_names(y_pos = 0.15, size = 3) +
         corrmorant$dia_histogram(fill = "white", color = 1) +
         corrmorant$lotri(geom_point(alpha = 0.5, size = 0.8)) +
-        scale_fill_viridis_c(direction = -1, end = 0.8)
+        scale_fill_viridis_c(direction = -1, end = 0.70, begin = 0.30)
       
       return(p)
       
