@@ -1,10 +1,11 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p],
   bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
-  shinyWidgets[actionBttn],
+  shinyWidgets[actionBttn, sendSweetAlert, useSweetAlert],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
   magrittr[`%>%`],
   gargoyle[init, watch, trigger],
+  shinyjs[useShinyjs, disabled, enable],
   dplyr,
 )
 
@@ -16,8 +17,11 @@ box::use(
 ui <- function(id) {
   ns <- NS(id)
   
+  useSweetAlert()
+  
   tabItem(
     tabName = "upload_data",
+    useShinyjs(),
     fluidRow(
       valueBoxOutput(ns("n_proteins"), width = 3),
       valueBoxOutput(ns("total_missing_data"), width = 3),
@@ -75,13 +79,15 @@ ui <- function(id) {
           ),
           div(
             style = "width: 150px;",
-            actionBttn(
-              inputId = ns("start"),
-              label = "Start", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
+            disabled(
+              actionBttn(
+                inputId = ns("start"),
+                label = "Start", 
+                style = "material-flat",
+                color = "primary",
+                size = "md",
+                block = TRUE
+              )
             )
           )
         )
@@ -119,7 +125,8 @@ ui <- function(id) {
           )
         )
       )
-    )
+    ),
+    div(id = ns("myalert"), style = "position: absolute; bottom: 50%; right: 50%;")
   )
 
 }
@@ -262,6 +269,19 @@ server <- function(id, r6) {
       r6$pg_preprocessing()
       
       trigger("boxes")
+      
+      sendSweetAlert(
+        title = "Experimental design defined!",
+        text = "Now you can press START!",
+        closeOnEsc = TRUE,
+        closeOnClickOutside = TRUE,
+        html = FALSE,
+        type = "success",
+        btn_labels  = "OK",
+        btn_colors  = "#35608D"
+      )
+      
+      enable("start")
       
     })
     

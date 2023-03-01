@@ -373,6 +373,27 @@
         "yaml"
       ]
     },
+    "corrmorant": {
+      "Package": "corrmorant",
+      "Version": "0.0.0.9007",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "r-link",
+      "RemoteRepo": "corrmorant",
+      "RemoteRef": "master",
+      "RemoteSha": "e96886037d39d17da27dd2c1a10173163476aad2",
+      "Hash": "3452184abb5c12723eb3b4ee5ca4991f",
+      "Requirements": [
+        "MASS",
+        "dplyr",
+        "ggplot2",
+        "magrittr",
+        "rlang",
+        "scales",
+        "tidyr"
+      ]
+    },
     "corrplot": {
       "Package": "corrplot",
       "Version": "0.92",
