@@ -2,7 +2,8 @@ box::use(
   shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn]
+  shinyWidgets[actionBttn],
+  gargoyle[watch],
 )
 
 #' @export
@@ -44,17 +45,23 @@ server <- function(id, r6) {
     
     output$pca_2d_plot <- renderEcharts4r({
       
+      watch("plot")
+      
       r6$plot_pca(view_3d = FALSE) 
       
     })
     
     output$pca_3d_plot <- renderEcharts4r({
       
+      watch("plot")
+      
       r6$plot_pca(view_3d = TRUE) 
       
     })
     
     output$pc_1 <- renderValueBox({
+      
+      watch("boxes")
       
       value <- paste0(r6$pcs[1], " %")
       
@@ -70,6 +77,8 @@ server <- function(id, r6) {
     })
     output$pc_2 <- renderValueBox({
       
+      watch("boxes")
+      
       value <- paste0(r6$pcs[2], " %")
       
       valueBox(
@@ -83,6 +92,8 @@ server <- function(id, r6) {
       
     })
     output$pc_3 <- renderValueBox({
+      
+      watch("boxes")
       
       value <- paste0(r6$pcs[3], " %")
       

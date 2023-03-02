@@ -57,7 +57,7 @@ ui <- function(id) {
             selectInput(
               inputId = ns("imputation_input"),
               label = "imputation strategy",
-              choices = c("Mixed" = "mixed", "Perseus" = "perseus"),
+              choices = c("Mixed" = "mixed", "Perseus" = "perseus", "None" = "none"),
               selected = "mixed"
             ),
             sliderInput(
@@ -204,7 +204,13 @@ server <- function(id, r6) {
       
       watch("plot")
       
-      r6$plot_imputation(data = r6$imputed_data) 
+      if(r6$imp_methods == "none"){
+        data <- r6$normalized_data
+      }else{
+        data <- r6$imputed_data
+      }
+      
+      r6$plot_imputation(data = data) 
       
     })
     

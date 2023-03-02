@@ -48,11 +48,12 @@ ui <- function(id) {
         echarts4rOutput(ns("correlation_interactive_plot"), height = "650")
       ),
       box(
-        title = "Scatter plot",
+        title = "Multi scatter plot",
         status = "primary",
         width = 6,
         height = 700,
         maximizable = TRUE,
+        collapsed = TRUE,
         plotOutput(ns("correlation_static_plot"), height = "650")
       )
     )

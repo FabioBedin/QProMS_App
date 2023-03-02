@@ -102,20 +102,27 @@ QProMS <- R6Class(
     },
     missing_data_type = function(type){
       
-      value <- self$filtered_data %>% 
-        dplyr$group_by(gene_names, condition) %>%
-        dplyr$mutate(for_mean_imp = dplyr$if_else((sum(bin_intensity) / dplyr$n()) >= 0.75, TRUE, FALSE)) %>%
-        dplyr$ungroup() %>% 
-        dplyr$mutate(missing_type = dplyr$case_when(bin_intensity == 0 & for_mean_imp ~ "MAR",
+      data <- self$filtered_data
+      
+      if(0 %in% data$bin_intensity){
+        value <- data %>% 
+          dplyr$group_by(gene_names, condition) %>%
+          dplyr$mutate(for_mean_imp = dplyr$if_else((sum(bin_intensity) / dplyr$n()) >= 0.75, TRUE, FALSE)) %>%
+          dplyr$ungroup() %>% 
+          dplyr$mutate(missing_type = dplyr$case_when(bin_intensity == 0 & for_mean_imp ~ "MAR",
                                                       bin_intensity == 0 & !for_mean_imp ~ "MNAR",
                                                       TRUE ~ "not missing")) %>% 
-        dplyr$count(missing_type) %>%
-        dplyr$mutate(total = sum(n)) %>% 
-        dplyr$mutate(missing_type_perc = paste0(round(n/total*100,0), " %")) %>% 
-        dplyr$filter(!missing_type == "not missing") %>% 
-        dplyr$select(missing_type, missing_type_perc) %>% 
-        dplyr$filter(missing_type == type) %>% 
-        dplyr$pull(missing_type_perc)
+          dplyr$count(missing_type) %>%
+          dplyr$mutate(total = sum(n)) %>% 
+          dplyr$mutate(missing_type_perc = paste0(round(n/total*100,0), " %")) %>% 
+          dplyr$filter(!missing_type == "not missing") %>% 
+          dplyr$select(missing_type, missing_type_perc) %>% 
+          dplyr$filter(missing_type == type) %>% 
+          dplyr$pull(missing_type_perc)
+      }else{
+        value <- "0 %"
+      }
+      
       
       return(value)
     },
@@ -428,7 +435,8 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
@@ -460,7 +468,8 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
@@ -498,14 +507,18 @@ QProMS <- R6Class(
           )
         ) %>% 
         echarts4r$e_x_axis(axisLabel = list(interval = intervals)) %>% 
-        echarts4r$e_toolbox_feature(feature = "saveAsImage")
+        echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
     plot_cv = function(){
       
-      # controllare che ci sia il self$filtered_data
-      data <- self$filtered_data
+      if(self$is_norm){
+        data <- self$normalized_data
+      }else{
+        data <- self$filtered_data
+      }
       
       p <- data %>% 
         dplyr$group_by(gene_names, condition) %>% 
@@ -533,7 +546,8 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>%  
-        echarts4r$e_color(self$color_palette)
+        echarts4r$e_color(self$color_palette) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
@@ -569,14 +583,19 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
     plot_missval_distribution = function(){
       
-      # controllare che ci sia il self$filtered_data
-      data <- self$filtered_data
+      if(self$is_norm){
+        data <- self$normalized_data
+      }else{
+        data <- self$filtered_data
+      }
+      
       color <- viridis(n = 2 , direction = -1, end = 0.70, begin = 0.30)
       
       p <- data %>%
@@ -613,7 +632,8 @@ QProMS <- R6Class(
           )
         ) %>%
         echarts4r$e_color(color) %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore"))
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
@@ -648,7 +668,8 @@ QProMS <- R6Class(
         ) %>%
         echarts4r$e_color(self$color_palette) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore"))
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
@@ -717,7 +738,8 @@ QProMS <- R6Class(
             )
           ) %>% 
           echarts4r$e_color(self$color_palette) %>% 
-          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView"))
+          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView")) %>% 
+          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }else{
         p <- pca_table %>%
           dplyr$group_by(condition) %>%
@@ -760,14 +782,19 @@ QProMS <- R6Class(
           ) %>%
           echarts4r$e_legend() %>% 
           echarts4r$e_color(self$color_palette) %>% 
-          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore"))
+          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
+          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }
       
       return(p)
     },
     plot_correlation_interactive = function(cor_method = "pearson"){
       
-      data <- self$normalized_data
+      if(self$is_imp){
+        data <- self$imputed_data
+      }else{
+        data <- self$normalized_data
+      }
       
       color <- viridis(n = 3 , direction = -1, end = 0.70, begin = 0.30)
       
@@ -795,13 +822,18 @@ QProMS <- R6Class(
           inRange = list(color = color)
         ) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage"))
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       return(p)
     },
     plot_correlation_static = function(cor_method = "pearson", single_condition = NULL){
       
-      data <- self$normalized_data
+      if(self$is_imp){
+        data <- self$imputed_data
+      }else{
+        data <- self$normalized_data
+      }
       
       p <- data %>% 
         {if(!is.null(single_condition)) dplyr$filter(., condition == single_condition) else .}%>%

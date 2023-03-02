@@ -311,6 +311,9 @@ server <- function(id, r6) {
         unique_visual = FALSE
       )
       
+      trigger("plot")
+      trigger("boxes")
+      
     })
     
   })
