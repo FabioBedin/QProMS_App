@@ -116,7 +116,7 @@ ui <- function(id) {
             style = "width: 150px;",
             actionBttn(
               inputId = ns("confirm"),
-              label = "Confirm", 
+              label = "Apply", 
               style = "material-flat",
               color = "primary",
               size = "md",
