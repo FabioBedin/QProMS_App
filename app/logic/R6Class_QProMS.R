@@ -12,7 +12,7 @@ box::use(
   echarts4r,
   htmlwidgets[JS],
   vsn[vsn2, predict],
-  corrmorant,
+  r-link/corrmorant,
   ggplot2[scale_fill_viridis_c, geom_point]
 )
 
