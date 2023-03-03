@@ -196,7 +196,7 @@ server <- function(id, r6) {
       
       watch("plot")
       
-      r6$plot_imputation(data = r6$normalized_data) 
+      r6$plot_imputation(data = r6$normalized_data, imp_visualization = FALSE) 
       
     })
     
@@ -206,11 +206,13 @@ server <- function(id, r6) {
       
       if(r6$imp_methods == "none"){
         data <- r6$normalized_data
+        imp = FALSE
       }else{
         data <- r6$imputed_data
+        imp = TRUE
       }
       
-      r6$plot_imputation(data = data) 
+      r6$plot_imputation(data = data, imp_visualization = imp) 
       
     })
     

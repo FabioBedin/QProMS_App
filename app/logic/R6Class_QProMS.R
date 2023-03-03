@@ -12,7 +12,7 @@ box::use(
   echarts4r,
   htmlwidgets[JS],
   vsn[vsn2, predict],
-  r-link/corrmorant,
+  corrmorant[...],
   ggplot2[scale_fill_viridis_c, geom_point]
 )
 
@@ -321,7 +321,8 @@ QProMS <- R6Class(
     },
     imputation = function(imp_methods = "mixed", shift = 1.8, scale = 0.3, unique_visual = FALSE) {
       
-      data <- self$normalized_data
+      data <- self$normalized_data %>% 
+        dplyr$mutate(imputed = dplyr$if_else(bin_intensity == 1, FALSE, TRUE))
       
       if(imp_methods == "mixed"){
         self$is_mixed <- TRUE
@@ -607,12 +608,8 @@ QProMS <- R6Class(
         dplyr$mutate(missing_value = factor(missing_value, levels = c("Valid", "Missing"))) %>%
         dplyr$group_by(missing_value) %>%
         echarts4r$e_charts(renderer = "svg") %>%
-        echarts4r$e_density(
-          mean,
-          smooth = TRUE,
-          areaStyle = list(opacity = 0),
-          symbol = "none"
-        ) %>%
+        echarts4r$e_histogram(mean) %>%
+        echarts4r$e_x_axis(min = 10, max = 40) %>% 
         echarts4r$e_y_axis(
           name = "Densiry",
           nameLocation = "center",
@@ -637,17 +634,14 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_imputation = function(data){
+    plot_imputation = function(data, imp_visualization = FALSE){
       
       p <- data %>%
         dplyr$group_by(condition) %>%
         echarts4r$e_charts(renderer = "svg") %>%
-        echarts4r$e_density(
-          intensity,
-          smooth = TRUE,
-          areaStyle = list(opacity = 0),
-          symbol = "none"
-        ) %>%
+        echarts4r$e_histogram(intensity) %>%
+        echarts4r$e_color(self$color_palette) %>%
+        echarts4r$e_x_axis(min = 10, max = 40) %>% 
         echarts4r$e_y_axis(
           name = "Densiry",
           nameLocation = "center",
@@ -666,10 +660,44 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>%
-        echarts4r$e_color(self$color_palette) %>%
-        echarts4r$e_theme("QProMS_theme") %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+        
+      if(imp_visualization){
+        imputed_dist <- self$imputed_data %>% 
+          dplyr$filter(imputed) %>% 
+          dplyr$group_by(condition)
+        
+        p <- data %>%
+          dplyr$group_by(condition) %>%
+          echarts4r$e_charts(renderer = "svg") %>%
+          echarts4r$e_histogram(intensity) %>%
+          echarts4r$e_color(c(self$color_palette, "#bc3754")) %>%
+          echarts4r$e_x_axis(min = 10, max = 40) %>%
+          echarts4r$e_data(imputed_dist, intensity) %>% 
+          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
+          echarts4r$e_histogram(intensity, name = "Imputed") %>%
+          echarts4r$e_x_axis(min = 10, max = 40) %>%
+          echarts4r$e_legend(selected = list('Imputed'= FALSE)) %>% 
+          echarts4r$e_y_axis(
+            name = "Densiry",
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 16,
+              lineHeight = 60
+            )
+          ) %>%  
+          echarts4r$e_x_axis(
+            name = "log2 Intensity",
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 14,
+              lineHeight = 60
+            )
+          ) %>%
+          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      }
       
       return(p)
     },
@@ -840,12 +868,12 @@ QProMS <- R6Class(
         dplyr$select(gene_names, label, intensity) %>%
         tidyr$pivot_wider(names_from = label, values_from = intensity) %>% 
         dplyr$ungroup() %>% 
-        corrmorant$ggcorrm(corr_method = cor_method) +
-        corrmorant$utri_heatmap(alpha = 0.5) +
-        corrmorant$utri_corrtext(corr_size = FALSE) +
-        corrmorant$dia_names(y_pos = 0.15, size = 3) +
-        corrmorant$dia_histogram(fill = "white", color = 1) +
-        corrmorant$lotri(geom_point(alpha = 0.5, size = 0.8)) +
+        ggcorrm(corr_method = cor_method) +
+        utri_heatmap(alpha = 0.5) +
+        utri_corrtext(corr_size = FALSE) +
+        dia_names(y_pos = 0.15, size = 3) +
+        dia_histogram(fill = "white", color = 1) +
+        lotri(geom_point(alpha = 0.5, size = 0.8)) +
         scale_fill_viridis_c(direction = -1, end = 0.70, begin = 0.30)
       
       return(p)
