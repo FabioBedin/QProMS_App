@@ -6,6 +6,8 @@ box::use(
   magrittr[`%>%`],
   gargoyle[init, watch, trigger],
   shinyjs[useShinyjs, disabled, enable],
+  esquisse[palettePicker],
+  viridis[viridis],
   dplyr,
 )
 
@@ -53,6 +55,69 @@ ui <- function(id) {
             label = "Organism",
             choices = c("Homo Sapiens", "Mus Musculus"),
             selected = "Homo Sapiens"
+          ),
+          palettePicker(
+            inputId = ns("palette"),
+            label = "Palettes:",
+            choices = list(
+              "A" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "A"
+              ),
+              "B" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "B"
+              ),
+              "C" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "C"
+              ),
+              "D" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "D"
+              ),
+              "E" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "E"
+              ),
+              "F" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "F"
+              ),
+              "G" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "G"
+              ),
+              "H" = viridis(
+                n = 6,
+                direction = -1,
+                end = 0.90,
+                begin = 0.10,
+                option = "H"
+              )
+            ),
+            selected = "D"
           )
         ),
         br(),
@@ -225,6 +290,9 @@ server <- function(id, r6) {
       
       req(input$intensity_type)
       req(input$source_type)
+      req(input$palette)
+      
+      r6$palette <- input$palette
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
       r6$make_expdesign(start_with = input$intensity_type)

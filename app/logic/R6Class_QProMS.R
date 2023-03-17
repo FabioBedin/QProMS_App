@@ -28,6 +28,7 @@ QProMS <- R6Class(
     intensity_type = "lfq_intensity_",
     organism = NULL, #questo potrebbe essere tolto visto usiamo solo humans
     expdesign = NULL,
+    palette = "D",
     color_palette = NULL,
     # parameters for data wrangling #
     filtered_data = NULL,
@@ -78,7 +79,7 @@ QProMS <- R6Class(
     },
     define_colors = function(){
       n_of_color <- max(self$expdesign %>% dplyr$count(replicate) %>% dplyr$pull(n))
-      self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.70, begin = 0.30)
+      self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
     },
     total_missing_data = function(raw = TRUE){
       
@@ -555,7 +556,7 @@ QProMS <- R6Class(
     plot_missing_data = function(){
       
       data <- self$filtered_data
-      color <- viridis(n = 2 , direction = -1, end = 0.70, begin = 0.30)
+      color <- viridis(n = 2 , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
       
       p <- data %>%
         dplyr$group_by(label) %>%
@@ -597,7 +598,7 @@ QProMS <- R6Class(
         data <- self$filtered_data
       }
       
-      color <- viridis(n = 2 , direction = -1, end = 0.70, begin = 0.30)
+      color <- viridis(n = 2 , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
       
       p <- data %>%
         dplyr$group_by(gene_names) %>%
@@ -824,7 +825,7 @@ QProMS <- R6Class(
         data <- self$normalized_data
       }
       
-      color <- viridis(n = 3 , direction = -1, end = 0.70, begin = 0.30)
+      color <- viridis(n = 3, direction = -1, end = 0.90, begin = 0.10, option = self$palette)
       
       mat <- data %>%
         dplyr$select(gene_names, label, intensity) %>%
@@ -874,7 +875,7 @@ QProMS <- R6Class(
         dia_names(y_pos = 0.15, size = 3) +
         dia_histogram(fill = "white", color = 1) +
         lotri(geom_point(alpha = 0.5, size = 0.8)) +
-        scale_fill_viridis_c(direction = -1, end = 0.70, begin = 0.30)
+        scale_fill_viridis_c(direction = -1, end = 0.90, begin = 0.10, option = self$palette)
       
       return(p)
       
