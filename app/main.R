@@ -1,6 +1,7 @@
 box::use(
   shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow],
   bs4Dash[...],
+  fresh[create_theme, bs4dash_vars, bs4dash_yiq, bs4dash_layout, bs4dash_sidebar_light, bs4dash_status, bs4dash_color, use_theme, bs4dash_button]
 )
 
 box::use(
@@ -14,6 +15,48 @@ box::use(
 box::use(
   app/logic/R6Class_QProMS,
 )
+
+# QProMS_theme <- create_theme(
+#   theme = "default",
+#   # bs4dash_vars(
+#   #   navbar_light_bg = "#222629",
+#   #   navbar_light_active_color = "#222629",
+#   #   navbar_light_hover_color = "#222629",
+#   #   navbar_dark_color = "#222629",
+#   #   navbar_dark_active_color = "#222629",
+#   #   navbar_dark_hover_color = "#222629"
+#   # ),
+#   bs4dash_sidebar_light(
+#     bg = "#222629",
+#     hover_bg = "#474B4F",
+#     color = "#bec5cb",
+#     hover_color = "#FFF",
+#     active_color = "#FFF",
+#     submenu_bg = "#222629",
+#     submenu_color = "#bec5cb",
+#     submenu_hover_color = "#FFF",
+#     submenu_hover_bg = "#474B4F",
+#     submenu_active_color = "#FFF",
+#     submenu_active_bg = "#474B4F",
+#     header_color = "#bec5cb"
+#   ),
+#   # bs4dash_layout(
+#   #   main_bg = "#474B4F",
+#   # ),
+#   bs4dash_yiq(
+#     contrasted_threshold = 150,
+#     text_dark = "#222629",
+#     text_light = "#FFF"
+#   ),
+#   bs4dash_status(
+#     primary = "#61892F"
+#   ),
+#   bs4dash_button(
+#     default_background_color = "#61892F",
+#     default_color = "#FFF",
+#     default_border_color = "#61892F"
+#   )
+# )
 
 #' @export
 ui <- function(id) {
@@ -75,6 +118,7 @@ ui <- function(id) {
     controlbar = dashboardControlbar(),
     footer = dashboardFooter(),
     body = dashboardBody(
+      # use_theme(QProMS_theme),
       tabItems(
         tab1_upload_data_page$ui(ns("tab1_upload_data_page")),
         tab2_wrangling_data_page$ui(ns("tab2_wrangling_data_page")),

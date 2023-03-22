@@ -124,6 +124,9 @@ QProMS <- R6Class(
         value <- "0 %"
       }
       
+      if(length(value) == 0){
+        value <- "0 %"
+      }
       
       return(value)
     },

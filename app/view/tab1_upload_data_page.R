@@ -307,9 +307,12 @@ server <- function(id, r6) {
       req(input$upload_file)
       # aggiungere una colonna logical per rimuovere i campioni che non si vogliono più tenere
       if(!is.null(r6$expdesign)){
-        rhandsontable(data = r6$expdesign, width = "100%", stretchH = "all") %>%
+        
+        des <- r6$expdesign %>% dplyr$mutate(remove = FALSE)
+        
+        rhandsontable(data = des, width = "100%", stretchH = "all") %>%
           hot_cols(colWidths = "25%") %>%
-          hot_col("key", readOnly = TRUE)
+          hot_col("key", readOnly = TRUE) 
       }
       
     })
@@ -332,7 +335,11 @@ server <- function(id, r6) {
       req(input$upload_file)
       req(input$intensity_type)
       
-      r6$expdesign <- hot_to_r(input$expdesign_table)
+      des <- hot_to_r(input$expdesign_table) %>% 
+        dplyr$filter(!remove) %>% 
+        dplyr$select(-remove)
+      
+      r6$expdesign <- des
       
       r6$pg_preprocessing()
       
