@@ -18,9 +18,6 @@ box::use(
 #' @export
 ui <- function(id) {
   ns <- NS(id)
-  
-  useSweetAlert()
-  
   tabItem(
     tabName = "upload_data",
     useShinyjs(),

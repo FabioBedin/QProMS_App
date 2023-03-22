@@ -78,7 +78,7 @@ QProMS <- R6Class(
       self$input_type <- input_type
     },
     define_colors = function(){
-      n_of_color <- max(self$expdesign %>% dplyr$count(condition) %>% dplyr$pull(n))
+      n_of_color <- max(self$expdesign %>% dplyr$distinct(condition) %>% nrow())
       self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
     },
     total_missing_data = function(raw = TRUE){
@@ -640,10 +640,12 @@ QProMS <- R6Class(
     },
     plot_imputation = function(data, imp_visualization = FALSE){
       
+      br <- pretty(10:40, n = 100)
+      
       p <- data %>%
         dplyr$group_by(condition) %>%
         echarts4r$e_charts(renderer = "svg") %>%
-        echarts4r$e_histogram(intensity) %>%
+        echarts4r$e_histogram(intensity, breaks = br) %>%
         echarts4r$e_color(self$color_palette) %>%
         echarts4r$e_x_axis(min = 10, max = 40) %>% 
         echarts4r$e_y_axis(
@@ -674,16 +676,16 @@ QProMS <- R6Class(
         p <- data %>%
           dplyr$group_by(condition) %>%
           echarts4r$e_charts(renderer = "svg") %>%
-          echarts4r$e_histogram(intensity) %>%
+          echarts4r$e_histogram(intensity, breaks = br) %>%
           echarts4r$e_color(c(self$color_palette, "#bc3754")) %>%
           echarts4r$e_x_axis(min = 10, max = 40) %>%
           echarts4r$e_data(imputed_dist, intensity) %>% 
           echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
-          echarts4r$e_histogram(intensity, name = "Imputed") %>%
+          echarts4r$e_histogram(intensity, name = "Imputed", breaks = br) %>%
           echarts4r$e_x_axis(min = 10, max = 40) %>%
           echarts4r$e_legend(selected = list('Imputed'= FALSE)) %>% 
           echarts4r$e_y_axis(
-            name = "Densiry",
+            name = "Density",
             nameLocation = "center",
             nameTextStyle = list(
               fontWeight = "bold",

@@ -128,5 +128,10 @@ server <- function(id, r6) {
       
     })
     
+    observeEvent(input$correlation_interactive_plot_clicked_data, {
+      print(input$correlation_interactive_plot_clicked_data$value[1])
+      print(input$correlation_interactive_plot_clicked_data$value[2])
+    })
+    
   })
 }
