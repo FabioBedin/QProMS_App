@@ -1,7 +1,7 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p],
-  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
-  shinyWidgets[actionBttn, sendSweetAlert, useSweetAlert],
+  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, toast],
+  shinyWidgets[actionBttn],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
   magrittr[`%>%`],
   gargoyle[init, watch, trigger],
@@ -190,8 +190,7 @@ ui <- function(id) {
           )
         )
       )
-    ),
-    div(id = ns("myalert"), style = "position: absolute; bottom: 50%; right: 50%;")
+    )
   )
 
 }
@@ -345,15 +344,15 @@ server <- function(id, r6) {
       
       trigger("boxes")
       
-      sendSweetAlert(
+      toast(
         title = "Experimental design defined!",
-        text = "Now you can press START!",
-        closeOnEsc = TRUE,
-        closeOnClickOutside = TRUE,
-        html = FALSE,
-        type = "success",
-        btn_labels  = "OK",
-        btn_colors  = "#35608D"
+        body = "Now you can press START!",
+        options = list(
+          class = "bg-success",
+          autohide = TRUE,
+          delay = 2500,
+          icon = icon("check")
+        )
       )
       
       enable("start")

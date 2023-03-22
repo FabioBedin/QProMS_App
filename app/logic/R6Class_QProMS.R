@@ -78,7 +78,7 @@ QProMS <- R6Class(
       self$input_type <- input_type
     },
     define_colors = function(){
-      n_of_color <- max(self$expdesign %>% dplyr$count(replicate) %>% dplyr$pull(n))
+      n_of_color <- max(self$expdesign %>% dplyr$count(condition) %>% dplyr$pull(n))
       self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
     },
     total_missing_data = function(raw = TRUE){
