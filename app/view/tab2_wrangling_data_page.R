@@ -4,6 +4,7 @@ box::use(
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger],
+  reactable[reactableOutput, renderReactable]
 )
 
 #' @export
@@ -155,7 +156,9 @@ ui <- function(id) {
         status = "primary",
         width = 12,
         maximizable = TRUE,
-        collapsible = TRUE
+        collapsible = TRUE,
+        collapsed = TRUE,
+        reactableOutput(ns("table"))
       )
     )
   )
@@ -353,6 +356,20 @@ server <- function(id, r6) {
       
       trigger("plot")
       trigger("boxes")
+      
+    })
+    
+    output$table <- renderReactable({
+      
+      watch("plot")
+      
+      if(r6$norm_methods == "none"){
+        data <- r6$filtered_data
+      }else{
+        data <- r6$normalized_data
+      }
+      
+      r6$print_table(data)
       
     })
     

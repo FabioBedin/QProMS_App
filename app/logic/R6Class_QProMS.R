@@ -9,6 +9,7 @@ box::use(
   dplyr,
   tidyr,
   stringr,
+  reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
   vsn[vsn2, predict],
@@ -401,6 +402,29 @@ QProMS <- R6Class(
       }else{
         self$is_imp <- FALSE
       }
+    },
+    print_table = function(data) {
+      
+      table <- data %>% 
+        dplyr$select(gene_names, label, intensity) %>% 
+        dplyr$mutate(intensity = round(intensity, 2)) %>% 
+        tidyr$pivot_wider(gene_names, names_from = label, values_from = intensity) %>% 
+        reactable(
+          searchable = TRUE,
+          resizable = TRUE,
+          highlight = TRUE,
+          height = "auto",
+          columns = list(
+            gene_names = colDef(
+              minWidth = 200,
+              sticky = "left",
+              style = list(borderRight  = "1px solid #eee"
+                           )
+              )
+            )
+          )
+      
+      return(table)
     },
     plot_protein_counts = function(){
       
@@ -856,8 +880,81 @@ QProMS <- R6Class(
           inRange = list(color = color)
         ) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage")) %>% 
-        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage"))
+        
+      
+      return(p)
+    },
+    plot_correlation_scatter = function(x, y) {
+      
+      if(self$is_imp){
+        data <- self$imputed_data
+      }else{
+        data <- self$normalized_data
+      }
+      
+      cols <- c(x, y)
+      
+      data_scatter <- data %>%
+        dplyr$filter(label %in% cols) %>% 
+        dplyr$select(gene_names, label, intensity) %>%
+        tidyr$pivot_wider(gene_names, names_from = "label", values_from = "intensity") %>% 
+        dplyr$select(x = !!cols[1], y = !!cols[2])
+      
+      if(x == y){
+        p <- data_scatter %>% 
+          echarts4r$e_charts() %>%
+          echarts4r$e_histogram(x) %>%
+          echarts4r$e_x_axis(min = round(min(data_scatter)-1, 0), max = round(max(data_scatter)+1, 0)) %>%
+          echarts4r$e_color(self$color_palette) %>%
+          echarts4r$e_y_axis(
+            name = "Bins",
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 16,
+              lineHeight = 60
+            )
+          ) %>%
+          echarts4r$e_x_axis(
+            name = cols[1],
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 14,
+              lineHeight = 60
+            )
+          ) %>%
+          echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
+          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      }else{
+        p <- data_scatter %>%
+          echarts4r$e_charts(x, dispose = FALSE) %>%
+          echarts4r$e_scatter(y, legend = FALSE, symbol_size = 5) %>%
+          echarts4r$e_x_axis(min = round(min(data_scatter)-1, 0), max = round(max(data_scatter)+1, 0)) %>%
+          echarts4r$e_y_axis(min = round(min(data_scatter)-1, 0), max = round(max(data_scatter)+1, 0)) %>%
+          echarts4r$e_color(self$color_palette) %>%
+          echarts4r$e_y_axis(
+            name = cols[1],
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 16,
+              lineHeight = 60
+            )
+          ) %>%
+          echarts4r$e_x_axis(
+            name = cols[2],
+            nameLocation = "center",
+            nameTextStyle = list(
+              fontWeight = "bold",
+              fontSize = 14,
+              lineHeight = 60
+            )
+          ) %>%
+          echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
+          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      }
       
       return(p)
     },

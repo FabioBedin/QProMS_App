@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p, reactive],
   bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, toast],
   shinyWidgets[actionBttn],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
@@ -9,6 +9,7 @@ box::use(
   esquisse[palettePicker],
   viridis[viridis],
   dplyr,
+  shinyGizmo[conditionalJS, jsCalls],
 )
 
 box::use(
@@ -130,13 +131,18 @@ ui <- function(id) {
           style = "display: flex; justify-content: end; gap: 20px",
           div(
             style = "width: 150px;",
-            actionBttn(
-              inputId = ns("tutorial"),
-              label = "Tutorial", 
-              style = "material-flat",
-              color = "default",
-              size = "md",
-              block = TRUE
+            conditionalJS(
+              ui = actionBttn(
+                inputId = ns("tutorial"),
+                label = "Tutorial", 
+                style = "material-flat",
+                color = "default",
+                size = "md",
+                block = TRUE
+              ),
+              condition = "input.start > 0",
+              jsCall = jsCalls$show(),
+              ns = ns
             )
           ),
           div(
@@ -386,6 +392,8 @@ server <- function(id, r6) {
       trigger("boxes")
       
     })
+    
+    return(list(a = reactive({ intput$start })))
     
   })
 }

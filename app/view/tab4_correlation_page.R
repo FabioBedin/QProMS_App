@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   echarts4r[echarts4rOutput, renderEcharts4r],
   shinyWidgets[actionBttn],
@@ -48,13 +48,14 @@ ui <- function(id) {
         echarts4rOutput(ns("correlation_interactive_plot"), height = "650")
       ),
       box(
-        title = "Multi scatter plot",
+        title = "Scatter plot",
         status = "primary",
         width = 6,
         height = 700,
         maximizable = TRUE,
-        collapsed = TRUE,
-        plotOutput(ns("correlation_static_plot"), height = "650")
+        # collapsed = TRUE,
+        echarts4rOutput(ns("scatter_plot"), height = "650")
+        # plotOutput(ns("correlation_static_plot"), height = "650")
       )
     )
   )
@@ -109,11 +110,32 @@ server <- function(id, r6) {
       
     })
     
-    output$correlation_static_plot <- renderPlot({
+    x_scatter <- reactiveVal(value = NULL)
+    y_scatter <- reactiveVal(value = NULL)
+    
+    observeEvent(input$correlation_interactive_plot_clicked_data, {
+      x_scatter(input$correlation_interactive_plot_clicked_data$value[1])
+      y_scatter(input$correlation_interactive_plot_clicked_data$value[2])
+    })
+    
+    # output$correlation_static_plot <- renderPlot({
+    #   
+    #   watch("plot")
+    #   
+    #   r6$plot_correlation_static(cor_method = r6$cor_method)
+    #   
+    # })
+    
+    output$scatter_plot <- renderEcharts4r({
       
       watch("plot")
       
-      r6$plot_correlation_static(cor_method = r6$cor_method)
+      if(is.null(x_scatter()) | is.null(y_scatter())){
+        x_scatter(r6$expdesign$label[1])
+        y_scatter(r6$expdesign$label[2])
+      }
+      
+      r6$plot_correlation_scatter(x = x_scatter(), y = y_scatter())
       
     })
     
@@ -126,11 +148,6 @@ server <- function(id, r6) {
       trigger("plot")
       trigger("boxes")
       
-    })
-    
-    observeEvent(input$correlation_interactive_plot_clicked_data, {
-      print(input$correlation_interactive_plot_clicked_data$value[1])
-      print(input$correlation_interactive_plot_clicked_data$value[2])
     })
     
   })
