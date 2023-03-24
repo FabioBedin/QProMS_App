@@ -904,8 +904,8 @@ QProMS <- R6Class(
       if(x == y){
         p <- data_scatter %>% 
           echarts4r$e_charts() %>%
-          echarts4r$e_histogram(x) %>%
-          echarts4r$e_x_axis(min = round(min(data_scatter)-1, 0), max = round(max(data_scatter)+1, 0)) %>%
+          echarts4r$e_histogram(x) %>% 
+          echarts4r$e_x_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
           echarts4r$e_color(self$color_palette) %>%
           echarts4r$e_y_axis(
             name = "Bins",
@@ -931,8 +931,8 @@ QProMS <- R6Class(
         p <- data_scatter %>%
           echarts4r$e_charts(x, dispose = FALSE) %>%
           echarts4r$e_scatter(y, legend = FALSE, symbol_size = 5) %>%
-          echarts4r$e_x_axis(min = round(min(data_scatter)-1, 0), max = round(max(data_scatter)+1, 0)) %>%
-          echarts4r$e_y_axis(min = round(min(data_scatter)-1, 0), max = round(max(data_scatter)+1, 0)) %>%
+          echarts4r$e_x_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
+          echarts4r$e_y_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
           echarts4r$e_color(self$color_palette) %>%
           echarts4r$e_y_axis(
             name = cols[1],

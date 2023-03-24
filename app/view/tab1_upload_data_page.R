@@ -353,7 +353,7 @@ server <- function(id, r6) {
         options = list(
           class = "bg-success",
           autohide = TRUE,
-          delay = 2500,
+          delay = 5000,
           icon = icon("check")
         )
       )
@@ -386,6 +386,60 @@ server <- function(id, r6) {
         shift = r6$imp_shift,
         scale = r6$imp_scale,
         unique_visual = FALSE
+      )
+      
+      toast(
+        title = "Filtred data page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
+      
+      Sys.sleep(0.2)
+      
+      toast(
+        title = "Missing data page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
+      
+      Sys.sleep(0.2)
+      
+      toast(
+        title = "Correlation page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
+      Sys.sleep(0.2)
+      toast(
+        title = "PCA page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
+      Sys.sleep(0.2)
+      toast(
+        title = "Statistic page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
       )
       
       trigger("plot")

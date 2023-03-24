@@ -331,12 +331,31 @@
         "processx"
       ]
     },
+    "cellranger": {
+      "Package": "cellranger",
+      "Version": "1.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "f61dbaec772ccd2e17705c1e872e9e7c",
+      "Requirements": [
+        "rematch",
+        "tibble"
+      ]
+    },
     "cli": {
       "Package": "cli",
       "Version": "3.6.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "3177a5a16c243adc199ba33117bd9657",
+      "Requirements": []
+    },
+    "clipr": {
+      "Package": "clipr",
+      "Version": "0.8.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "3f038e5ac7f41d4ac41ce658c85e3042",
       "Requirements": []
     },
     "codetools": {
@@ -456,6 +475,28 @@
       "Hash": "aecef50008ea7b57c76f1cb5c127fb02",
       "Requirements": []
     },
+    "datamods": {
+      "Package": "datamods",
+      "Version": "1.4.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "9dc519e0e8d3a99bbec0a9ae5e8bc538",
+      "Requirements": [
+        "data.table",
+        "htmltools",
+        "htmlwidgets",
+        "phosphoricons",
+        "reactable",
+        "readxl",
+        "rio",
+        "rlang",
+        "shiny",
+        "shinyWidgets",
+        "shinybusy",
+        "tibble",
+        "writexl"
+      ]
+    },
     "desc": {
       "Package": "desc",
       "Version": "1.4.1",
@@ -536,6 +577,25 @@
         "rlang"
       ]
     },
+    "esquisse": {
+      "Package": "esquisse",
+      "Version": "1.1.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "9935ec1ed33dc3a3b4d9f1adbdda8978",
+      "Requirements": [
+        "datamods",
+        "ggplot2",
+        "htmltools",
+        "jsonlite",
+        "phosphoricons",
+        "rlang",
+        "rstudioapi",
+        "scales",
+        "shiny",
+        "shinyWidgets"
+      ]
+    },
     "evaluate": {
       "Package": "evaluate",
       "Version": "0.15",
@@ -578,6 +638,29 @@
         "htmltools",
         "rlang"
       ]
+    },
+    "forcats": {
+      "Package": "forcats",
+      "Version": "1.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "1a0a9a3d5083d0d573c4214576f1e690",
+      "Requirements": [
+        "cli",
+        "glue",
+        "lifecycle",
+        "magrittr",
+        "rlang",
+        "tibble"
+      ]
+    },
+    "foreign": {
+      "Package": "foreign",
+      "Version": "0.8-82",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "32b25c97ce306a760c4d9f787991b5d9",
+      "Requirements": []
     },
     "fresh": {
       "Package": "fresh",
@@ -670,6 +753,25 @@
       "Repository": "CRAN",
       "Hash": "36b4265fb818f6a342bed217549cd896",
       "Requirements": []
+    },
+    "haven": {
+      "Package": "haven",
+      "Version": "2.5.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "8b331e659e67d757db0fcc28e689c501",
+      "Requirements": [
+        "cli",
+        "cpp11",
+        "forcats",
+        "hms",
+        "lifecycle",
+        "readr",
+        "rlang",
+        "tibble",
+        "tidyselect",
+        "vctrs"
+      ]
     },
     "highr": {
       "Package": "highr",
@@ -976,6 +1078,28 @@
         "askpass"
       ]
     },
+    "openxlsx": {
+      "Package": "openxlsx",
+      "Version": "4.2.5.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c03b4c18d42da881fb8e15a085c2b9d6",
+      "Requirements": [
+        "Rcpp",
+        "stringi",
+        "zip"
+      ]
+    },
+    "phosphoricons": {
+      "Package": "phosphoricons",
+      "Version": "0.1.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "1c56492d876241b1c71a1ec5cb2686ce",
+      "Requirements": [
+        "htmltools"
+      ]
+    },
     "pillar": {
       "Package": "pillar",
       "Version": "1.8.0",
@@ -1035,6 +1159,14 @@
       "Hash": "2f43c91de2c073748ca399e323693de4",
       "Requirements": []
     },
+    "prettyunits": {
+      "Package": "prettyunits",
+      "Version": "1.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "95ef9167b75dde9d2ccc3c7528393e7e",
+      "Requirements": []
+    },
     "processx": {
       "Package": "processx",
       "Version": "3.6.1",
@@ -1044,6 +1176,19 @@
       "Requirements": [
         "R6",
         "ps"
+      ]
+    },
+    "progress": {
+      "Package": "progress",
+      "Version": "1.2.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "14dc9f7a3c91ebb14ec5bb9208a07061",
+      "Requirements": [
+        "R6",
+        "crayon",
+        "hms",
+        "prettyunits"
       ]
     },
     "promises": {
@@ -1113,6 +1258,47 @@
         "jsonlite",
         "reactR"
       ]
+    },
+    "readr": {
+      "Package": "readr",
+      "Version": "2.1.4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b5047343b3825f37ad9d3b5d89aa1078",
+      "Requirements": [
+        "R6",
+        "cli",
+        "clipr",
+        "cpp11",
+        "crayon",
+        "hms",
+        "lifecycle",
+        "rlang",
+        "tibble",
+        "tzdb",
+        "vroom"
+      ]
+    },
+    "readxl": {
+      "Package": "readxl",
+      "Version": "1.4.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2e6020b1399d95f947ed867045e9ca17",
+      "Requirements": [
+        "cellranger",
+        "cpp11",
+        "progress",
+        "tibble"
+      ]
+    },
+    "rematch": {
+      "Package": "rematch",
+      "Version": "1.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c66b930d20bb6d858cd18e1cebcfae5c",
+      "Requirements": []
     },
     "rematch2": {
       "Package": "rematch2",
@@ -1185,6 +1371,22 @@
         "testthat",
         "withr",
         "yaml"
+      ]
+    },
+    "rio": {
+      "Package": "rio",
+      "Version": "0.5.29",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "9ee902fb3142b159f60bdb4eaf763a3a",
+      "Requirements": [
+        "curl",
+        "data.table",
+        "foreign",
+        "haven",
+        "openxlsx",
+        "readxl",
+        "tibble"
       ]
     },
     "rlang": {
@@ -1320,6 +1522,19 @@
         "jsonlite",
         "rlang",
         "sass",
+        "shiny"
+      ]
+    },
+    "shinybusy": {
+      "Package": "shinybusy",
+      "Version": "0.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "cf0b9330f677599316a4b36682081e8b",
+      "Requirements": [
+        "htmltools",
+        "htmlwidgets",
+        "jsonlite",
         "shiny"
       ]
     },
@@ -1504,6 +1719,16 @@
         "xfun"
       ]
     },
+    "tzdb": {
+      "Package": "tzdb",
+      "Version": "0.3.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b2e1cbce7c903eaf23ec05c58e59fb5e",
+      "Requirements": [
+        "cpp11"
+      ]
+    },
     "utf8": {
       "Package": "utf8",
       "Version": "1.2.2",
@@ -1544,6 +1769,29 @@
       "Repository": "CRAN",
       "Hash": "62f4b5da3e08d8e5bcba6cac15603f70",
       "Requirements": []
+    },
+    "vroom": {
+      "Package": "vroom",
+      "Version": "1.6.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "7015a74373b83ffaef64023f4a0f5033",
+      "Requirements": [
+        "bit64",
+        "cli",
+        "cpp11",
+        "crayon",
+        "glue",
+        "hms",
+        "lifecycle",
+        "progress",
+        "rlang",
+        "tibble",
+        "tidyselect",
+        "tzdb",
+        "vctrs",
+        "withr"
+      ]
     },
     "vsn": {
       "Package": "vsn",
@@ -1598,6 +1846,14 @@
       "Hash": "c0e49a9760983e81e55cdd9be92e7182",
       "Requirements": []
     },
+    "writexl": {
+      "Package": "writexl",
+      "Version": "1.4.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "43da939eaf6681c88eba977b9012dad9",
+      "Requirements": []
+    },
     "xfun": {
       "Package": "xfun",
       "Version": "0.31",
@@ -1636,6 +1892,14 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "458bb38374d73bf83b1bb85e353da200",
+      "Requirements": []
+    },
+    "zip": {
+      "Package": "zip",
+      "Version": "2.2.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c42bfcec3fa6a0cce17ce1f8bc684f88",
       "Requirements": []
     },
     "zlibbioc": {
