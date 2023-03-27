@@ -639,7 +639,7 @@ QProMS <- R6Class(
         echarts4r$e_histogram(mean) %>%
         echarts4r$e_x_axis(min = 10, max = 40) %>% 
         echarts4r$e_y_axis(
-          name = "Densiry",
+          name = "Counts",
           nameLocation = "center",
           nameTextStyle = list(
             fontWeight = "bold",
@@ -673,7 +673,7 @@ QProMS <- R6Class(
         echarts4r$e_color(self$color_palette) %>%
         echarts4r$e_x_axis(min = 10, max = 40) %>% 
         echarts4r$e_y_axis(
-          name = "Densiry",
+          name = "Counts",
           nameLocation = "center",
           nameTextStyle = list(
             fontWeight = "bold",
@@ -709,7 +709,7 @@ QProMS <- R6Class(
           echarts4r$e_x_axis(min = 10, max = 40) %>%
           echarts4r$e_legend(selected = list('Imputed'= FALSE)) %>% 
           echarts4r$e_y_axis(
-            name = "Density",
+            name = "Counts",
             nameLocation = "center",
             nameTextStyle = list(
               fontWeight = "bold",
@@ -893,13 +893,11 @@ QProMS <- R6Class(
         data <- self$normalized_data
       }
       
-      cols <- c(x, y)
-      
       data_scatter <- data %>%
-        dplyr$filter(label %in% cols) %>% 
+        dplyr$filter(label %in% c(x, y)) %>% 
         dplyr$select(gene_names, label, intensity) %>%
-        tidyr$pivot_wider(gene_names, names_from = "label", values_from = "intensity") %>% 
-        dplyr$select(x = !!cols[1], y = !!cols[2])
+        tidyr$pivot_wider(names_from = "label", values_from = "intensity") %>% 
+        dplyr$select(x = !!x, y = !!y)
       
       if(x == y){
         p <- data_scatter %>% 
@@ -908,7 +906,7 @@ QProMS <- R6Class(
           echarts4r$e_x_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
           echarts4r$e_color(self$color_palette) %>%
           echarts4r$e_y_axis(
-            name = "Bins",
+            name = "Counts",
             nameLocation = "center",
             nameTextStyle = list(
               fontWeight = "bold",
@@ -917,7 +915,7 @@ QProMS <- R6Class(
             )
           ) %>%
           echarts4r$e_x_axis(
-            name = cols[1],
+            name = x,
             nameLocation = "center",
             nameTextStyle = list(
               fontWeight = "bold",
@@ -935,7 +933,7 @@ QProMS <- R6Class(
           echarts4r$e_y_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
           echarts4r$e_color(self$color_palette) %>%
           echarts4r$e_y_axis(
-            name = cols[1],
+            name = x,
             nameLocation = "center",
             nameTextStyle = list(
               fontWeight = "bold",
@@ -944,7 +942,7 @@ QProMS <- R6Class(
             )
           ) %>%
           echarts4r$e_x_axis(
-            name = cols[2],
+            name = y,
             nameLocation = "center",
             nameTextStyle = list(
               fontWeight = "bold",

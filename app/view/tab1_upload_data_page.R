@@ -447,7 +447,7 @@ server <- function(id, r6) {
       
     })
     
-    return(list(a = reactive({ intput$start })))
+    return(reactive(input$start))
     
   })
 }

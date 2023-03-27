@@ -1,5 +1,5 @@
 box::use(
-  shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow],
+  shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow, observeEvent, removeUI],
   bs4Dash[...],
   fresh[create_theme, bs4dash_vars, bs4dash_yiq, bs4dash_layout, bs4dash_sidebar_light, bs4dash_status, bs4dash_color, use_theme, bs4dash_button]
 )
@@ -77,42 +77,24 @@ ui <- function(id) {
       # sidebarHeader("Workflow"),
       # tags$br(),
       sidebarMenu(
-        id = "sidebarMenu",
+        id = ns("sidebarMenu"),
         menuItem(
           text = "Upload Data",
           tabName = "upload_data",
           icon = icon("upload")
         ),
-        menuItem(
-          text = "Filter Data",
-          tabName = "wrangling_data",
-          icon = icon("filter")
-        ),
-        menuItem(
-          text = "Missing Data",
-          tabName = "missing_data",
-          icon = icon("magnifying-glass")
-        ),
-        menuItem(
-          text = "Correlation",
-          tabName = "correlation",
-          icon = icon("link")
-        ),
-        menuItem(
-          text = "PCA",
-          tabName = "pca",
-          icon = icon("slack")
-        ),
-        menuItem(
-          text = "Statistics",
-          tabName = "statistics",
-          icon = icon("circle-half-stroke")
-        ),
-        menuItem(
-          text = "Function Analysis",
-          tabName = "function_analysis",
-          icon = icon("chart-column")
-        )
+        menuItemOutput(ns("wrangling_data_blocked")),
+        menuItemOutput(ns("wrangling_data")),
+        menuItemOutput(ns("missing_data_blocked")),
+        menuItemOutput(ns("missing_data")),
+        menuItemOutput(ns("correlation_blocked")),
+        menuItemOutput(ns("correlation")),
+        menuItemOutput(ns("pca_blocked")),
+        menuItemOutput(ns("pca")),
+        menuItemOutput(ns("statistics_blocked")),
+        menuItemOutput(ns("statistics")),
+        menuItemOutput(ns("function_analysis_blocked")),
+        menuItemOutput(ns("function_analysis"))
       )
     ),
     controlbar = dashboardControlbar(),
@@ -137,10 +119,40 @@ server <- function(id) {
     
     object <- R6Class_QProMS$QProMS$new()
     
-    tab1_upload_data_page$server("tab1_upload_data_page", r6 = object)
+    output$wrangling_data_blocked <- renderMenu({ menuItem("Filter Data", icon = icon("lock"), tabName = "") })
+    output$missing_data_blocked    <- renderMenu({ menuItem("Missing Data", icon = icon("lock"), tabName = "") })
+    output$correlation_blocked  <- renderMenu({ menuItem("Correlation", icon = icon("lock"), tabName = "") })
+    output$pca_blocked <- renderMenu({ menuItem("PCA", icon = icon("lock"), tabName = "") })
+    output$statistics_blocked <- renderMenu({ menuItem("Statistics", icon = icon("lock"), tabName = "") })
+    output$function_analysis_blocked <- renderMenu({ menuItem("Function Analysis", icon = icon("lock"), tabName = "") })
+    
+    unlock_pages <- tab1_upload_data_page$server("tab1_upload_data_page", r6 = object)
     tab2_wrangling_data_page$server("tab2_wrangling_data_page", r6 = object)
     tab3_missing_data_page$server("tab3_missing_data_page", r6 = object)
     tab4_correlation_page$server("tab4_correlation_page", r6 = object)
     tab5_pca_page$server("tab5_pca_page", r6 = object)
+    
+    observeEvent(unlock_pages(), {
+      
+      output$wrangling_data <- renderMenu({ menuItem("Filter Data", icon = icon("filter"), tabName = "wrangling_data") })
+      removeUI(selector = "#app-wrangling_data_blocked")
+ 
+      output$missing_data <- renderMenu({ menuItem("Missing Data", icon = icon("magnifying-glass"), tabName = "missing_data") })
+      removeUI(selector = "#app-missing_data_blocked")
+
+      output$correlation  <- renderMenu({ menuItem("Correlation", icon = icon("link"), tabName = "correlation") })
+      removeUI(selector = "#app-correlation_blocked")
+
+      output$pca <- renderMenu({ menuItem("PCA", icon = icon("slack"), tabName = "pca") })
+      removeUI(selector = "#app-pca_blocked")
+
+      output$statistics <- renderMenu({ menuItem("Statistics", icon = icon("circle-half-stroke"), tabName = "statistics") })
+      removeUI(selector = "#app-statistics_blocked")
+
+      output$function_analysis <- renderMenu({ menuItem("Function Analysis", icon = icon("chart-column"), tabName = "function_analysis") })
+      removeUI(selector = "#app-function_analysis_blocked")
+      
+    })
+    
   })
 }
