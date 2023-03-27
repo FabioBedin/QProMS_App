@@ -30,94 +30,10 @@ ui <- function(id) {
     ),
     fluidRow(
       box(
-        title = "Upload",
+        title = "Upload data",
         status = "primary",
         width = 3,
         height = "60vh",
-        sidebar = boxSidebar(
-          id = ns("upload_sidebar"),
-          selectInput(
-            inputId = ns("intensity_type"),
-            label = "Select Intensity type",
-            choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
-            selected = "lfq_intensity_"
-          ),
-          selectInput(
-            inputId = ns("source_type"),
-            label = "Table source",
-            choices = c("MaxQuant" = "max_quant", "External table"),
-            selected = "max_quant"
-          ),
-          selectInput(
-            inputId = ns("organism"),
-            label = "Organism",
-            choices = c("Homo Sapiens", "Mus Musculus"),
-            selected = "Homo Sapiens"
-          ),
-          palettePicker(
-            inputId = ns("palette"),
-            label = "Palettes:",
-            choices = list(
-              "A" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "A"
-              ),
-              "B" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "B"
-              ),
-              "C" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "C"
-              ),
-              "D" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "D"
-              ),
-              "E" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "E"
-              ),
-              "F" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "F"
-              ),
-              "G" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "G"
-              ),
-              "H" = viridis(
-                n = 6,
-                direction = -1,
-                end = 0.90,
-                begin = 0.10,
-                option = "H"
-              )
-            ),
-            selected = "D"
-          )
-        ),
         br(),
         fileInput(
           inputId = ns("upload_file"),
@@ -127,35 +43,131 @@ ui <- function(id) {
           placeholder = "proteinGroups.txt",
           accept = ".txt"
         ),
-        footer = div(
-          style = "display: flex; justify-content: end; gap: 20px",
+        selectInput(
+          inputId = ns("intensity_type"),
+          label = "Select Intensity type",
+          choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
+          selected = "lfq_intensity_"
+        ),
+        selectInput(
+          inputId = ns("source_type"),
+          label = "Table source",
+          choices = c("MaxQuant" = "max_quant", "External table"),
+          selected = "max_quant"
+        ),
+        selectInput(
+          inputId = ns("organism"),
+          label = "Organism",
+          choices = c("Homo Sapiens", "Mus Musculus"),
+          selected = "Homo Sapiens"
+        ),
+        palettePicker(
+          inputId = ns("palette"),
+          label = "Palettes:",
+          choices = list(
+            "A" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "A"
+            ),
+            "B" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "B"
+            ),
+            "C" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "C"
+            ),
+            "D" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "D"
+            ),
+            "E" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "E"
+            ),
+            "F" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "F"
+            ),
+            "G" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "G"
+            ),
+            "H" = viridis(
+              n = 6,
+              direction = -1,
+              end = 0.90,
+              begin = 0.10,
+              option = "H"
+            )
+          ),
+          selected = "D"
+        ),
+        br(),
+        div(
+          style = "display: flex; justify-content: center; gap: 20px",
           div(
-            style = "width: 150px;",
-            conditionalJS(
-              ui = actionBttn(
-                inputId = ns("tutorial"),
-                label = "Tutorial", 
-                style = "material-flat",
-                color = "default",
-                size = "md",
-                block = TRUE
-              ),
-              condition = "input.start > 0",
-              jsCall = jsCalls$show(),
-              ns = ns
+            style = "width: 100%;",
+            actionBttn(
+              inputId = ns("help_me"),
+              label = "Help me!", 
+              style = "material-flat",
+              color = "default",
+              size = "md",
+              block = TRUE
             )
           ),
           div(
-            style = "width: 150px;",
+            style = "width: 100%;",
             disabled(
               actionBttn(
-                inputId = ns("start"),
-                label = "Start", 
+                inputId = ns("upload"),
+                label = "Upload", 
                 style = "material-flat",
                 color = "primary",
                 size = "md",
                 block = TRUE
               )
+            )
+          )
+        ),
+        footer = div(
+          style = "display: flex; justify-content: center; gap: 20px; height: 40px",
+          div(
+            style = "width: 100%;",
+            conditionalJS(
+              ui = actionBttn(
+                inputId = ns("start"),
+                label = "Start", 
+                style = "material-flat",
+                color = "success",
+                size = "md",
+                block = TRUE
+              ),
+              condition = "input.confirm > 0",
+              jsCall = jsCalls$show(),
+              ns = ns
             )
           )
         )
@@ -168,27 +180,37 @@ ui <- function(id) {
         maximizable = TRUE,
         rHandsontableOutput(ns("expdesign_table")),
         footer = div(
-          style = "display: flex; justify-content: end; gap: 20px",
+          style = "display: flex; justify-content: end; gap: 20px; height: 40px",
           div(
             style = "width: 150px;",
-            actionBttn(
-              inputId = ns("reset"),
-              label = "Reset", 
-              style = "material-flat",
-              color = "default",
-              size = "md",
-              block = TRUE
+            conditionalJS(
+              ui = actionBttn(
+                inputId = ns("reset"),
+                label = "Reset", 
+                style = "material-flat",
+                color = "default",
+                size = "md",
+                block = TRUE
+              ),
+              condition = "input.upload > 0",
+              jsCall = jsCalls$show(),
+              ns = ns
             )
           ),
           div(
             style = "width: 150px;",
-            actionBttn(
-              inputId = ns("confirm"),
-              label = "Apply", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
+            conditionalJS(
+              ui = actionBttn(
+                inputId = ns("confirm"),
+                label = "Apply", 
+                style = "material-flat",
+                color = "primary",
+                size = "md",
+                block = TRUE
+              ),
+              condition = "input.upload > 0",
+              jsCall = jsCalls$show(),
+              ns = ns
             )
           )
         )
@@ -290,6 +312,16 @@ server <- function(id, r6) {
     
     observeEvent(input$upload_file, {
       
+      if(!is.null(input$upload_file)){
+        enable("upload")
+      }
+      
+    })
+    
+    
+    observeEvent(input$upload, {
+      
+      req(input$upload_file)
       req(input$intensity_type)
       req(input$source_type)
       req(input$palette)
@@ -307,10 +339,11 @@ server <- function(id, r6) {
       watch("make_expdesign")
       
       req(input$upload_file)
+      req(input$upload)
       # aggiungere una colonna logical per rimuovere i campioni che non si vogliono più tenere
       if(!is.null(r6$expdesign)){
         
-        des <- r6$expdesign %>% dplyr$mutate(remove = FALSE)
+        des <- r6$expdesign %>% dplyr$mutate(keep = TRUE)
         
         rhandsontable(data = des, width = "100%", stretchH = "all") %>%
           hot_cols(colWidths = "25%") %>%
@@ -321,6 +354,7 @@ server <- function(id, r6) {
     
     observeEvent(input$reset, {
       
+      req(input$upload)
       req(input$upload_file)
       req(input$intensity_type)
       
@@ -334,12 +368,13 @@ server <- function(id, r6) {
     
     observeEvent(input$confirm, {
       
+      req(input$upload)
       req(input$upload_file)
       req(input$intensity_type)
       
       des <- hot_to_r(input$expdesign_table) %>% 
-        dplyr$filter(!remove) %>% 
-        dplyr$select(-remove)
+        dplyr$filter(keep) %>% 
+        dplyr$select(-keep)
       
       r6$expdesign <- des
       
@@ -358,12 +393,11 @@ server <- function(id, r6) {
         )
       )
       
-      enable("start")
-      
     })
     
     observeEvent(input$start, {
       
+      req(input$upload)
       req(input$upload_file)
       req(input$intensity_type)
       req(input$expdesign_table)
