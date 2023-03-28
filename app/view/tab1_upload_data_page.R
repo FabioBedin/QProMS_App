@@ -8,6 +8,7 @@ box::use(
   shinyjs[useShinyjs, disabled, enable],
   esquisse[palettePicker],
   viridis[viridis],
+  waiter[Waiter, spin_5],
   dplyr,
   shinyGizmo[conditionalJS, jsCalls],
 )
@@ -224,6 +225,8 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
+    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
+    
     init("make_expdesign", "boxes")
     
     output$n_proteins <- renderValueBox({
@@ -397,6 +400,8 @@ server <- function(id, r6) {
     
     observeEvent(input$start, {
       
+      w$show()
+      
       req(input$upload)
       req(input$upload_file)
       req(input$intensity_type)
@@ -421,6 +426,8 @@ server <- function(id, r6) {
         scale = r6$imp_scale,
         unique_visual = FALSE
       )
+      
+      w$hide()
       
       toast(
         title = "Filtred data page unlock!",

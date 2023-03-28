@@ -112,10 +112,12 @@ server <- function(id, r6) {
     
     x_scatter <- reactiveVal(value = NULL)
     y_scatter <- reactiveVal(value = NULL)
+    corr_value <- reactiveVal(value = NULL)
     
     observeEvent(input$correlation_interactive_plot_clicked_data, {
       x_scatter(input$correlation_interactive_plot_clicked_data$value[1])
       y_scatter(input$correlation_interactive_plot_clicked_data$value[2])
+      corr_value(input$correlation_interactive_plot_clicked_data$value[3])
     })
     
     # output$correlation_static_plot <- renderPlot({
@@ -135,7 +137,7 @@ server <- function(id, r6) {
         y_scatter(r6$expdesign$label[2])
       }
       
-      r6$plot_correlation_scatter(x = x_scatter(), y = y_scatter())
+      r6$plot_correlation_scatter(x = x_scatter(), y = y_scatter(), value = corr_value())
       
     })
     

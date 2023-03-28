@@ -885,7 +885,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_correlation_scatter = function(x, y) {
+    plot_correlation_scatter = function(x, y, value) {
       
       if(self$is_imp){
         data <- self$imputed_data
@@ -897,13 +897,20 @@ QProMS <- R6Class(
         dplyr$filter(label %in% c(x, y)) %>% 
         dplyr$select(gene_names, label, intensity) %>%
         tidyr$pivot_wider(names_from = "label", values_from = "intensity") %>% 
-        dplyr$select(x = !!x, y = !!y)
+        dplyr$select(gene_names, x = !!x, y = !!y)
+      
+      min_plot <- round(min(data_scatter %>% dplyr$select(-gene_names), na.rm = TRUE) - 1, 0)
+      max_plot <- round(max(data_scatter %>% dplyr$select(-gene_names), na.rm = TRUE) + 1, 0)
+      
+      if(is.null(value)){
+        value <- round(cor(data_scatter$x, data_scatter$y), 2)
+      }
       
       if(x == y){
         p <- data_scatter %>% 
           echarts4r$e_charts() %>%
           echarts4r$e_histogram(x) %>% 
-          echarts4r$e_x_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
+          echarts4r$e_x_axis(min = min_plot, max = max_plot) %>%
           echarts4r$e_color(self$color_palette) %>%
           echarts4r$e_y_axis(
             name = "Counts",
@@ -928,10 +935,18 @@ QProMS <- R6Class(
       }else{
         p <- data_scatter %>%
           echarts4r$e_charts(x, dispose = FALSE) %>%
-          echarts4r$e_scatter(y, legend = FALSE, symbol_size = 5) %>%
-          echarts4r$e_x_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
-          echarts4r$e_y_axis(min = round(min(data_scatter, na.rm = TRUE)-1, 0), max = round(max(data_scatter, na.rm = TRUE)+1, 0)) %>%
+          echarts4r$e_scatter(y, legend = FALSE, symbol_size = 5, bind = gene_names) %>%
+          echarts4r$e_x_axis(min = min_plot, max = max_plot) %>%
+          echarts4r$e_y_axis(min = min_plot, max = max_plot) %>%
           echarts4r$e_color(self$color_palette) %>%
+          echarts4r::e_toolbox_feature(feature = "dataZoom") %>% 
+          echarts4r::e_tooltip(
+            formatter = htmlwidgets::JS("
+            function(params){
+              return('<strong>' + params.name + '</strong>');
+            }
+          ")
+          ) %>%
           echarts4r$e_y_axis(
             name = x,
             nameLocation = "center",
@@ -950,6 +965,7 @@ QProMS <- R6Class(
               lineHeight = 60
             )
           ) %>%
+          echarts4r$e_title(paste0("correlation: ", value), left = "center") %>%  
           echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
           echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }

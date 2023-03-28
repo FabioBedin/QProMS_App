@@ -113,6 +113,7 @@ server <- function(id, r6) {
     
     output$n_proteins <- renderValueBox({
       
+      
       watch("boxes")
       
       value <- length(unique(r6$filtered_data$gene_names))

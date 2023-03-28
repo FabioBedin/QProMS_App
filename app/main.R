@@ -1,6 +1,7 @@
 box::use(
   shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow, observeEvent, removeUI],
   bs4Dash[...],
+  waiter[useWaiter, useWaitress, spin_5],
   fresh[create_theme, bs4dash_vars, bs4dash_yiq, bs4dash_layout, bs4dash_sidebar_light, bs4dash_status, bs4dash_color, use_theme, bs4dash_button]
 )
 
@@ -64,6 +65,7 @@ ui <- function(id) {
   dashboardPage(
     title = "QProMS",
     fullscreen = TRUE,
+    preloader = list(html = spin_5(), color = "#adb5bd"),
     header = dashboardHeader(
       title =  dashboardBrand(
         title = "QProMS",
@@ -100,6 +102,8 @@ ui <- function(id) {
     controlbar = dashboardControlbar(),
     footer = dashboardFooter(),
     body = dashboardBody(
+      useWaiter(),
+      useWaitress(),
       # use_theme(QProMS_theme),
       tabItems(
         tab1_upload_data_page$ui(ns("tab1_upload_data_page")),
@@ -131,6 +135,7 @@ server <- function(id) {
     tab3_missing_data_page$server("tab3_missing_data_page", r6 = object)
     tab4_correlation_page$server("tab4_correlation_page", r6 = object)
     tab5_pca_page$server("tab5_pca_page", r6 = object)
+    
     
     observeEvent(unlock_pages(), {
       
