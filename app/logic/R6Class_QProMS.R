@@ -1188,6 +1188,8 @@ QProMS <- R6Class(
         dplyr$pull(p_val) %>% 
         max()
       
+      max_plot <- round(max(abs(table$fold_change), na.rm = TRUE) + 1, 0)
+      
       
       left_line <-
         tibble(p_val = c(-log10(min_thr),-log10(min_thr), max(-log10(table$p_val))),
@@ -1207,6 +1209,7 @@ QProMS <- R6Class(
         dplyr$mutate(p_val = round(p_val, 3)) %>%
         echarts4r$e_chart(fold_change, renderer = "svg") %>%
         echarts4r$e_scatter(p_val, legend = FALSE, bind = gene_names, symbol_size = 5) %>%
+        echarts4r$e_x_axis(min = -max_plot, max = max_plot) %>%
         echarts4r$e_tooltip(
           formatter = JS(
             "
@@ -1238,8 +1241,6 @@ QProMS <- R6Class(
         echarts4r$e_toolbox() %>%
         echarts4r$e_toolbox_feature(feature = "dataZoom") %>%
         echarts4r$e_toolbox_feature(feature = "saveAsImage") %>%
-        echarts4r$e_title(text = test,
-                           left = "center") %>%
         echarts4r$e_x_axis(
           name = "Fold_change",
           nameLocation = "center",
@@ -1257,7 +1258,8 @@ QProMS <- R6Class(
             fontSize = 15,
             lineHeight = 50
           )
-        )
+        ) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       if (!is.null(highlights_names)) {
         for (name in highlights_names) {
