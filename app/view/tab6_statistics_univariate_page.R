@@ -1,8 +1,9 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
+  stringr[str_replace_all],
   gargoyle[init, watch, trigger],
 )
 
@@ -28,20 +29,87 @@ ui <- function(id) {
         height = 700,
         maximizable = TRUE,
         sidebar = boxSidebar(
-          id = ns("correlation_sidebar"),
+          id = ns("volcano_sidebar"),
           startOpen = TRUE,
           div(
             style = "padding-right: 0.5rem",
-            h3("Correlation methods"),
-            selectInput(
-              inputId = ns("correlation_input"),
-              label = NULL,
-              choices = c("Pearson" = "pearson", "Kendall" = "kendall", "Spearman" = "spearman"),
-              selected = "pearson"
+            h4("Test"),
+            div(
+              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+              div(
+                style = "width: 100%; flex: 3 1 0;",
+                selectInput(
+                  inputId = ns("test_input"),
+                  label = NULL,
+                  choices = c("Student's T-test" = "student", "Welch's T-test" = "welch"),
+                  selected = "student"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;  text-align: center;",
+                prettyCheckbox(
+                  inputId = ns("paider_input"),
+                  label = "Paired", 
+                  value = FALSE,
+                  shape = "curve"
+                )
+              )
             ),
+            h4("Parameters"),
+            div(
+              style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                numericInput(
+                  inputId = ns("fc_input"),
+                  label = "Fold change",
+                  value = 1,
+                  min = 0,
+                  step = 0.5
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("alpha_input"),
+                  label = "Alpha",
+                  choices = c(0.05, 0.01),
+                  selected = 0.05
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 2 1 0;",
+                selectInput(
+                  inputId = ns("truncation_input"),
+                  label = "Truncation",
+                  choices = c(
+                    "Benjamini & Hochberg" = "BH",
+                    "Bonferroni" = "bonferroni",
+                    "Holm (1979)" = "holm",
+                    "Hochberg (1988)" = "hochberg",
+                    "Hommel (1988)" = "hommel",
+                    "Benjamini & Yekutieli" = "BY",
+                    "None" = "none"),
+                  selected = "BH"
+                )
+              )
+            ),
+            h4("Contrast"),
+            div(
+              style = "display: flex; justify-content: center; gap: 20px",
+              div(
+                style = "width: 100%;",
+                uiOutput(ns("ui_primary_input"))
+              ),
+              div(
+                style = "width: 100%;",
+                uiOutput(ns("ui_additiolnal_input"))
+              )
+            ),
+            br(),
             actionBttn(
-              inputId = ns("update"),
-              label = "Update", 
+              inputId = ns("run_statistics"),
+              label = "Run statistics", 
               style = "material-flat",
               color = "primary",
               size = "md",
@@ -49,7 +117,7 @@ ui <- function(id) {
             )
           )
         ),
-        echarts4rOutput(ns("correlation_interactive_plot"), height = "650")
+        echarts4rOutput(ns("volcano_plot"), height = "650")
       ),
       box(
         title = "Result table",
@@ -72,11 +140,53 @@ server <- function(id, r6) {
     
     init("plot", "boxes")
     
+    output$ui_primary_input <- renderUI({
+      
+      watch("boxes")
+      
+      test <- r6$all_test_combination
+      
+      pickerInput(
+        inputId = session$ns("primary_input"),
+        label = "Primary contrast",
+        choices = test, 
+        selected = r6$primary_condition,
+        multiple = FALSE,
+        options = list(
+          `live-search` = TRUE, 
+          size = 5)
+      )
+      
+      
+    })
+    
+    output$ui_additiolnal_input <- renderUI({
+      
+      watch("boxes")
+      
+      test <- r6$all_test_combination
+      
+      pickerInput(
+        inputId = session$ns("additiolnal_input"),
+        label = "Additiolnal contrast",
+        choices = test, 
+        selected = NULL,
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE, 
+          title = "None",
+          `selected-text-format` = "count > 2",
+          size = 5)
+      )
+      
+      
+    })
+    
     output$tested_cond <- renderValueBox({
       
       watch("boxes")
       
-      value <- "A_vs_B"
+      value <- str_replace_all(r6$primary_condition, pattern = "_", replacement = " ")
       
       valueBox(
         subtitle = NULL,
@@ -144,7 +254,7 @@ server <- function(id, r6) {
       
       watch("boxes")
       
-      value <- 0.05
+      value <- r6$univariate_alpha
       
       valueBox(
         subtitle = NULL,
@@ -161,7 +271,7 @@ server <- function(id, r6) {
       
       watch("boxes")
       
-      value <- 1
+      value <- r6$fold_change
       
       valueBox(
         subtitle = NULL,
@@ -171,6 +281,51 @@ server <- function(id, r6) {
         footer = p("Fold change", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
+      
+    })
+    
+    output$volcano_plot <- renderEcharts4r({
+      
+      watch("plot")
+      
+      req(input$primary_input)
+      req(input$run_statistics)
+      
+      tests <- c(r6$primary_condition, r6$additiolnal_condition)
+      
+      r6$plot_volcano(test = tests) 
+      
+    })
+    
+    observeEvent(input$run_statistics ,{
+      
+      req(input$test_input)
+      req(input$fc_input)
+      req(input$alpha_input)
+      req(input$truncation_input)
+      req(input$primary_input)
+      
+      r6$univariate_test_type <- input$test_input
+      r6$univariate_paired <- input$paider_input
+      r6$fold_change <- input$fc_input
+      r6$univariate_alpha <- input$alpha_input
+      r6$univariate_p_adj_method <- input$truncation_input
+      r6$primary_condition <- input$primary_input
+      r6$additiolnal_condition <- input$additiolnal_input
+      
+      tests <- c(r6$primary_condition, r6$additiolnal_condition)
+      
+      r6$stat_t_test(
+        test = tests,
+        fc = r6$fold_change,
+        alpha = r6$univariate_alpha,
+        p_adj_method = r6$univariate_p_adj_method,
+        paired_test = r6$univariate_paired,
+        test_type = r6$univariate_test_type
+      )
+      
+      trigger("plot")
+      trigger("boxes")
       
     })
 

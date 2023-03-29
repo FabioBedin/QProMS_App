@@ -2,13 +2,15 @@ box::use(
   R6[R6Class],
   data.table[fread],
   janitor[make_clean_names, get_dupes],
-  tibble[as_tibble, column_to_rownames],
+  tibble[tibble, as_tibble, column_to_rownames, rownames_to_column],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust],
+  htmltools,
   dplyr,
   tidyr,
   stringr,
+  purrr[map, reduce],
   reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
@@ -57,32 +59,36 @@ QProMS <- R6Class(
     is_imp = FALSE,
     #################
     # parameters For Statistics #
-    all_test_combination = NULL,
-    tested_condition = NULL,
+    all_test_combination = NULL, 
+    primary_condition = NULL,
+    additiolnal_condition = NULL,
     univariate = NULL,
-    clusters_def = NULL,
-    clusters_number = NULL,
+    univariate_test_type = NULL,
+    univariate_paired = NULL,
     stat_table = NULL,
+    univariate_alpha = 0.05,
+    univariate_p_adj_method = "BH",
     fold_change = 1,
-    p_adj_method = NULL,
-    alpha_ttest = NULL,
     anova_table = NULL,
     cluster_table = NULL,
-    alpha_anova = NULL,
+    anova_alpha = 0.05,
+    anova_p_adj_method = "BH",
+    clusters_def = NULL,
+    clusters_number = 0,
     ###########
     # Methods #
-    loading_data = function(input_path, input_type){
+    loading_data = function(input_path, input_type) {
       
       self$raw_data <- fread(input = input_path) %>%
         as_tibble(.name_repair = make_clean_names)
       
       self$input_type <- input_type
     },
-    define_colors = function(){
+    define_colors = function() {
       n_of_color <- max(self$expdesign %>% dplyr$distinct(condition) %>% nrow())
       self$color_palette <- viridis(n = n_of_color , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
     },
-    total_missing_data = function(raw = TRUE){
+    total_missing_data = function(raw = TRUE) {
       
       if(raw){
         data <- self$data
@@ -102,7 +108,7 @@ QProMS <- R6Class(
       
       return(value)
     },
-    missing_data_type = function(type){
+    missing_data_type = function(type) {
       
       data <- self$filtered_data
       
@@ -131,7 +137,7 @@ QProMS <- R6Class(
       
       return(value)
     },
-    make_expdesign = function(start_with = "lfq_intensity_"){
+    make_expdesign = function(start_with = "lfq_intensity_") {
       ## qui mettere tutti gli if in base all'intensity type
       
       self$intensity_type <- start_with
@@ -148,7 +154,7 @@ QProMS <- R6Class(
         dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>%
         dplyr$mutate(replicate = stringr$str_remove(label, ".*_"))
     },
-    define_tests = function(){
+    define_tests = function() {
       conditions <-
         dplyr$distinct(self$expdesign, condition) %>% dplyr$pull(condition)
       
@@ -160,7 +166,7 @@ QProMS <- R6Class(
       
       self$all_test_combination <- tests
     },
-    pg_preprocessing = function(){
+    pg_preprocessing = function() {
       ########################################################################
       #### This function prepare the proteing groups in the QProMS format ####
       #### and remove duplicates.                                         ####
@@ -180,6 +186,7 @@ QProMS <- R6Class(
       
       self$define_colors()
       self$define_tests()
+      self$primary_condition <- self$all_test_combination[1]
       
       data_standardized <- data %>%
         dplyr$select(protein_i_ds, gene_names, id) %>%
@@ -286,7 +293,7 @@ QProMS <- R6Class(
       self$filtered_data <- filtered_data
       
     },
-    normalization = function(norm_methods = "None"){
+    normalization = function(norm_methods = "None") {
       
       data <- self$filtered_data
       
@@ -426,7 +433,122 @@ QProMS <- R6Class(
       
       return(table)
     },
-    plot_protein_counts = function(){
+    tidy_vector = function(data, name) {
+      
+      tidy_vec <- data %>%
+        as_tibble(rownames = NA) %>%
+        rownames_to_column(var = "gene_names") %>%
+        dplyr$rename(!!name := value)
+      
+      return(tidy_vec)
+    },
+    stat_t_test_single = function(data, test, fc, alpha, p_adj_method, paired_test, test_type){
+      
+      cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+      cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      
+      if(test_type == "student"){
+        var_equal <- TRUE
+      }else{
+        var_equal <- FALSE
+      }
+      
+      self$univariate <- TRUE
+      
+      mat <- data %>%
+        dplyr$filter(condition == cond_1 | condition == cond_2) %>%
+        dplyr$mutate(label_test = paste(condition, replicate, sep = "_")) %>%
+        tidyr$pivot_wider(id_cols = "gene_names",
+                           names_from = "label_test",
+                           values_from = "intensity") %>%
+        column_to_rownames("gene_names") %>%
+        dplyr$relocate(dplyr$contains(cond_2), .after = dplyr$last_col()) %>%
+        na.omit() %>% 
+        as.matrix()
+      
+      a <- grep(cond_1, colnames(mat))
+      b <- grep(cond_2, colnames(mat))
+      
+      p_values_vec <- apply(mat, 1, function(x) t.test(x[a], x[b], paired = paired_test, var.equal = var_equal)$p.value)
+      
+      p_values <- p_values_vec %>%
+        self$tidy_vector(name = "p_val")
+      
+      fold_change <- apply(mat, 1, function(x) mean(x[a]) - mean(x[b])) %>% 
+        self$tidy_vector(name = "fold_change")
+      
+      p_ajusted <- p.adjust(p_values_vec, method = p_adj_method) %>% 
+        self$tidy_vector(name = "p_adj")
+      
+      stat_data <- fold_change %>% 
+        dplyr$full_join(., p_values, by = "gene_names") %>% 
+        dplyr$full_join(., p_ajusted, by = "gene_names") %>% 
+        dplyr$mutate(significant = dplyr$if_else(abs(fold_change) >= fc & p_adj <= alpha, TRUE, FALSE)) %>% 
+        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_significant") := significant) %>% 
+        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_val") := p_val) %>% 
+        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_fold_change") := fold_change) %>% 
+        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := p_adj)
+      
+      return(stat_data)
+    },
+    stat_t_test = function(test, fc = 1, alpha = 0.05, p_adj_method = "BH", paired_test = FALSE, test_type = "student") {
+      
+      if(!self$is_norm & !self$is_imp){
+        data <- self$filtered_data
+      }else if(self$is_norm & !self$is_imp){
+        data <- self$normalized_data
+      }else{
+        data <- self$imputed_data
+      }
+      
+      if(length(test) == 1){
+        stat_table_single <-
+          self$stat_t_test_single(
+            data = data,
+            test = test,
+            fc = fc,
+            alpha = alpha,
+            p_adj_method = p_adj_method,
+            paired_test = paired_test, 
+            test_type = test_type
+          )
+        
+        complete_stat_table <- 
+          data %>% 
+          tidyr$pivot_wider(id_cols = "gene_names",
+                             names_from = "label",
+                             values_from = "intensity") %>%
+          dplyr$left_join(stat_table_single, by = "gene_names")
+        
+      } else {
+        stat_table_map <-
+          map(
+            .x = test,
+            .f = ~ self$stat_t_test_single(
+              data = data,
+              test = .x,
+              fc = fc,
+              alpha = alpha,
+              p_adj_method = p_adj_method, 
+              paired_test = paired_test, 
+              test_type = test_type
+            )
+          ) %>%
+          reduce(dplyr$full_join, by = "gene_names")
+        
+        complete_stat_table <- 
+          data %>%
+          tidyr$pivot_wider(id_cols = "gene_names",
+                             names_from = "label",
+                             values_from = "intensity") %>%
+          dplyr$left_join(stat_table_map, by = "gene_names")
+      }
+      
+      
+      self$stat_table <- complete_stat_table
+      
+    },
+    plot_protein_counts = function() {
       
       # controllare che ci sia il self$filtered_data
       data <- self$filtered_data
@@ -469,7 +591,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_protein_coverage = function(){
+    plot_protein_coverage = function() {
       
       # controllare che ci sia il self$filtered_data
       data <- self$filtered_data
@@ -502,7 +624,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_distribution = function(){
+    plot_distribution = function() {
       
       if(self$is_norm){
         data <- self$normalized_data
@@ -541,7 +663,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_cv = function(){
+    plot_cv = function() {
       
       if(self$is_norm){
         data <- self$normalized_data
@@ -580,7 +702,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_missing_data = function(){
+    plot_missing_data = function() {
       
       data <- self$filtered_data
       color <- viridis(n = 2 , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
@@ -617,7 +739,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_missval_distribution = function(){
+    plot_missval_distribution = function() {
       
       if(self$is_norm){
         data <- self$normalized_data
@@ -662,7 +784,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_imputation = function(data, imp_visualization = FALSE){
+    plot_imputation = function(data, imp_visualization = FALSE) {
       
       br <- pretty(10:40, n = 100)
       
@@ -731,7 +853,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_pca = function(view_3d = FALSE){
+    plot_pca = function(view_3d = FALSE) {
       
       # verificare che ci sia
       data <- self$imputed_data
@@ -846,7 +968,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_correlation_interactive = function(cor_method = "pearson"){
+    plot_correlation_interactive = function(cor_method = "pearson") {
       
       if(self$is_imp){
         data <- self$imputed_data
@@ -972,7 +1094,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_correlation_static = function(cor_method = "pearson", single_condition = NULL){
+    plot_correlation_static = function(cor_method = "pearson", single_condition = NULL) {
       
       if(self$is_imp){
         data <- self$imputed_data
@@ -995,6 +1117,191 @@ QProMS <- R6Class(
       
       return(p)
       
+    },
+    e_arrange_list = function(list, rows = NULL, cols = NULL, width = "xs", title = NULL) {
+      
+      plots <- list
+      
+      if (is.null(rows)) {
+        rows <- length(plots)
+      }
+      
+      if (is.null(cols)) {
+        cols <- 1
+      }
+      
+      w <- "-xs"
+      if (!isTRUE(getOption("knitr.in.progress"))) {
+        w <- ""
+      }
+      
+      x <- 0
+      tg <- htmltools$tagList()
+      for (i in 1:rows) {
+        r <- htmltools$div(class = "row")
+        
+        for (j in 1:cols) {
+          x <- x + 1
+          cl <- paste0("col", w, "-", 12 / cols)
+          if (x <= length(plots)) {
+            c <- htmltools$div(class = cl, plots[[x]])
+          } else {
+            c <- htmltools$div(class = cl)
+          }
+          r <- htmltools$tagAppendChild(r, c)
+        }
+        tg <- htmltools$tagAppendChild(tg, r)
+      }
+      
+      if (!isTRUE(getOption("knitr.in.progress"))) {
+        htmltools$browsable(
+          htmltools$div(
+            class = "container-fluid",
+            htmltools$tags$head(
+              htmltools$tags$link(
+                rel = "stylesheet",
+                href = "https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css",
+                integrity = "sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO",
+                crossorigin = "anonymous"
+              )
+            ),
+            htmltools$h3(title),
+            tg
+          )
+        )
+      } else {
+        if (!is.null(title)) {
+          htmltools$div(title, tg)
+        } else {
+          tg
+        }
+      }
+    },
+    plot_volcano_single = function(test, highlights_names, text_color, bg_color) {
+      
+      table <- self$stat_table %>% 
+        dplyr$select(gene_names, dplyr$starts_with(test)) %>% 
+        dplyr$rename_at(dplyr$vars(dplyr$matches(test)), ~ stringr$str_remove(., paste0(test, "_")))
+      
+      min_thr <- table %>% 
+        dplyr$filter(significant) %>% 
+        dplyr$pull(p_val) %>% 
+        max()
+      
+      
+      left_line <-
+        tibble(p_val = c(-log10(min_thr),-log10(min_thr), max(-log10(table$p_val))),
+               fold_change = c(min(table$fold_change),-self$fold_change,-self$fold_change))
+      
+      right_line <-
+        tibble(p_val = c(max(-log10(table$p_val)),-log10(min_thr),-log10(min_thr)),
+               fold_change = c(self$fold_change, max(table$fold_change), self$fold_change))
+      
+      p <- table %>%
+        dplyr$mutate(color = dplyr$case_when(fold_change > 0 & significant ~ "#cf4446", 
+                                               fold_change < 0 & significant ~ "#0d0887",
+                                               TRUE ~ "#e9ecef")) %>%
+        dplyr$group_by(color) %>%
+        dplyr$mutate(fold_change = round(fold_change, 2)) %>%
+        dplyr$mutate(p_val = -log10(p_val)) %>%
+        dplyr$mutate(p_val = round(p_val, 3)) %>%
+        echarts4r$e_chart(fold_change, renderer = "svg") %>%
+        echarts4r$e_scatter(p_val, legend = FALSE, bind = gene_names, symbol_size = 5) %>%
+        echarts4r$e_tooltip(
+          formatter = JS(
+            "
+      function(params){
+        return('<strong>' + params.name +
+                '</strong><br />FC: ' + params.value[0] +
+                '<br />p.val: ' + params.value[1])
+                }
+    "
+          )
+        ) %>%
+        echarts4r$e_add_nested("itemStyle", color) %>%
+        echarts4r$e_data(left_line, fold_change) %>%
+        echarts4r$e_line(
+          p_val,
+          legend = FALSE,
+          color = "#440154",
+          symbol = "none",
+          lineStyle = list(type = "dashed", width = .8)
+        ) %>%
+        echarts4r$e_data(right_line, fold_change) %>%
+        echarts4r$e_line(
+          p_val,
+          legend = FALSE,
+          color = "#440154",
+          symbol = "none",
+          lineStyle = list(type = "dashed", width = .8)
+        ) %>%
+        echarts4r$e_toolbox() %>%
+        echarts4r$e_toolbox_feature(feature = "dataZoom") %>%
+        echarts4r$e_toolbox_feature(feature = "saveAsImage") %>%
+        echarts4r$e_title(text = test,
+                           left = "center") %>%
+        echarts4r$e_x_axis(
+          name = "Fold_change",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 15,
+            lineHeight = 50
+          )
+        ) %>%
+        echarts4r$e_y_axis(
+          name = "-log(Pvalue)",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 15,
+            lineHeight = 50
+          )
+        )
+      
+      if (!is.null(highlights_names)) {
+        for (name in highlights_names) {
+          highlights_name <- table %>%
+            dplyr$filter(gene_names == name) %>%
+            dplyr$mutate(p_val = -log10(p_val)) %>%
+            dplyr$select(xAxis = fold_change,
+                          yAxis = p_val,
+                          value = gene_names) %>% as.list()
+          
+          p <- p %>%
+            echarts4r$e_mark_point(
+              data = highlights_name,
+              silent = TRUE,
+              label = list(color = text_color),
+              itemStyle = list(color = bg_color)
+            )
+        }
+      }
+      
+      return(p)
+    },
+    plot_volcano = function(test, highlights_names = NULL, text_color = "#440154", bg_color = "#fde725"){
+      if(length(test)==1){
+        p <- self$plot_volcano_single(
+          test = test, 
+          highlights_names = highlights_names,
+          text_color = text_color, 
+          bg_color = bg_color
+        )
+      }else{
+        volcanos <- map(
+          .x = test,
+          .f = ~ self$plot_volcano_single(
+            test = .x,
+            highlights_names = highlights_names,
+            text_color = text_color, 
+            bg_color = bg_color
+          )
+        )
+        p <- self$e_arrange_list(volcanos, cols = length(volcanos), rows = 1)
+      }
+      
+      return(p)
     }
   )
 )
