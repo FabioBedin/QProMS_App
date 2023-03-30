@@ -226,7 +226,7 @@ server <- function(id, r6) {
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("adjust", verify_fa = FALSE)),
+        icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
         footer = p("Significant", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
