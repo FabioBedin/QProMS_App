@@ -5,6 +5,8 @@ box::use(
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
+  magrittr[`%>%`],
+  dplyr[filter]
 )
 
 #' @export
@@ -138,11 +140,11 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    init("plot", "boxes")
+    init("stat")
     
     output$ui_primary_input <- renderUI({
       
-      watch("boxes")
+      watch("stat")
       
       test <- r6$all_test_combination
       
@@ -162,7 +164,7 @@ server <- function(id, r6) {
     
     output$ui_additiolnal_input <- renderUI({
       
-      watch("boxes")
+      watch("stat")
       
       test <- r6$all_test_combination
       
@@ -184,14 +186,18 @@ server <- function(id, r6) {
     
     output$tested_cond <- renderValueBox({
       
-      watch("boxes")
+      watch("stat")
       
-      value <- str_replace_all(r6$primary_condition, pattern = "_", replacement = " ")
+      if(is.null(r6$stat_table)){
+        value <- "Undefinded"
+      }else{
+        value <- str_replace_all(r6$primary_condition, pattern = "_", replacement = " ")
+      }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("database"),
+        icon = icon("compress"),
         color = "primary",
         footer = p("Primary tested condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -201,14 +207,26 @@ server <- function(id, r6) {
     
     output$significant <- renderValueBox({
       
-      watch("boxes")
+      watch("stat")
       
-      value <- 23
+      sig_tested <- paste0(r6$primary_condition, "_significant")
+      
+      if(is.null(r6$stat_table)){
+        value <- 0
+      }else{
+        sig <- r6$stat_table %>% 
+          filter(!!as.symbol(sig_tested)) %>% 
+          nrow()
+        
+        total <- nrow(r6$stat_table)
+        
+        value <- paste0(sig, " out of ", total)
+      }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("link"),
+        icon = icon("adjust", verify_fa = FALSE)),
         color = "primary",
         footer = p("Significant", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -218,14 +236,29 @@ server <- function(id, r6) {
     
     output$up_reg <- renderValueBox({
       
-      watch("boxes")
+      watch("stat")
       
-      value <- 21
+      sig_tested <- paste0(r6$primary_condition, "_significant")
+      fc_tested <- paste0(r6$primary_condition, "_fold_change")
+      
+      if(is.null(r6$stat_table)){
+        value <- 0
+      }else{
+        sig <- r6$stat_table %>% 
+          filter(!!as.symbol(sig_tested)& !!as.symbol(fc_tested) > 0) %>% 
+          nrow()
+        
+        total <- r6$stat_table %>% 
+          filter(!!as.symbol(sig_tested)) %>% 
+          nrow()
+        
+        value <- paste0(sig, " out of ", total)
+      }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("database"),
+        icon = icon("angle-up"),
         color = "primary",
         footer = p("Up-regulated", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -235,14 +268,29 @@ server <- function(id, r6) {
     
     output$down_reg <- renderValueBox({
       
-      watch("boxes")
+      watch("stat")
       
-      value <- 23
+      sig_tested <- paste0(r6$primary_condition, "_significant")
+      fc_tested <- paste0(r6$primary_condition, "_fold_change")
+      
+      if(is.null(r6$stat_table)){
+        value <- 0
+      }else{
+        sig <- r6$stat_table %>% 
+          filter(!!as.symbol(sig_tested)& !!as.symbol(fc_tested) < 0) %>% 
+          nrow()
+        
+        total <- r6$stat_table %>% 
+          filter(!!as.symbol(sig_tested)) %>% 
+          nrow()
+        
+        value <- paste0(sig, " out of ", total)
+      }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("link"),
+        icon = icon("angle-down"),
         color = "primary",
         footer = p("Down-regulated", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -252,14 +300,18 @@ server <- function(id, r6) {
     
     output$fdr_thr <- renderValueBox({
       
-      watch("boxes")
+      watch("stat")
       
-      value <- r6$univariate_alpha
+      if(is.null(r6$stat_table)){
+        value <- "Undefinded"
+      }else{
+        value <- r6$univariate_alpha
+      }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("database"),
+        icon = icon("crosshairs"),
         color = "primary",
         footer = p("FDR", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -269,14 +321,18 @@ server <- function(id, r6) {
     
     output$fc_thr <- renderValueBox({
       
-      watch("boxes")
+      watch("stat")
       
-      value <- r6$fold_change
+      if(is.null(r6$stat_table)){
+        value <- "Undefinded"
+      }else{
+        value <- r6$fold_change
+      }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("link"),
+        icon = icon("filter"),
         color = "primary",
         footer = p("Fold change", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
@@ -284,18 +340,6 @@ server <- function(id, r6) {
       
     })
     
-    output$volcano_plot <- renderEcharts4r({
-      
-      watch("plot")
-      
-      req(input$primary_input)
-      req(input$run_statistics)
-      
-      tests <- c(r6$primary_condition, r6$additiolnal_condition)
-      
-      r6$plot_volcano(test = tests) 
-      
-    })
     
     observeEvent(input$run_statistics ,{
       
@@ -307,14 +351,14 @@ server <- function(id, r6) {
       
       r6$univariate_test_type <- input$test_input
       r6$univariate_paired <- input$paider_input
-      r6$fold_change <- input$fc_input
-      r6$univariate_alpha <- input$alpha_input
+      r6$fold_change <- as.double(input$fc_input)
+      r6$univariate_alpha <- as.double(input$alpha_input)
       r6$univariate_p_adj_method <- input$truncation_input
       r6$primary_condition <- input$primary_input
       r6$additiolnal_condition <- input$additiolnal_input
       
       tests <- c(r6$primary_condition, r6$additiolnal_condition)
-      
+
       r6$stat_t_test(
         test = tests,
         fc = r6$fold_change,
@@ -324,8 +368,18 @@ server <- function(id, r6) {
         test_type = r6$univariate_test_type
       )
       
-      trigger("plot")
-      trigger("boxes")
+      trigger("stat")
+    })
+    
+    output$volcano_plot <- renderEcharts4r({
+      
+      watch("stat")
+      
+      req(input$run_statistics)
+      
+      tests <- c(r6$primary_condition, r6$additiolnal_condition)
+      
+      r6$plot_volcano(test = tests) 
       
     })
 
