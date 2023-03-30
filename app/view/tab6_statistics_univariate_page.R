@@ -1,12 +1,13 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   echarts4r[echarts4rOutput, renderEcharts4r],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
   magrittr[`%>%`],
-  dplyr[filter]
+  dplyr[filter, select, pull],
+  reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
 )
 
 #' @export
@@ -119,7 +120,8 @@ ui <- function(id) {
             )
           )
         ),
-        echarts4rOutput(ns("volcano_plot"), height = "650")
+        echarts4rOutput(ns("volcano_plot"), height = "650"),
+        uiOutput(ns("volcano_plot_multiple"))
       ),
       box(
         title = "Result table",
@@ -127,9 +129,7 @@ ui <- function(id) {
         width = 4,
         height = 700,
         maximizable = TRUE,
-        # collapsed = TRUE,
-        echarts4rOutput(ns("scatter_plot"), height = "650")
-        # plotOutput(ns("correlation_static_plot"), height = "650")
+        reactableOutput(ns("table"))
       )
     )
   )
@@ -171,8 +171,7 @@ server <- function(id, r6) {
       pickerInput(
         inputId = session$ns("additiolnal_input"),
         label = "Additiolnal contrast",
-        choices = test, 
-        selected = NULL,
+        choices = test,
         multiple = TRUE,
         options = list(
           `live-search` = TRUE, 
@@ -358,6 +357,8 @@ server <- function(id, r6) {
       r6$additiolnal_condition <- input$additiolnal_input
       
       tests <- c(r6$primary_condition, r6$additiolnal_condition)
+      
+      # tests <- c("ev_vs_tc1brq", "tc1brq_vs_tc1d22b")
 
       r6$stat_t_test(
         test = tests,
@@ -371,6 +372,31 @@ server <- function(id, r6) {
       trigger("stat")
     })
     
+    gene_selected <- reactive(getReactableState("table", "selected"))
+    
+    output$volcano_plot_multiple <- renderUI({
+
+      watch("stat")
+
+      req(input$run_statistics)
+
+      tests <- c(r6$primary_condition, r6$additiolnal_condition)
+      
+      if(is.null(r6$stat_table)){
+        highlights <- NULL
+      }else{
+        table <- r6$print_stat_table(stat_table = r6$stat_table, test = r6$primary_condition)
+        highlights <- table[gene_selected(), ] %>% 
+          pull(gene_names)
+      }
+
+      if(length(tests) != 1){
+        # removeUI(selector = "#app-tab6_statistics_univariate_page-volcano_plot")
+        r6$plot_volcano(test = tests, highlights_names = highlights)
+      }
+
+    })
+    
     output$volcano_plot <- renderEcharts4r({
       
       watch("stat")
@@ -379,9 +405,58 @@ server <- function(id, r6) {
       
       tests <- c(r6$primary_condition, r6$additiolnal_condition)
       
-      r6$plot_volcano(test = tests) 
+      if(is.null(r6$stat_table)){
+        highlights <- NULL
+      }else{
+        table <- r6$print_stat_table(stat_table = r6$stat_table, test = r6$primary_condition)
+        highlights <- table[gene_selected(), ] %>% 
+          pull(gene_names)
+      }
+      
+      if(length(tests) == 1){
+        r6$plot_volcano(test = tests, highlights_names = highlights) 
+      }
       
     })
+    
+    output$table <- renderReactable({
+      
+      watch("stat")
+      
+      req(input$run_statistics)
+      
+      table <- r6$print_stat_table(stat_table = r6$stat_table, test = r6$primary_condition)
+      
+      reactable(
+        table,
+        searchable = TRUE,
+        resizable = TRUE,
+        highlight = TRUE,
+        height = "auto",
+        selection = "multiple",
+        onClick = "select",
+        defaultSelected = 1,
+        columns = list(
+          gene_names = colDef(align = "center", name = "Gene names"),
+          p_val = colDef(align = "center", name = "-log(p.value)"),
+          p_adj = colDef(align = "center", name = "-log(p.adj)"),
+          fold_change = colDef(align = "center", name = "Fold change"),
+          significant = colDef(
+            align = "center",
+            name = "Significant",
+            cell = function(value) {
+              if (!value)
+                "\u274c No"
+              else
+                "\u2714\ufe0f Yes"
+            }
+          )
+        )
+      )
+      
+    })
+    
+    
 
   })
 }

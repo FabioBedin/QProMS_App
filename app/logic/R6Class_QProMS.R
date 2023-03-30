@@ -433,6 +433,17 @@ QProMS <- R6Class(
       
       return(table)
     },
+    print_stat_table = function(stat_table, test){
+      
+      table <- stat_table %>% 
+        dplyr$select(gene_names, dplyr$starts_with(test)) %>% 
+        dplyr$rename_at(dplyr$vars(dplyr$matches(test)), ~ stringr$str_remove(., paste0(test, "_"))) %>% 
+        dplyr$arrange(p_val) %>% 
+        dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ -log10(.))) %>% 
+        dplyr$mutate(dplyr$across(c("fold_change", "p_val", "p_adj"), ~ round(., 2)))
+      
+      return(table)
+    },
     tidy_vector = function(data, name) {
       
       tidy_vec <- data %>%
@@ -1118,64 +1129,30 @@ QProMS <- R6Class(
       return(p)
       
     },
-    e_arrange_list = function(list, rows = NULL, cols = NULL, width = "xs", title = NULL) {
+    e_arrange_list = function(list, rows = 1, cols = 1, title = NULL) {
       
       plots <- list
       
-      if (is.null(rows)) {
-        rows <- length(plots)
-      }
-      
-      if (is.null(cols)) {
-        cols <- 1
-      }
-      
-      w <- "-xs"
-      if (!isTRUE(getOption("knitr.in.progress"))) {
-        w <- ""
-      }
-      
       x <- 0
-      tg <- htmltools$tagList()
-      for (i in 1:rows) {
-        r <- htmltools$div(class = "row")
+      tg <- htmltools::tagList()
+      for (i in 1:1) {
+        r <- htmltools::div(style = "display: flex; justify-content: center; gap: 20px")
         
         for (j in 1:cols) {
           x <- x + 1
-          cl <- paste0("col", w, "-", 12 / cols)
+          st <- "width: 100%;"
           if (x <= length(plots)) {
-            c <- htmltools$div(class = cl, plots[[x]])
+            c <- htmltools::div(style = st, plots[[x]])
           } else {
-            c <- htmltools$div(class = cl)
+            c <- htmltools::div(style = st)
           }
-          r <- htmltools$tagAppendChild(r, c)
+          r <- htmltools::tagAppendChild(r, c)
         }
-        tg <- htmltools$tagAppendChild(tg, r)
+        tg <- htmltools::tagAppendChild(tg, r)
       }
       
-      if (!isTRUE(getOption("knitr.in.progress"))) {
-        htmltools$browsable(
-          htmltools$div(
-            class = "container-fluid",
-            htmltools$tags$head(
-              htmltools$tags$link(
-                rel = "stylesheet",
-                href = "https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css",
-                integrity = "sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO",
-                crossorigin = "anonymous"
-              )
-            ),
-            htmltools$h3(title),
-            tg
-          )
-        )
-      } else {
-        if (!is.null(title)) {
-          htmltools$div(title, tg)
-        } else {
-          tg
-        }
-      }
+      tg
+      
     },
     plot_volcano_single = function(test, highlights_names, text_color, bg_color) {
       
@@ -1207,7 +1184,7 @@ QProMS <- R6Class(
         dplyr$mutate(fold_change = round(fold_change, 2)) %>%
         dplyr$mutate(p_val = -log10(p_val)) %>%
         dplyr$mutate(p_val = round(p_val, 3)) %>%
-        echarts4r$e_chart(fold_change, renderer = "svg") %>%
+        echarts4r$e_chart(fold_change, renderer = "svg", dispose = FALSE) %>%
         echarts4r$e_scatter(p_val, legend = FALSE, bind = gene_names, symbol_size = 5) %>%
         echarts4r$e_x_axis(min = -max_plot, max = max_plot) %>%
         echarts4r$e_tooltip(
@@ -1259,6 +1236,8 @@ QProMS <- R6Class(
             lineHeight = 50
           )
         ) %>% 
+        echarts4r$e_title(text = test, left = "center") %>%
+        echarts4r$e_group("grp") %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       if (!is.null(highlights_names)) {
@@ -1301,6 +1280,7 @@ QProMS <- R6Class(
           )
         )
         p <- self$e_arrange_list(volcanos, cols = length(volcanos), rows = 1)
+        # p <- echarts4r$e_arrange(volcanos[[1]], volcanos[[2]] %>% echarts4r$e_connect_group("grp"), cols = 2, rows = 1)
       }
       
       return(p)
