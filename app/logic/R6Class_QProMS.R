@@ -5,7 +5,7 @@ box::use(
   tibble[tibble, as_tibble, column_to_rownames, rownames_to_column],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test],
   htmltools,
   dplyr,
   tidyr,
@@ -61,7 +61,7 @@ QProMS <- R6Class(
     # parameters For Statistics #
     all_test_combination = NULL, 
     primary_condition = NULL,
-    additiolnal_condition = NULL,
+    additional_condition = NULL,
     univariate = NULL,
     univariate_test_type = NULL,
     univariate_paired = NULL,
@@ -438,7 +438,7 @@ QProMS <- R6Class(
       table <- stat_table %>% 
         dplyr$select(gene_names, dplyr$starts_with(test)) %>% 
         dplyr$rename_at(dplyr$vars(dplyr$matches(test)), ~ stringr$str_remove(., paste0(test, "_"))) %>% 
-        dplyr$arrange(p_val) %>% 
+        dplyr$arrange(-fold_change, p_val, -significant) %>% 
         dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ -log10(.))) %>% 
         dplyr$mutate(dplyr$across(c("fold_change", "p_val", "p_adj"), ~ round(., 2)))
       
@@ -480,7 +480,12 @@ QProMS <- R6Class(
       a <- grep(cond_1, colnames(mat))
       b <- grep(cond_2, colnames(mat))
       
-      p_values_vec <- apply(mat, 1, function(x) t.test(x[a], x[b], paired = paired_test, var.equal = var_equal)$p.value)
+      if(test_type == "wilcox"){
+        p_values_vec <- apply(mat, 1, function(x) wilcox.test(x[a], x[b], paired = paired_test)$p.value)
+      }else{
+        p_values_vec <- apply(mat, 1, function(x) t.test(x[a], x[b], paired = paired_test, var.equal = var_equal)$p.value)
+      }
+      
       
       p_values <- p_values_vec %>%
         self$tidy_vector(name = "p_val")
@@ -559,6 +564,40 @@ QProMS <- R6Class(
       self$stat_table <- complete_stat_table
       
     },
+    e_arrange_list = function(list) {
+      
+      plots <- list
+      
+      total <- length(plots)
+      rows <- floor((total/3)+1)
+      
+      if(total <= 3){
+        cols <- total
+      }else{
+        cols <- 3
+      }
+      
+      x <- 0
+      tg <- htmltools$tagList()
+      for (i in 1:rows) {
+        r <- htmltools$div(style = "display: flex; justify-content: center; gap: 20px")
+        
+        for (j in 1:cols) {
+          x <- x + 1
+          st <- "width: 100%;"
+          if (x <= length(plots)) {
+            c <- htmltools$div(style = st, plots[[x]])
+          } else {
+            c <- htmltools$div(style = st)
+          }
+          r <- htmltools$tagAppendChild(r, c)
+        }
+        tg <- htmltools$tagAppendChild(tg, r)
+      }
+      
+      tg
+      
+    },
     plot_protein_counts = function() {
       
       # controllare che ci sia il self$filtered_data
@@ -573,7 +612,7 @@ QProMS <- R6Class(
         dplyr$mutate(replicate = as.factor(replicate)) %>%
         dplyr$group_by(condition) %>%
         echarts4r$e_charts(replicate, renderer = "svg") %>%
-        echarts4r$e_bar(counts) %>%
+        echarts4r$e_bar(counts, emphasis = list(focus = "series")) %>%
         echarts4r$e_x_axis(name = "Replicates") %>%
         echarts4r$e_y_axis(name = "Counts") %>%
         echarts4r$e_tooltip(trigger = "item") %>%
@@ -759,6 +798,7 @@ QProMS <- R6Class(
       }
       
       color <- viridis(n = 2 , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+      br <- pretty(10:40, n = 100)
       
       p <- data %>%
         dplyr$group_by(gene_names) %>%
@@ -769,7 +809,7 @@ QProMS <- R6Class(
         dplyr$mutate(missing_value = factor(missing_value, levels = c("Valid", "Missing"))) %>%
         dplyr$group_by(missing_value) %>%
         echarts4r$e_charts(renderer = "svg") %>%
-        echarts4r$e_histogram(mean) %>%
+        echarts4r$e_histogram(mean, breaks = br) %>%
         echarts4r$e_x_axis(min = 10, max = 40) %>% 
         echarts4r$e_y_axis(
           name = "Counts",
@@ -1129,31 +1169,6 @@ QProMS <- R6Class(
       return(p)
       
     },
-    e_arrange_list = function(list, rows = 1, cols = 1, title = NULL) {
-      
-      plots <- list
-      
-      x <- 0
-      tg <- htmltools::tagList()
-      for (i in 1:1) {
-        r <- htmltools::div(style = "display: flex; justify-content: center; gap: 20px")
-        
-        for (j in 1:cols) {
-          x <- x + 1
-          st <- "width: 100%;"
-          if (x <= length(plots)) {
-            c <- htmltools::div(style = st, plots[[x]])
-          } else {
-            c <- htmltools::div(style = st)
-          }
-          r <- htmltools::tagAppendChild(r, c)
-        }
-        tg <- htmltools::tagAppendChild(tg, r)
-      }
-      
-      tg
-      
-    },
     plot_volcano_single = function(test, highlights_names, text_color, bg_color) {
       
       table <- self$stat_table %>% 
@@ -1164,9 +1179,6 @@ QProMS <- R6Class(
         dplyr$filter(significant) %>% 
         dplyr$pull(p_val) %>% 
         max()
-      
-      max_plot <- round(max(abs(table$fold_change), na.rm = TRUE) + 1, 0)
-      
       
       left_line <-
         tibble(p_val = c(-log10(min_thr),-log10(min_thr), max(-log10(table$p_val))),
@@ -1184,9 +1196,8 @@ QProMS <- R6Class(
         dplyr$mutate(fold_change = round(fold_change, 2)) %>%
         dplyr$mutate(p_val = -log10(p_val)) %>%
         dplyr$mutate(p_val = round(p_val, 3)) %>%
-        echarts4r$e_chart(fold_change, renderer = "svg", dispose = FALSE) %>%
+        echarts4r$e_chart(fold_change, renderer = "svg", dispose = TRUE, height = "650px") %>%
         echarts4r$e_scatter(p_val, legend = FALSE, bind = gene_names, symbol_size = 5) %>%
-        echarts4r$e_x_axis(min = -max_plot, max = max_plot) %>%
         echarts4r$e_tooltip(
           formatter = JS(
             "
@@ -1252,36 +1263,29 @@ QProMS <- R6Class(
           p <- p %>%
             echarts4r$e_mark_point(
               data = highlights_name,
+              symbol = "pin",
+              symbolSize = 50,
               silent = TRUE,
-              label = list(color = text_color),
-              itemStyle = list(color = bg_color)
+              label = list(color = text_color, fontWeight = "normal", fontSize = 16),
+              itemStyle = list(color = bg_color,  borderColor = bg_color, borderWidth = 0.2)
             )
         }
       }
       
       return(p)
     },
-    plot_volcano = function(test, highlights_names = NULL, text_color = "#440154", bg_color = "#fde725"){
-      if(length(test)==1){
-        p <- self$plot_volcano_single(
-          test = test, 
+    plot_volcano = function(test, highlights_names = NULL, text_color = "#440154", bg_color = "#fde72533") {
+      
+      volcanos <- map(
+        .x = test,
+        .f = ~ self$plot_volcano_single(
+          test = .x,
           highlights_names = highlights_names,
           text_color = text_color, 
           bg_color = bg_color
         )
-      }else{
-        volcanos <- map(
-          .x = test,
-          .f = ~ self$plot_volcano_single(
-            test = .x,
-            highlights_names = highlights_names,
-            text_color = text_color, 
-            bg_color = bg_color
-          )
-        )
-        p <- self$e_arrange_list(volcanos, cols = length(volcanos), rows = 1)
-        # p <- echarts4r$e_arrange(volcanos[[1]], volcanos[[2]] %>% echarts4r$e_connect_group("grp"), cols = 2, rows = 1)
-      }
+      )
+      p <- self$e_arrange_list(volcanos)
       
       return(p)
     }

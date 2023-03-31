@@ -6,6 +6,7 @@ box::use(
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
   magrittr[`%>%`],
+  htmlwidgets[JS],
   dplyr[filter, select, pull],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
 )
@@ -44,8 +45,8 @@ ui <- function(id) {
                 selectInput(
                   inputId = ns("test_input"),
                   label = NULL,
-                  choices = c("Student's T-test" = "student", "Welch's T-test" = "welch"),
-                  selected = "student"
+                  choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
+                  selected = "welch"
                 )
               ),
               div(
@@ -106,7 +107,7 @@ ui <- function(id) {
               ),
               div(
                 style = "width: 100%;",
-                uiOutput(ns("ui_additiolnal_input"))
+                uiOutput(ns("ui_additional_input"))
               )
             ),
             br(),
@@ -120,7 +121,7 @@ ui <- function(id) {
             )
           )
         ),
-        echarts4rOutput(ns("volcano_plot"), height = "650"),
+        # echarts4rOutput(ns("volcano_plot"), height = "650"),
         uiOutput(ns("volcano_plot_multiple"))
       ),
       box(
@@ -162,15 +163,15 @@ server <- function(id, r6) {
       
     })
     
-    output$ui_additiolnal_input <- renderUI({
+    output$ui_additional_input <- renderUI({
       
       watch("stat")
       
       test <- r6$all_test_combination
       
       pickerInput(
-        inputId = session$ns("additiolnal_input"),
-        label = "Additiolnal contrast",
+        inputId = session$ns("additional_input"),
+        label = "Additional contrast",
         choices = test,
         multiple = TRUE,
         options = list(
@@ -198,7 +199,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("compress"),
         color = "primary",
-        footer = p("Primary tested condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Primary condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -227,7 +228,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("Significant", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant in primary condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -259,7 +260,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("angle-up"),
         color = "primary",
-        footer = p("Up-regulated", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Up-regulated in primary condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -291,7 +292,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("angle-down"),
         color = "primary",
-        footer = p("Down-regulated", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Down-regulated in primary condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -354,9 +355,9 @@ server <- function(id, r6) {
       r6$univariate_alpha <- as.double(input$alpha_input)
       r6$univariate_p_adj_method <- input$truncation_input
       r6$primary_condition <- input$primary_input
-      r6$additiolnal_condition <- input$additiolnal_input
+      r6$additional_condition <- input$additional_input
       
-      tests <- c(r6$primary_condition, r6$additiolnal_condition)
+      tests <- c(r6$primary_condition, r6$additional_condition)
       
       # tests <- c("ev_vs_tc1brq", "tc1brq_vs_tc1d22b")
 
@@ -380,7 +381,7 @@ server <- function(id, r6) {
 
       req(input$run_statistics)
 
-      tests <- c(r6$primary_condition, r6$additiolnal_condition)
+      tests <- c(r6$primary_condition, r6$additional_condition)
       
       if(is.null(r6$stat_table)){
         highlights <- NULL
@@ -389,34 +390,9 @@ server <- function(id, r6) {
         highlights <- table[gene_selected(), ] %>% 
           pull(gene_names)
       }
-
-      if(length(tests) != 1){
-        # removeUI(selector = "#app-tab6_statistics_univariate_page-volcano_plot")
+      
         r6$plot_volcano(test = tests, highlights_names = highlights)
-      }
 
-    })
-    
-    output$volcano_plot <- renderEcharts4r({
-      
-      watch("stat")
-      
-      req(input$run_statistics)
-      
-      tests <- c(r6$primary_condition, r6$additiolnal_condition)
-      
-      if(is.null(r6$stat_table)){
-        highlights <- NULL
-      }else{
-        table <- r6$print_stat_table(stat_table = r6$stat_table, test = r6$primary_condition)
-        highlights <- table[gene_selected(), ] %>% 
-          pull(gene_names)
-      }
-      
-      if(length(tests) == 1){
-        r6$plot_volcano(test = tests, highlights_names = highlights) 
-      }
-      
     })
     
     output$table <- renderReactable({
@@ -440,7 +416,22 @@ server <- function(id, r6) {
           gene_names = colDef(align = "center", name = "Gene names"),
           p_val = colDef(align = "center", name = "-log(p.value)"),
           p_adj = colDef(align = "center", name = "-log(p.adj)"),
-          fold_change = colDef(align = "center", name = "Fold change"),
+          fold_change = colDef(
+            align = "center",
+            name = "Fold change",
+            style = JS("function(rowInfo) {
+              const value = rowInfo.values['fold_change']
+              let color
+              if (value > 0) {
+                color = '#cf4446'
+              } else if (value < 0) {
+                color = '#0d0887'
+              } else {
+                color = '#777'
+              }
+              return { color: color, fontWeight: 'bold' }
+            }")
+            ),
           significant = colDef(
             align = "center",
             name = "Significant",
