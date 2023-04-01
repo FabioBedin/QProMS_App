@@ -154,7 +154,23 @@ server <- function(id) {
       output$pca <- renderMenu({ menuItem("PCA", icon = icon("slack"), tabName = "pca") })
       removeUI(selector = "#app-pca_blocked")
 
-      output$statistics <- renderMenu({ menuItem("Statistics", icon = icon("circle-half-stroke"), tabName = "statistics") })
+      output$statistics <- renderMenu({
+        menuItem(
+          "Statistics",
+          icon = icon("circle-half-stroke"),
+          # tabName = "statistics",
+          menuSubItem(
+            text = "Univariate",
+            tabName = "statistics",
+            icon = icon("cube")
+          ),
+          menuSubItem(
+            text = "Multivariate",
+            tabName = "statistics_mv",
+            icon = icon("cubes")
+          )
+        )
+      })
       removeUI(selector = "#app-statistics_blocked")
 
       output$function_analysis <- renderMenu({ menuItem("Function Analysis", icon = icon("chart-column"), tabName = "function_analysis") })
