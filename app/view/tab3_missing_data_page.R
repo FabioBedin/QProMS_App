@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div, observeEvent, req, h4, p],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div, observeEvent, req, h4, p, uiOutput, renderUI],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel],
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger],
@@ -88,6 +88,18 @@ ui <- function(id) {
           )
         ),
         echarts4rOutput(ns("post_imputation_plot"), height = "450")
+      )
+    ),
+    fluidRow(
+      box(
+        title = "Distribution for each sample",
+        status = "primary",
+        width = 12,
+        maximizable = TRUE,
+        collapsible = TRUE,
+        collapsed = TRUE,
+        label = boxLabel("Take time!", "warning", "Time consuming operation"),
+        uiOutput(ns("multiple_distribution"))
       )
     ),
     fluidRow(
@@ -253,6 +265,14 @@ server <- function(id, r6) {
       }
       
       r6$print_table(data)
+      
+    })
+    
+    output$multiple_distribution <- renderUI({
+      
+      watch("plot")
+      
+      r6$plot_multiple_distribution()
       
     })
     

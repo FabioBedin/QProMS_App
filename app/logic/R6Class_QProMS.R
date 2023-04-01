@@ -6,11 +6,12 @@ box::use(
   viridis[viridis],
   magrittr[`%>%`],
   stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test],
+  utils[combn],
   htmltools,
   dplyr,
   tidyr,
   stringr,
-  purrr[map, reduce],
+  purrr[map, map2, reduce],
   reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
@@ -564,17 +565,17 @@ QProMS <- R6Class(
       self$stat_table <- complete_stat_table
       
     },
-    e_arrange_list = function(list) {
+    e_arrange_list = function(list, max_cols = 3) {
       
       plots <- list
       
       total <- length(plots)
-      rows <- floor((total/3)+1)
+      rows <- floor((total/max_cols)+1)
       
-      if(total <= 3){
+      if(total <= max_cols){
         cols <- total
       }else{
-        cols <- 3
+        cols <- max_cols
       }
       
       x <- 0
@@ -904,6 +905,58 @@ QProMS <- R6Class(
       
       return(p)
     },
+    plot_multiple_distribution_single = function(label_list) {
+      br <- pretty(10:40, n = 100)
+      color <- viridis(n = 2 , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+      
+      p <- self$imputed_data %>%
+        dplyr$filter(label == label_list) %>%
+        dplyr$mutate(missing_value = dplyr$if_else(imputed, "Imputed", "Valid")) %>%
+        dplyr$mutate(missing_value = factor(missing_value, levels = c("Valid", "Imputed"))) %>% 
+        dplyr$group_by(missing_value) %>% 
+        echarts4r$e_charts(renderer = "svg") %>%
+        echarts4r$e_histogram(intensity, breaks = br) %>%
+        echarts4r$e_x_axis(min = 10, max = 40) %>%
+        echarts4r$e_title(text = label_list) %>%
+        echarts4r$e_y_axis(
+          name = "Counts",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_x_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_color(color) %>%
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      
+      return(p)
+    },
+    plot_multiple_distribution = function() {
+      
+      list <- self$expdesign %>% dplyr$pull(label)
+      
+      all_hist <- map(
+        .x = list,
+        .f = ~ self$plot_multiple_distribution_single(label_list = .x)
+      )
+      
+      cols <- max(self$expdesign %>% dplyr$distinct(replicate) %>% nrow())
+      
+      p <- self$e_arrange_list(all_hist, max_cols = cols)
+      
+      return(p)
+    },
     plot_pca = function(view_3d = FALSE) {
       
       # verificare che ci sia
@@ -1144,6 +1197,27 @@ QProMS <- R6Class(
       }
       
       return(p)
+    },
+    plot_multi_scatter = function() {
+      
+      list <- self$expdesign %>% dplyr$pull(label)
+      
+      list2 <- t(combn(list,2))
+      colnames(list2) <- c("x", "y")
+      list2 <- as_tibble(list2)
+      
+      all_scatter <- map2(
+        .x = list2$x,
+        .y = list2$y,
+        .f = ~ self$plot_correlation_scatter(x = .x, y = .y, value = NULL)
+      )
+      
+      cols <- floor(length(all_scatter)/10)
+      
+      p <- self$e_arrange_list(all_scatter, max_cols = cols)
+      
+      return(p)
+      
     },
     plot_correlation_static = function(cor_method = "pearson", single_condition = NULL) {
       

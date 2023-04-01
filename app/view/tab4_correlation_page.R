@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel],
   echarts4r[echarts4rOutput, renderEcharts4r],
   shinyWidgets[actionBttn],
   stringr[str_to_title],
@@ -53,9 +53,20 @@ ui <- function(id) {
         width = 6,
         height = 700,
         maximizable = TRUE,
-        # collapsed = TRUE,
         echarts4rOutput(ns("scatter_plot"), height = "650")
         # plotOutput(ns("correlation_static_plot"), height = "650")
+      )
+    ),
+    fluidRow(
+      box(
+        title = "Multi scatter plot",
+        status = "primary",
+        width = 12,
+        maximizable = TRUE,
+        collapsible = TRUE,
+        collapsed = TRUE,
+        label = boxLabel("Take time!", "warning", "Time consuming operation"),
+        uiOutput(ns("multi_scatter"))
       )
     )
   )
@@ -149,6 +160,14 @@ server <- function(id, r6) {
       
       trigger("plot")
       trigger("boxes")
+      
+    })
+    
+    output$multi_scatter <- renderUI({
+      
+      watch("plot")
+      
+      r6$plot_multi_scatter()
       
     })
     
