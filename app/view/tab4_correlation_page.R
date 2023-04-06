@@ -1,9 +1,11 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn],
+  shinyWidgets[actionBttn, pickerInput],
   stringr[str_to_title],
+  # waiter[Waiter, spin_5],
+  dplyr[`%>%`, select, distinct, pull],
   gargoyle[init, watch, trigger],
 )
 
@@ -60,12 +62,14 @@ ui <- function(id) {
     fluidRow(
       box(
         title = "Multi scatter plot",
+        id = ns("multi"),
         status = "primary",
         width = 12,
         maximizable = TRUE,
         collapsible = TRUE,
         collapsed = TRUE,
         label = boxLabel("Take time!", "warning", "Time consuming operation"),
+        uiOutput(ns("ui_primary_input")),
         uiOutput(ns("multi_scatter"))
       )
     )
@@ -78,6 +82,28 @@ server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
     init("plot", "boxes")
+    
+    # w <- Waiter$new(id = "multi")
+    
+    output$ui_primary_input <- renderUI({
+      
+      test <- r6$expdesign %>% 
+        select(condition) %>% 
+        distinct() %>% 
+        pull()
+      
+      test <- c(test, "all")
+      
+      pickerInput(
+        inputId = session$ns("primary_input"),
+        label = "Select condition",
+        choices = test, 
+        multiple = FALSE,
+        options = list(size = 5)
+      )
+      
+      
+    })
     
     output$n_samples <- renderValueBox({
       
@@ -163,13 +189,38 @@ server <- function(id, r6) {
       
     })
     
-    output$multi_scatter <- renderUI({
+    # output$multi_scatter <- renderUI({
+    #   
+    #   req(input$primary_input)
+    #   
+    #   w$show()
+    #   
+    #   r6$plot_multi_scatter(isolate({input$primary_input}))
+    #   
+    #   w$hide()
+    #   
+    # }) 
+    
+  
+    observeEvent(input$primary_input, {
       
-      watch("plot")
+      # w$show()
       
-      r6$plot_multi_scatter()
+      output$multi_scatter <- renderUI({
+        
+        req(input$primary_input)
+        
+        r6$plot_multi_scatter(isolate({input$primary_input}))
+        
+      })
       
+      # w$hide()
+
     })
+    
+    
+    
+    
     
   })
 }

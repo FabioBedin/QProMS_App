@@ -1156,8 +1156,8 @@ QProMS <- R6Class(
               lineHeight = 60
             )
           ) %>%
-          echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
-          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+          echarts4r$e_toolbox_feature(feature = "saveAsImage")
+          # echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }else{
         p <- data_scatter %>%
           echarts4r$e_charts(x, dispose = FALSE) %>%
@@ -1192,15 +1192,21 @@ QProMS <- R6Class(
             )
           ) %>%
           echarts4r$e_title(paste0("correlation: ", value), left = "center") %>%  
-          echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
-          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+          echarts4r$e_toolbox_feature(feature = "saveAsImage") 
+          # echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }
       
       return(p)
     },
-    plot_multi_scatter = function() {
+    plot_multi_scatter = function(selected_cond) {
       
-      list <- self$expdesign %>% dplyr$pull(label)
+      if(selected_cond == "all"){
+        list <- self$expdesign %>% dplyr$pull(label)
+      }else{
+        list <- self$expdesign %>% dplyr$filter(condition == selected_cond) %>%  dplyr$pull(label)
+      }
+      
+      
       
       list2 <- t(combn(list,2))
       colnames(list2) <- c("x", "y")
@@ -1213,6 +1219,10 @@ QProMS <- R6Class(
       )
       
       cols <- floor(length(all_scatter)/10)
+      
+      if(cols<3){
+        cols <- 3
+      }
       
       p <- self$e_arrange_list(all_scatter, max_cols = cols)
       
