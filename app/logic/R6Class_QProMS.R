@@ -2,16 +2,16 @@ box::use(
   R6[R6Class],
   data.table[fread],
   janitor[make_clean_names, get_dupes],
-  tibble[tibble, as_tibble, column_to_rownames, rownames_to_column],
+  tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov],
   utils[combn],
   htmltools,
   dplyr,
   tidyr,
   stringr,
-  purrr[map, map2, reduce],
+  purrr[map, map2, reduce, map_dbl],
   reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
@@ -71,7 +71,7 @@ QProMS <- R6Class(
     univariate_p_adj_method = "BH",
     fold_change = 1,
     anova_table = NULL,
-    cluster_table = NULL,
+    anova_sig_matrix = NULL,
     anova_alpha = 0.05,
     anova_p_adj_method = "BH",
     clusters_def = NULL,
@@ -445,7 +445,7 @@ QProMS <- R6Class(
       
       return(table)
     },
-    tidy_vector = function(data, name) {
+    stat_tidy_vector = function(data, name) {
       
       tidy_vec <- data %>%
         as_tibble(rownames = NA) %>%
@@ -454,7 +454,7 @@ QProMS <- R6Class(
       
       return(tidy_vec)
     },
-    stat_t_test_single = function(data, test, fc, alpha, p_adj_method, paired_test, test_type){
+    stat_t_test_single = function(data, test, fc, alpha, p_adj_method, paired_test, test_type) {
       
       cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
       cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
@@ -489,13 +489,13 @@ QProMS <- R6Class(
       
       
       p_values <- p_values_vec %>%
-        self$tidy_vector(name = "p_val")
+        self$stat_tidy_vector(name = "p_val")
       
       fold_change <- apply(mat, 1, function(x) mean(x[a]) - mean(x[b])) %>% 
-        self$tidy_vector(name = "fold_change")
+        self$stat_tidy_vector(name = "fold_change")
       
       p_ajusted <- p.adjust(p_values_vec, method = p_adj_method) %>% 
-        self$tidy_vector(name = "p_adj")
+        self$stat_tidy_vector(name = "p_adj")
       
       stat_data <- fold_change %>% 
         dplyr$full_join(., p_values, by = "gene_names") %>% 
@@ -564,6 +564,55 @@ QProMS <- R6Class(
       
       self$stat_table <- complete_stat_table
       
+    },
+    stat_anova = function(alpha = 0.05, p_adj_method = "BH") {
+      
+      if(!self$is_norm & !self$is_imp){
+        data <- self$filtered_data
+      }else if(self$is_norm & !self$is_imp){
+        data <- self$normalized_data
+      }else{
+        data <- self$imputed_data
+      }
+      
+      data <- data %>% 
+        dplyr$group_by(gene_names) %>%
+        dplyr$filter(!any(is.na(intensity))) %>%
+        dplyr$ungroup()
+      
+      self$univariate <- FALSE # questo forse non servirà più
+      
+      p_values_vec <- data %>%
+        split(.$gene_names) %>%
+        map_dbl(~ summary(aov(intensity ~ condition, .x))[[1]][["Pr(>F)"]][[1]]) %>%
+        data.frame() %>%
+        rownames_to_column(var = "gene_names") %>%
+        deframe()
+      
+      p_values <- p_values_vec %>%
+        self$stat_tidy_vector(name = "p_val")
+      
+      p_ajusted <- p.adjust(p_values_vec, method = p_adj_method) %>% 
+        self$stat_tidy_vector(name = "p_adj")
+      
+      stat_data <- data %>% 
+        tidyr$pivot_wider(id_cols = "gene_names", names_from = "label", values_from = "intensity") %>% 
+        dplyr$full_join(p_values, by = "gene_names") %>% 
+        dplyr$full_join(p_ajusted, by = "gene_names") %>% 
+        dplyr$mutate(significant = dplyr$if_else(p_adj <= alpha, TRUE, FALSE)) %>% 
+        dplyr$mutate(cluster = NA)
+      
+      mat <- stat_data %>% 
+        dplyr$filter(significant) %>% 
+        dplyr$select(-c(p_val, p_adj, significant, cluster)) %>% 
+        column_to_rownames("gene_names") %>% 
+        as.matrix() 
+      
+      mat_scaled = t(apply(mat, 1, scale))
+      colnames(mat_scaled) <- colnames(mat)
+      
+      self$anova_table <- stat_data
+      self$anova_sig_matrix <- mat_scaled
     },
     e_arrange_list = function(list, max_cols = 3) {
       
@@ -1157,7 +1206,6 @@ QProMS <- R6Class(
             )
           ) %>%
           echarts4r$e_toolbox_feature(feature = "saveAsImage")
-          # echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }else{
         p <- data_scatter %>%
           echarts4r$e_charts(x, dispose = FALSE) %>%
@@ -1193,7 +1241,6 @@ QProMS <- R6Class(
           ) %>%
           echarts4r$e_title(paste0("correlation: ", value), left = "center") %>%  
           echarts4r$e_toolbox_feature(feature = "saveAsImage") 
-          # echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }
       
       return(p)

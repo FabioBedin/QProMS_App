@@ -1,7 +1,7 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel],
-  echarts4r[echarts4rOutput, renderEcharts4r],
+  echarts4r[echarts4rOutput, renderEcharts4r, e_show_loading],
   shinyWidgets[actionBttn, pickerInput],
   stringr[str_to_title],
   # waiter[Waiter, spin_5],
@@ -174,7 +174,8 @@ server <- function(id, r6) {
         y_scatter(r6$expdesign$label[2])
       }
       
-      r6$plot_correlation_scatter(x = x_scatter(), y = y_scatter(), value = corr_value())
+      r6$plot_correlation_scatter(x = x_scatter(), y = y_scatter(), value = corr_value()) %>% 
+        e_show_loading(text = "Loading...", color = "#35608D")
       
     })
     
