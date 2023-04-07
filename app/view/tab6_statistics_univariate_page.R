@@ -16,7 +16,7 @@ ui <- function(id) {
   ns <- NS(id)
   
   tabItem(
-    tabName = "statistics",
+    tabName = "statistics_uni",
     fluidRow(
       valueBoxOutput(ns("tested_cond"), width = 2),
       valueBoxOutput(ns("significant"), width = 2),
@@ -121,7 +121,6 @@ ui <- function(id) {
             )
           )
         ),
-        # echarts4rOutput(ns("volcano_plot"), height = "650"),
         uiOutput(ns("volcano_plot_multiple"))
       ),
       box(
@@ -358,8 +357,6 @@ server <- function(id, r6) {
       r6$additional_condition <- input$additional_input
       
       tests <- c(r6$primary_condition, r6$additional_condition)
-      
-      # tests <- c("ev_vs_tc1brq", "tc1brq_vs_tc1d22b")
 
       r6$stat_t_test(
         test = tests,

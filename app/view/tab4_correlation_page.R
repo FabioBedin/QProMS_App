@@ -97,6 +97,7 @@ server <- function(id, r6) {
       pickerInput(
         inputId = session$ns("primary_input"),
         label = "Select condition",
+        selected = NULL,
         choices = test, 
         multiple = FALSE,
         options = list(size = 5)

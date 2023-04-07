@@ -12,6 +12,7 @@ box::use(
   app/view/tab4_correlation_page,
   app/view/tab5_pca_page,
   app/view/tab6_statistics_univariate_page,
+  app/view/tab7_statistics_multivariate_page,
 )
 
 box::use(
@@ -112,7 +113,8 @@ ui <- function(id) {
         tab3_missing_data_page$ui(ns("tab3_missing_data_page")),
         tab4_correlation_page$ui(ns("tab4_correlation_page")),
         tab5_pca_page$ui(ns("tab5_pca_page")),
-        tab6_statistics_univariate_page$ui(ns("tab6_statistics_univariate_page"))
+        tab6_statistics_univariate_page$ui(ns("tab6_statistics_univariate_page")),
+        tab7_statistics_multivariate_page$ui(ns("tab7_statistics_multivariate_page"))
       )
     )
   )
@@ -138,6 +140,7 @@ server <- function(id) {
     tab4_correlation_page$server("tab4_correlation_page", r6 = object)
     tab5_pca_page$server("tab5_pca_page", r6 = object)
     tab6_statistics_univariate_page$server("tab6_statistics_univariate_page", r6 = object)
+    tab7_statistics_multivariate_page$server("tab7_statistics_multivariate_page", r6 = object)
     
     
     observeEvent(unlock_pages(), {
@@ -161,12 +164,12 @@ server <- function(id) {
           # tabName = "statistics",
           menuSubItem(
             text = "Univariate",
-            tabName = "statistics",
+            tabName = "statistics_uni",
             icon = icon("cube")
           ),
           menuSubItem(
             text = "Multivariate",
-            tabName = "statistics_mv",
+            tabName = "statistics_multi",
             icon = icon("cubes")
           )
         )
