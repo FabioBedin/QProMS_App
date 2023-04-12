@@ -1,9 +1,11 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, observeEvent, req],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
-  InteractiveComplexHeatmap[originalHeatmapOutput, subHeatmapOutput, makeInteractiveComplexHeatmap, HeatmapInfoOutput, InteractiveComplexHeatmapOutput],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
-  ComplexHeatmap[draw]
+  dplyr[filter, `%>%`],
+  plotly[renderPlotly, plotlyOutput],
+  gargoyle[init, watch, trigger],
+  waiter[Waiter, spin_5, Waitress],
 )
 
 #' @export
@@ -66,8 +68,15 @@ ui <- function(id) {
                   style = "width: 100%;",
                   selectInput(
                     inputId = ns("clust_distance"),
-                    label = "Clustering distance",
-                    choices = c("Euclidean" = "euclidean", "Pearson" = "pearson", "Kendall" = "kendall", "Spearman" = "spearman"),
+                    label = "Distance method",
+                    choices = c(
+                      "Euclidean" = "euclidean",
+                      "Maximum" = "maximum",
+                      "Manhattan" = "manhattan",
+                      "Canberra" = "canberra",
+                      "Binary" = "binary",
+                      "Minkowski" = "minkowski"
+                    ), 
                     selected = "euclidean"
                   )
                 ),
@@ -102,6 +111,15 @@ ui <- function(id) {
                     value = FALSE,
                     shape = "curve"
                   )
+                ), 
+                div(
+                  style = "width: 100%; flex: 1 1 0; text-align: center;",
+                  prettyCheckbox(
+                    inputId = ns("show_name"),
+                    label = "Row names", 
+                    value = FALSE,
+                    shape = "curve"
+                  )
                 )
               ),
               br(),
@@ -115,29 +133,28 @@ ui <- function(id) {
               )
             )
           ),
-          # InteractiveComplexHeatmapOutput()
-          originalHeatmapOutput(heatmap_id = ns("heatmap_out"), height = 800, containment = TRUE, title = NULL)
+          plotlyOutput(ns("heatmap"), height = "900px")
         )
       ), 
       column(5,
         fluidRow(
           box(
-            title = "Sub-heatmap",
+            title = "Result table",
             status = "primary",
             width = 12,
             height = 466,
-            maximizable = TRUE,
-            subHeatmapOutput(heatmap_id = ns("heatmap_out"), containment = TRUE, title = NULL)
+            maximizable = TRUE
+            # subHeatmapOutput(heatmap_id = ns("heatmap_out"), containment = TRUE, title = NULL)
           )
         ),
         fluidRow(
           box(
-            title = "Table",
+            title = "Profile plot",
             status = "primary",
             width = 12,
             height = 466,
-            maximizable = TRUE,
-            HeatmapInfoOutput(heatmap_id = ns("heatmap_out"), title = NULL)
+            maximizable = TRUE
+            # HeatmapInfoOutput(heatmap_id = ns("heatmap_out"), title = NULL)
           )
         )
       )
@@ -150,9 +167,13 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
+    init("anova")
+    
+    waitress <- Waitress$new(session$ns("heatmap"))
+    
     output$significant <- renderValueBox({
       
-      # watch("stat")
+      watch("anova")
 
       if(is.null(r6$anova_table)){
         value <- 0
@@ -179,7 +200,7 @@ server <- function(id, r6) {
     
     output$fdr_thr <- renderValueBox({
       
-      # watch("stat")
+      watch("anova")
       
       if(is.null(r6$anova_table)){
         value <- "Undefinded"
@@ -200,7 +221,7 @@ server <- function(id, r6) {
     
     output$clusters <- renderValueBox({
       
-      # watch("stat")
+      watch("anova")
       
       if(is.null(r6$anova_table)){
         value <- "Undefinded"
@@ -219,7 +240,7 @@ server <- function(id, r6) {
       
     })
     
-    observeEvent(input$run_statistics ,{
+    observeEvent(input$run_statistics, {
       
       req(input$alpha_input)
       req(input$truncation_input)
@@ -233,32 +254,34 @@ server <- function(id, r6) {
       r6$anova_clust_method <- input$clust_method
       r6$clusters_number <- as.double(input$n_cluster_input)
       r6$anova_reorder <- input$reorder_input
+
       
       r6$stat_anova(alpha = r6$anova_alpha, p_adj_method = r6$anova_p_adj_method)
       
-      # ht = r6$plot_heatmap(
-      #   clustering_distance = r6$anova_clust_distance,
-      #   clustering_method = r6$anova_clust_method,
-      #   n_cluster = r6$clusters_number,
-      #   reorder = r6$anova_reorder
-      # )
       
-      # draw(ht)
+      trigger("anova")
+    })
+    
+    
+    output$heatmap <- renderPlotly({
       
-      # print(r6$anova_table)
+      watch("anova")
       
-      # if(!is.null(ht)){
-      makeInteractiveComplexHeatmap(input, output, session, r6$plot_heatmap(
-        clustering_distance = r6$anova_clust_distance,
+      waitress$start()
+      
+      req(input$run_statistics)
+
+      r6$plot_heatmap(
+        distance_method = r6$anova_clust_distance,
         clustering_method = r6$anova_clust_method,
         n_cluster = r6$clusters_number,
-        reorder = r6$anova_reorder
-      ), "heatmap_out")
-      # }
+        reorder = r6$anova_reorder,
+        show_names = input$show_name
+      )
       
-      
-      
-      # trigger("stat")
+      waitress$hide()
+
+
     })
 
 

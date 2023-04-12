@@ -2,10 +2,10 @@ box::use(
   R6[R6Class],
   data.table[fread],
   janitor[make_clean_names, get_dupes],
-  tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe],
+  tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree],
   utils[combn],
   htmltools,
   dplyr,
@@ -18,7 +18,7 @@ box::use(
   vsn[vsn2, predict],
   corrmorant[...],
   ggplot2[scale_fill_viridis_c, geom_point],
-  ComplexHeatmap[Heatmap, HeatmapAnnotation, row_order, draw],
+  heatmaply[heatmaply],
 )
 
 #' @export
@@ -1424,91 +1424,45 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_heatmap = function(clustering_distance = "euclidean", clustering_method = "complete", n_cluster = 0, reorder = FALSE, manual_order = NULL) {
+    plot_heatmap = function(distance_method = "euclidean", clustering_method = "complete", n_cluster = 0, reorder = FALSE, show_names = FALSE) {
       
-      condition_anno <- 
-        setNames(as.character(self$expdesign$condition),
-                 as.character(self$expdesign$label))
-      
-      condition_col <- 
-        setNames(self$color_palette,
-                 dplyr$pull(dplyr$distinct(self$expdesign, condition)))
-      
-      if(!is.null(manual_order)){
-        maual_order_list <- self$expdesign %>%
-          dplyr$arrange(factor(condition, levels = manual_order)) %>% 
-          dplyr$pull(label)
-        
-        hm = Heatmap(
-          matrix = self$anova_sig_matrix,
-          name = "Scaled \nIntensity",
-          clustering_distance_rows = clustering_distance,
-          # c("euclidean", "pearson", "spearman", "kendall")
-          clustering_method_rows = clustering_method,
-          # c("single", "complete", "average", "median", "centroid")
-          column_order = maual_order_list,
-          row_km = n_cluster,
-          show_row_dend = TRUE,
-          show_row_names = FALSE,
-          top_annotation = HeatmapAnnotation(
-            cond = condition_anno,
-            col = list(cond = condition_col),
-            show_legend = FALSE
-          )
-        ) 
-        
-      }else{
-        
-        hm = Heatmap(
-          matrix = self$anova_sig_matrix,
-          name = "Scaled \nIntensity",
-          clustering_distance_rows = clustering_distance,
-          # c("euclidean", "pearson", "spearman", "kendall")
-          clustering_method_rows = clustering_method,
-          # c("single", "complete", "average", "median", "centroid")
-          column_dend_reorder = reorder,
-          row_km = n_cluster,
-          show_row_dend = TRUE,
-          show_row_names = FALSE,
-          top_annotation = HeatmapAnnotation(
-            cond = condition_anno,
-            col = list(cond = condition_col),
-            show_legend = FALSE
-          )
-        ) 
-        
-      }
-      
-      hm = draw(hm)
+      h <- heatmaply(
+        x = self$anova_sig_matrix,
+        colors = self$color_palette,
+        showticklabels = c(TRUE, show_names),
+        dist_method = distance_method,
+        hclust_method = clustering_method,
+        k_row = n_cluster,
+        revC = reorder,
+        branches_lwd = 0.3,
+        dend_hoverinfo = FALSE,
+        row_dend_left = TRUE,
+        label_names = c("Name", "Sample", "z-score"),
+        fontsize_col = 14,
+        plot_method = "plotly",
+        colorbar_len = 0.3,
+        colorbar_thickness = 6
+      )
       
       if(n_cluster == 0){
         self$clusters_def <- FALSE
       }else{
         self$clusters_def <- TRUE
-        cluster_order <- row_order(hm)
         
-        for (i in 1:length(cluster_order)) {
-          if (i == 1) {
-            clu <- row.names(self$anova_sig_matrix[cluster_order[[1]],])
-            out <-
-              cbind(clu, paste("cluster", names(cluster_order)[i], sep = ""))
-            colnames(out) <- c("gene_names", "cluster")
-          } else {
-            clu <- row.names(self$anova_sig_matrix[cluster_order[[i]],])
-            clu <-
-              cbind(clu, paste("cluster", names(cluster_order)[i], sep = ""))
-            out <- rbind(out, clu)
-          }
-        }
+        dend <- hclust(dist(self$anova_sig_matrix, method = distance_method), method = clustering_method)
+        
+        clusters <- cutree(dend, k = n_cluster) %>% 
+          enframe(name = "gene_names", value = "cluster") %>% 
+          dplyr$mutate(cluster = paste0("cluster_", cluster))
         
         self$anova_table <- self$anova_table %>% 
           dplyr$select(-cluster) %>% 
-          dplyr$left_join(as.data.frame(out), by = "gene_names") %>% 
+          dplyr$left_join(clusters, by = "gene_names") %>% 
           dplyr$mutate(cluster = dplyr$if_else(is.na(cluster), "not_defined", cluster))
         
       }
       
-      hm
+      return(h)
       
     }
   )
