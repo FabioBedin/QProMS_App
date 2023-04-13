@@ -31,6 +31,7 @@ QProMS <- R6Class(
     data = NULL,
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
+    external_genes_column = NULL,
     organism = NULL, #questo potrebbe essere tolto visto usiamo solo humans
     expdesign = NULL,
     palette = "D",
@@ -143,22 +144,45 @@ QProMS <- R6Class(
       
       return(value)
     },
-    make_expdesign = function(start_with = "lfq_intensity_") {
+    make_expdesign = function(intensity_type = "lfq_intensity_", genes_column = NULL) {
       ## qui mettere tutti gli if in base all'intensity type
       
-      self$intensity_type <- start_with
+      self$intensity_type <- intensity_type
+      self$external_genes_column <- genes_column
       
-      data <- self$raw_data %>% 
-        dplyr$mutate(dplyr$across(dplyr$starts_with(start_with), ~ log2(.))) %>%
-        dplyr$mutate(dplyr$across(dplyr$starts_with(start_with), ~ dplyr$na_if(.,-Inf)))
+      if(self$input_type == "max_quant"){
+        
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$starts_with(intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$starts_with(intensity_type), ~ dplyr$na_if(.,-Inf)))
+        
+        self$expdesign <- data %>%
+          dplyr$select(gene_names, dplyr$starts_with(intensity_type)) %>%
+          tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
+          dplyr$distinct(key) %>%
+          dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>%
+          dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>%
+          dplyr$mutate(replicate = stringr$str_remove(label, ".*_"))
+        
+      }else{
+        if (is.null(genes_column)) {
+          stop("Error! Provide a valid column for gene names.")
+        } else{
+          data <- self$raw_data %>% 
+            dplyr$mutate(dplyr$across(dplyr$contains(intensity_type), ~ log2(.))) %>%
+            dplyr$mutate(dplyr$across(dplyr$contains(intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+            dplyr$rename(gene_names := !!genes_column)
+          
+          self$expdesign <- data %>%
+            dplyr$select(gene_names, dplyr$contains(intensity_type)) %>%
+            tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
+            dplyr$distinct(key) %>%
+            dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>%
+            dplyr$mutate(condition = "") %>%
+            dplyr$mutate(replicate = "")
+        }
+      }
       
-      self$expdesign <- data %>%
-        dplyr$select(gene_names, dplyr$starts_with(start_with)) %>%
-        tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
-        dplyr$distinct(key) %>%
-        dplyr$mutate(label = stringr$str_remove(key, start_with)) %>%
-        dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>%
-        dplyr$mutate(replicate = stringr$str_remove(label, ".*_"))
     },
     define_tests = function() {
       conditions <-
@@ -184,71 +208,94 @@ QProMS <- R6Class(
       ## Indentify all duplicate gene names 
       ## and add after __ the protein iD
       
-      data <- self$raw_data %>%
-        dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ log2(.))) %>%
-        dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ dplyr$na_if(.,-Inf)))
-      
       expdesign <- self$expdesign
       
       self$define_colors()
       self$define_tests()
       self$primary_condition <- self$all_test_combination[1]
       
-      data_standardized <- data %>%
-        dplyr$select(protein_i_ds, gene_names, id) %>%
-        dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>%
-        ## every protein gorups now have only 1 gene name associated to it
-        dplyr$rename(unique_gene_names = gene_names) %>%
-        get_dupes(unique_gene_names) %>%
-        dplyr$mutate(
-          unique_gene_names = dplyr$case_when(
-            unique_gene_names != "" ~ paste0(
-              unique_gene_names,
-              "__",
-              stringr$str_extract(protein_i_ds, "[^;]*")
-            ),
-            TRUE ~ stringr$str_extract(protein_i_ds, "[^;]*")
-          )
-        ) %>%
-        dplyr$select(unique_gene_names, id) %>%
-        dplyr$right_join(data, by = "id") %>%
-        dplyr$mutate(
-          gene_names = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
-                                        TRUE ~ gene_names)
-        ) %>%
-        dplyr$select(-unique_gene_names) %>%
-        dplyr$mutate(gene_names = dplyr$if_else(
-          gene_names == "",
-          stringr$str_extract(protein_i_ds, "[^;]*"),
-          gene_names
-        )) %>%
-        dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>% 
-        dplyr$select(
-          gene_names,
-          dplyr$all_of(expdesign$key),
-          peptides,
-          razor_unique_peptides,
-          unique_peptides,
-          reverse,
-          potential_contaminant,
-          only_identified_by_site
-        ) %>%
-        tidyr$pivot_longer(
-          !c(gene_names,
-             peptides,
-             razor_unique_peptides,
-             unique_peptides,
-             reverse,
-             potential_contaminant,
-             only_identified_by_site),
-          names_to = "key",
-          values_to = "raw_intensity"
-        ) %>%
-        dplyr$inner_join(., expdesign, by = "key") %>%
-        dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
-        dplyr$select(-key)
+      if(self$input_type == "max_quant"){
+        data <- self$raw_data %>%
+          dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ dplyr$na_if(.,-Inf)))
+        
+        data_standardized <- data %>%
+          dplyr$select(protein_i_ds, gene_names, id) %>%
+          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>%
+          ## every protein gorups now have only 1 gene name associated to it
+          dplyr$rename(unique_gene_names = gene_names) %>%
+          get_dupes(unique_gene_names) %>%
+          dplyr$mutate(
+            unique_gene_names = dplyr$case_when(
+              unique_gene_names != "" ~ paste0(
+                unique_gene_names,
+                "__",
+                stringr$str_extract(protein_i_ds, "[^;]*")
+              ),
+              TRUE ~ stringr$str_extract(protein_i_ds, "[^;]*")
+            )
+          ) %>%
+          dplyr$select(unique_gene_names, id) %>%
+          dplyr$right_join(data, by = "id") %>%
+          dplyr$mutate(
+            gene_names = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
+                                         TRUE ~ gene_names)
+          ) %>%
+          dplyr$select(-unique_gene_names) %>%
+          dplyr$mutate(gene_names = dplyr$if_else(
+            gene_names == "",
+            stringr$str_extract(protein_i_ds, "[^;]*"),
+            gene_names
+          )) %>%
+          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>% 
+          dplyr$select(
+            gene_names,
+            dplyr$all_of(expdesign$key),
+            peptides,
+            razor_unique_peptides,
+            unique_peptides,
+            reverse,
+            potential_contaminant,
+            only_identified_by_site
+          ) %>%
+          tidyr$pivot_longer(
+            !c(gene_names,
+               peptides,
+               razor_unique_peptides,
+               unique_peptides,
+               reverse,
+               potential_contaminant,
+               only_identified_by_site),
+            names_to = "key",
+            values_to = "raw_intensity"
+          ) %>%
+          dplyr$inner_join(., expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$select(-key)
+        
+        self$data <- data_standardized
+      }else{
+        data_standardized <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$contains(self$intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$contains(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+          dplyr$rename(gene_names := !!self$external_genes_column) %>% 
+          dplyr$select(
+            gene_names,
+            dplyr$all_of(expdesign$key)
+          ) %>%
+          tidyr$pivot_longer(
+            !gene_names,
+            names_to = "key",
+            values_to = "raw_intensity"
+          ) %>%
+          dplyr$inner_join(., expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$select(-key)
+        
+        self$data <- data_standardized
+      }
       
-      self$data <- data_standardized
+      
     },
     data_wrangling = function(valid_val_filter = "alog", valid_val_thr = 0.75, pep_filter = "peptides", pep_thr, rev = TRUE, cont = TRUE, oibs = TRUE, rescue_cont = NULL) {
       
@@ -863,6 +910,7 @@ QProMS <- R6Class(
       }
       
       color <- viridis(n = 2 , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+      color <- stringr$str_replace(color, pattern = "FF", replacement = "B3")
       br <- pretty(10:40, n = 100)
       
       p <- data %>%
@@ -904,11 +952,14 @@ QProMS <- R6Class(
       
       br <- pretty(10:40, n = 100)
       
+      alpha_cols <- self$color_palette
+      alpha_cols <- stringr$str_replace(alpha_cols, pattern = "FF", replacement = "B3")
+      
       p <- data %>%
         dplyr$group_by(condition) %>%
         echarts4r$e_charts(renderer = "svg") %>%
         echarts4r$e_histogram(intensity, breaks = br) %>%
-        echarts4r$e_color(self$color_palette) %>%
+        echarts4r$e_color(alpha_cols) %>%
         echarts4r$e_x_axis(min = 10, max = 40) %>% 
         echarts4r$e_y_axis(
           name = "Counts",
@@ -939,7 +990,7 @@ QProMS <- R6Class(
           dplyr$group_by(condition) %>%
           echarts4r$e_charts(renderer = "svg") %>%
           echarts4r$e_histogram(intensity, breaks = br) %>%
-          echarts4r$e_color(c(self$color_palette, "#bc3754")) %>%
+          echarts4r$e_color(c(alpha_cols, "#bc3754")) %>%
           echarts4r$e_x_axis(min = 10, max = 40) %>%
           echarts4r$e_data(imputed_dist, intensity) %>% 
           echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
@@ -1315,7 +1366,14 @@ QProMS <- R6Class(
       return(p)
       
     },
-    plot_volcano_single = function(test, highlights_names, text_color, bg_color) {
+    plot_volcano_single = function(test, highlights_names) {
+      
+      alpha_cols <- viridis(n = 2 , direction = 1, end = 0.90, begin = 0.10, option = self$palette)
+      
+      alpha_cols[2] <- stringr$str_replace(alpha_cols[2], pattern = "FF", replacement = "33")
+      
+      text_color <- alpha_cols[1]
+      bg_color <- alpha_cols[2]
       
       table <- self$stat_table %>% 
         dplyr$select(gene_names, dplyr$starts_with(test)) %>% 
@@ -1420,15 +1478,13 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_volcano = function(test, highlights_names = NULL, text_color = "#440154", bg_color = "#fde72533") {
+    plot_volcano = function(test, highlights_names = NULL) {
       
       volcanos <- map(
         .x = test,
         .f = ~ self$plot_volcano_single(
           test = .x,
-          highlights_names = highlights_names,
-          text_color = text_color, 
-          bg_color = bg_color
+          highlights_names = highlights_names
         )
       )
       p <- self$e_arrange_list(volcanos)

@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p, reactive],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p, reactive, textInput],
   bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, toast],
   shinyWidgets[actionBttn],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
@@ -45,16 +45,38 @@ ui <- function(id) {
           accept = ".txt"
         ),
         selectInput(
-          inputId = ns("intensity_type"),
-          label = "Select Intensity type",
-          choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
-          selected = "lfq_intensity_"
-        ),
-        selectInput(
           inputId = ns("source_type"),
           label = "Table source",
-          choices = c("MaxQuant" = "max_quant", "External table"),
+          choices = c("MaxQuant" = "max_quant", "External table" = "external"),
           selected = "max_quant"
+        ),
+        conditionalJS(
+          div(
+            textInput(
+              inputId = ns("intensity_type2"),
+              label = "Write intensity regex",
+              value = ""
+            ),
+            textInput(
+              inputId = ns("genes_col"),
+              label = "Specify genes column",
+              value = ""
+            )
+          ),
+          condition = "input.source_type == 'external'",
+          jsCall = jsCalls$show(),
+          ns = ns
+        ),
+        conditionalJS(
+          selectInput(
+            inputId = ns("intensity_type"),
+            label = "Select Intensity type",
+            choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
+            selected = "lfq_intensity_"
+          ),
+          condition = "input.source_type != 'external'",
+          jsCall = jsCalls$show(),
+          ns = ns
         ),
         selectInput(
           inputId = ns("organism"),
@@ -332,7 +354,12 @@ server <- function(id, r6) {
       r6$palette <- input$palette
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
-      r6$make_expdesign(start_with = input$intensity_type)
+      if(r6$input_type == "max_quant"){
+        r6$make_expdesign(intensity_type = input$intensity_type)
+      }else{
+        r6$make_expdesign(intensity_type = input$intensity_type2, genes_column = input$genes_col)
+      }
+      
       r6$pg_preprocessing()
       
     })
@@ -362,7 +389,12 @@ server <- function(id, r6) {
       req(input$intensity_type)
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
-      r6$make_expdesign(start_with = input$intensity_type)
+      
+      if(r6$input_type == "max_quant"){
+        r6$make_expdesign(intensity_type = input$intensity_type)
+      }else{
+        r6$make_expdesign(intensity_type = input$intensity_type2, genes_column = input$genes_col)
+      }
       r6$pg_preprocessing()
       
       trigger("make_expdesign")
