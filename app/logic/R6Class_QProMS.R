@@ -78,6 +78,7 @@ QProMS <- R6Class(
     anova_clust_distance = "euclidean",
     anova_clust_method = "complete",
     anova_reorder = FALSE,
+    anova_profile_order = NULL,
     clusters_def = NULL,
     clusters_number = 0,
     ###########
@@ -449,6 +450,16 @@ QProMS <- R6Class(
       
       return(table)
     },
+    print_anova_table = function() {
+      
+      table <- self$anova_table %>% 
+        dplyr$select(gene_names, p_val, p_adj, significant, cluster) %>%
+        dplyr$arrange(p_val,-significant) %>%
+        dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ round(., 2)))
+      
+      return(table)
+    },
     stat_tidy_vector = function(data, name) {
       
       tidy_vec <- data %>%
@@ -793,7 +804,7 @@ QProMS <- R6Class(
         ) %>%  
         echarts4r$e_tooltip(trigger = "axis") %>% 
         echarts4r$e_y_axis(
-          name = "Densiry",
+          name = "Density",
           nameLocation = "center",
           nameTextStyle = list(
             fontWeight = "bold",
@@ -1463,6 +1474,49 @@ QProMS <- R6Class(
       }
       
       return(h)
+      
+    },
+    plot_cluster_profile = function(gene, order){
+      
+      maual_order <- self$expdesign %>%
+        dplyr$arrange(factor(condition, levels = order)) %>%
+        dplyr$pull(label)
+      
+      clust <- self$anova_table %>%
+        dplyr$filter(gene_names == gene) %>%
+        dplyr$pull(cluster)
+      
+      alpha_cols <- viridis(n = 2 , direction = 1, end = 0.90, begin = 0.10, option = self$palette)
+      
+      alpha_cols[2] <- stringr$str_replace(alpha_cols[2], pattern = "FF", replacement = "33")
+      
+      p <- self$anova_table %>%
+        tidyr$pivot_longer(!c(gene_names, p_val, p_adj, significant, cluster), names_to = "label", values_to = "intensity") %>% 
+        dplyr$filter(cluster == clust) %>%
+        dplyr$group_by(label) %>% 
+        dplyr$mutate(max = max(intensity), min = min(intensity)) %>% 
+        dplyr$ungroup() %>% 
+        dplyr$filter(gene_names == gene) %>% 
+        dplyr$arrange(factor(label, levels = maual_order)) %>% 
+        echarts4r$e_chart(label, renderer = "svg", dispose = TRUE) %>% 
+        echarts4r$e_line(intensity, name = gene) %>% 
+        echarts4r$e_band2(min, max, name = clust) %>% 
+        echarts4r$e_color(alpha_cols) %>%
+        echarts4r$e_y_axis(scale=TRUE) %>% 
+        echarts4r$e_x_axis(name = "", axisLabel = list(interval = 0, rotate = 45)) %>% 
+        echarts4r$e_y_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>% 
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      
+      return(p)
       
     }
   )

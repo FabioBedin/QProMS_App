@@ -1,11 +1,14 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, observeEvent, req],
+  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, observeEvent, req, reactive, uiOutput, renderUI],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
-  dplyr[filter, `%>%`],
+  dplyr[filter, `%>%`, pull, distinct],
   plotly[renderPlotly, plotlyOutput],
   gargoyle[init, watch, trigger],
-  waiter[Waiter, spin_5, Waitress],
+  shinyjqui[orderInput],
+  reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
+  echarts4r[echarts4rOutput, renderEcharts4r],
+  # waiter[Waiter, spin_5, Waitress],
 )
 
 #' @export
@@ -143,8 +146,8 @@ ui <- function(id) {
             status = "primary",
             width = 12,
             height = 466,
-            maximizable = TRUE
-            # subHeatmapOutput(heatmap_id = ns("heatmap_out"), containment = TRUE, title = NULL)
+            maximizable = TRUE,
+            reactableOutput(ns("table"))
           )
         ),
         fluidRow(
@@ -153,8 +156,25 @@ ui <- function(id) {
             status = "primary",
             width = 12,
             height = 466,
-            maximizable = TRUE
-            # HeatmapInfoOutput(heatmap_id = ns("heatmap_out"), title = NULL)
+            maximizable = TRUE,
+            sidebar = boxSidebar(
+              id = ns("profle_sidebar"),
+              div(
+                style = "padding-right: 0.5rem",
+                h4("Define order"),
+                uiOutput(ns("profile_order_ui")),
+                br(),
+                actionBttn(
+                  inputId = ns("update"),
+                  label = "Update", 
+                  style = "material-flat",
+                  color = "primary",
+                  size = "md",
+                  block = TRUE
+                )
+              )
+            ),
+            echarts4rOutput(ns("profile_plot"))
           )
         )
       )
@@ -167,9 +187,24 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    init("anova")
+    init("anova", "profile")
     
-    waitress <- Waitress$new(session$ns("heatmap"))
+    # waitress <- Waitress$new(session$ns("heatmap"))
+    
+    output$profile_order_ui <- renderUI({
+      
+      watch("anova")
+      
+      conds <- r6$expdesign %>% distinct(condition) %>% pull()
+      
+      orderInput(
+        inputId = session$ns("profile_order"),
+        label = "Drag and drop",
+        items = conds
+      )
+      
+      
+    })
     
     output$significant <- renderValueBox({
       
@@ -254,20 +289,22 @@ server <- function(id, r6) {
       r6$anova_clust_method <- input$clust_method
       r6$clusters_number <- as.double(input$n_cluster_input)
       r6$anova_reorder <- input$reorder_input
+      r6$anova_profile_order <- input$profile_order
+      
+      # waitress$start()
 
       
       r6$stat_anova(alpha = r6$anova_alpha, p_adj_method = r6$anova_p_adj_method)
-      
+      # waitress$hide()
       
       trigger("anova")
+      trigger("profile")
     })
     
     
     output$heatmap <- renderPlotly({
       
       watch("anova")
-      
-      waitress$start()
       
       req(input$run_statistics)
 
@@ -278,10 +315,78 @@ server <- function(id, r6) {
         reorder = r6$anova_reorder,
         show_names = input$show_name
       )
+
+
+    })
+    
+    output$table <- renderReactable({
       
-      waitress$hide()
+      watch("anova")
+      
+      req(input$run_statistics)
+      
+      table <- r6$print_anova_table()
+      
+      reactable(
+        table,
+        searchable = TRUE,
+        resizable = TRUE,
+        highlight = TRUE,
+        defaultPageSize = 7,
+        height = "auto",
+        selection = "single",
+        onClick = "select",
+        defaultSelected = 1,
+        columns = list(
+          gene_names = colDef(align = "center", name = "Gene names"),
+          p_val = colDef(align = "center", name = "-log(p.value)"),
+          p_adj = colDef(align = "center", name = "-log(p.adj)"),
+          cluster = colDef(align = "center", name = "Cluster"),
+          significant = colDef(
+            align = "center",
+            name = "Significant",
+            cell = function(value) {
+              if (!value)
+                "\u274c No"
+              else
+                "\u2714\ufe0f Yes"
+            }
+          )
+        )
+      )
 
-
+    })
+    
+    gene_selected <- reactive(getReactableState("table", "selected"))
+    
+    output$profile_plot <- renderEcharts4r({
+      
+      req(input$run_statistics)
+      
+      watch("profile")
+      
+      table <- r6$print_anova_table()
+      
+      if(is.null(gene_selected())){
+        return(NULL)
+      }else{
+        highlights <- table[gene_selected(), ] %>% 
+          pull(gene_names)
+        
+        r6$plot_cluster_profile(gene = highlights, order = r6$anova_profile_order)
+      }
+      
+    })
+    
+    observeEvent(input$update, {
+      
+      req(input$run_statistics)
+      req(input$profile_order)
+      
+      r6$anova_profile_order <- input$profile_order
+      
+      trigger("profile")
+      
     })
 
 
