@@ -31,7 +31,7 @@ object <- R6Class_QProMS$QProMS$new()
 
 object$raw_data <- pg_for_test
 
-object$make_expdesign(start_with = "lfq_intensity_")
+object$make_expdesign(intensity_type = "lfq_intensity_")
 
 object$pg_preprocessing()
 
