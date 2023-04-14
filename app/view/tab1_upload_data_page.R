@@ -4,6 +4,7 @@ box::use(
   shinyWidgets[actionBttn],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
   magrittr[`%>%`],
+  janitor[make_clean_names, get_dupes],
   gargoyle[init, watch, trigger],
   shinyjs[useShinyjs, disabled, enable],
   esquisse[palettePicker],
@@ -59,7 +60,7 @@ ui <- function(id) {
             ),
             textInput(
               inputId = ns("genes_col"),
-              label = "Specify genes column",
+              label = "Specify ID column",
               value = ""
             )
           ),
@@ -356,11 +357,53 @@ server <- function(id, r6) {
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
       if(r6$input_type == "max_quant"){
         r6$make_expdesign(intensity_type = input$intensity_type)
+        r6$pg_preprocessing()
       }else{
-        r6$make_expdesign(intensity_type = input$intensity_type2, genes_column = input$genes_col)
+        id_col <- make_clean_names(input$genes_col)
+        intensity_regex <- make_clean_names(input$intensity_type2)
+        
+        check_id <- r6$raw_data %>% 
+          dplyr$select(dplyr$any_of(id_col)) %>% 
+          ncol()
+        
+        check_int <- r6$raw_data %>% 
+          dplyr$select(dplyr$contains(intensity_regex)) %>% 
+          ncol()
+        
+        check_unique <- r6$raw_data %>% 
+          dplyr$select(dplyr$any_of(id_col)) %>% 
+          get_dupes() %>% 
+          nrow()
+        
+        if(check_id > 0 & check_int > 0){
+          if(check_unique == 0){
+            r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
+            r6$pg_preprocessing()
+          }else{
+            toast(
+              title = "Wrong Inputs",
+              body = "ID column is not unique!",
+              options = list(
+                class = "bg-danger",
+                autohide = TRUE,
+                delay = 5000,
+                icon = icon("exclamation-circle", verify_fa = FALSE)
+              )
+            )
+          }
+        }else{
+          toast(
+            title = "Wrong Inputs",
+            body = "ID column or intensity regex are wrong!",
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+        }
       }
-      
-      r6$pg_preprocessing()
       
     })
     
@@ -392,10 +435,35 @@ server <- function(id, r6) {
       
       if(r6$input_type == "max_quant"){
         r6$make_expdesign(intensity_type = input$intensity_type)
+        r6$pg_preprocessing()
       }else{
-        r6$make_expdesign(intensity_type = input$intensity_type2, genes_column = input$genes_col)
+        id_col <- make_clean_names(input$genes_col)
+        intensity_regex <- make_clean_names(input$intensity_type2)
+        
+        check_id <- r6$raw_data %>% 
+          dplyr$select(dplyr$any_of(id_col)) %>% 
+          ncol()
+        
+        check_int <- r6$raw_data %>% 
+          dplyr$select(dplyr$contains(intensity_regex)) %>% 
+          ncol()
+        
+        if(check_id > 0 & check_int > 0){
+          r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
+          r6$pg_preprocessing()
+        }else{
+          toast(
+            title = "Wrong Inputs",
+            body = "ID column or intensity regex are wrong!",
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("check")
+            )
+          )
+        }
       }
-      r6$pg_preprocessing()
       
       trigger("make_expdesign")
       

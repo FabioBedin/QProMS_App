@@ -169,12 +169,12 @@ QProMS <- R6Class(
           stop("Error! Provide a valid column for gene names.")
         } else{
           data <- self$raw_data %>% 
-            dplyr$mutate(dplyr$across(dplyr$contains(intensity_type), ~ log2(.))) %>%
-            dplyr$mutate(dplyr$across(dplyr$contains(intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+            dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ log2(.))) %>%
+            dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
             dplyr$rename(gene_names := !!genes_column)
           
           self$expdesign <- data %>%
-            dplyr$select(gene_names, dplyr$contains(intensity_type)) %>%
+            dplyr$select(gene_names, dplyr$matches(intensity_type)) %>%
             tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
             dplyr$distinct(key) %>%
             dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>%
@@ -276,8 +276,8 @@ QProMS <- R6Class(
         self$data <- data_standardized
       }else{
         data_standardized <- self$raw_data %>% 
-          dplyr$mutate(dplyr$across(dplyr$contains(self$intensity_type), ~ log2(.))) %>%
-          dplyr$mutate(dplyr$across(dplyr$contains(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+          dplyr$mutate(dplyr$across(dplyr$matches(self$intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$matches(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
           dplyr$rename(gene_names := !!self$external_genes_column) %>% 
           dplyr$select(
             gene_names,
