@@ -3,7 +3,7 @@ box::use(
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   dplyr[filter, `%>%`, pull, distinct],
-  plotly[renderPlotly, plotlyOutput],
+  iheatmapr[...],
   gargoyle[init, watch, trigger],
   shinyjqui[orderInput],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
@@ -35,7 +35,7 @@ ui <- function(id) {
             startOpen = TRUE,
             div(
               style = "padding-right: 0.5rem",
-              h4("Test parameters"),
+              h4("ANOVA parameters"),
               div(
                 style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
                 div(
@@ -64,32 +64,26 @@ ui <- function(id) {
                   )
                 )
               ),
+              br(),
               h4("Heatmap parameters"),
               div(
                 style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
                 div(
-                  style = "width: 100%;",
-                  selectInput(
-                    inputId = ns("clust_distance"),
-                    label = "Distance method",
-                    choices = c(
-                      "Euclidean" = "euclidean",
-                      "Maximum" = "maximum",
-                      "Manhattan" = "manhattan",
-                      "Canberra" = "canberra",
-                      "Binary" = "binary",
-                      "Minkowski" = "minkowski"
-                    ), 
-                    selected = "euclidean"
-                  )
-                ),
-                div(
-                  style = "width: 100%;",
+                  style = "width: 100%;  flex: 3 1 0;",
                   selectInput(
                     inputId = ns("clust_method"),
                     label = "Clustering method",
-                    choices = c("complete", "single", "average", "median", "centroid"),
-                    selected = "complete"
+                    choices = c("Hierarchical Clustering" = "hclust", "K-means" = "kmeans"),
+                    selected = "hclust"
+                  )
+                ),
+                div(
+                  style = "width: 100%;  flex: 1 1 0;",
+                  prettyCheckbox(
+                    inputId = ns("zscore_input"),
+                    label = "Z-score", 
+                    value = TRUE,
+                    shape = "curve"
                   )
                 )
               ),
@@ -136,7 +130,7 @@ ui <- function(id) {
               )
             )
           ),
-          plotlyOutput(ns("heatmap"), height = "900px")
+          iheatmaprOutput(ns("heatmap"), height = "900px")
         )
       ), 
       column(5,
@@ -279,20 +273,18 @@ server <- function(id, r6) {
       
       req(input$alpha_input)
       req(input$truncation_input)
-      req(input$clust_distance)
       req(input$clust_method)
       req(input$n_cluster_input)
       
       r6$anova_alpha <- as.double(input$alpha_input)
       r6$anova_p_adj_method <- input$truncation_input
-      r6$anova_clust_distance <- input$clust_distance
       r6$anova_clust_method <- input$clust_method
+      r6$z_score <- input$zscore_input
       r6$clusters_number <- as.double(input$n_cluster_input)
       r6$anova_reorder <- input$reorder_input
       r6$anova_profile_order <- input$profile_order
       
       # waitress$start()
-
       
       r6$stat_anova(alpha = r6$anova_alpha, p_adj_method = r6$anova_p_adj_method)
       # waitress$hide()
@@ -302,19 +294,23 @@ server <- function(id, r6) {
     })
     
     
-    output$heatmap <- renderPlotly({
+    output$heatmap <- renderIheatmap({
       
       watch("anova")
       
       req(input$run_statistics)
 
-      r6$plot_heatmap(
-        distance_method = r6$anova_clust_distance,
-        clustering_method = r6$anova_clust_method,
-        n_cluster = r6$clusters_number,
-        reorder = r6$anova_reorder,
-        show_names = input$show_name
-      )
+      if(is.null(input$run_statistics)){
+        return(NULL)
+      }else{
+        r6$plot_heatmap(
+          z_score = r6$z_score,
+          clustering_method = r6$anova_clust_method,
+          n_cluster = r6$clusters_number,
+          manual_order = r6$anova_reorder,
+          order = r6$anova_profile_order
+        )
+      }
 
 
     })
@@ -373,7 +369,7 @@ server <- function(id, r6) {
         highlights <- table[gene_selected(), ] %>% 
           pull(gene_names)
         
-        r6$plot_cluster_profile(gene = highlights, order = r6$anova_profile_order)
+        r6$plot_protein_profile(gene = highlights, order = r6$anova_profile_order)
       }
       
     })

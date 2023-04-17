@@ -5,7 +5,7 @@ box::use(
   tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median],
   utils[combn],
   htmltools,
   dplyr,
@@ -18,7 +18,7 @@ box::use(
   vsn[vsn2, predict],
   corrmorant[...],
   ggplot2[scale_fill_viridis_c, geom_point],
-  heatmaply[heatmaply],
+  iheatmapr[...]
 )
 
 #' @export
@@ -73,11 +73,10 @@ QProMS <- R6Class(
     univariate_p_adj_method = "BH",
     fold_change = 1,
     anova_table = NULL,
-    anova_sig_matrix = NULL,
     anova_alpha = 0.05,
     anova_p_adj_method = "BH",
-    anova_clust_distance = "euclidean",
-    anova_clust_method = "complete",
+    anova_clust_method = "hclust",
+    z_score = TRUE,
     anova_reorder = FALSE,
     anova_profile_order = NULL,
     clusters_def = NULL,
@@ -664,17 +663,7 @@ QProMS <- R6Class(
         dplyr$mutate(significant = dplyr$if_else(p_adj <= alpha, TRUE, FALSE)) %>% 
         dplyr$mutate(cluster = "not_defined")
       
-      mat <- stat_data %>% 
-        dplyr$filter(significant) %>% 
-        dplyr$select(-c(p_val, p_adj, significant, cluster)) %>% 
-        column_to_rownames("gene_names") %>% 
-        as.matrix() 
-      
-      mat_scaled = t(apply(mat, 1, scale))
-      colnames(mat_scaled) <- colnames(mat)
-      
       self$anova_table <- stat_data
-      self$anova_sig_matrix <- mat_scaled
     },
     e_arrange_list = function(list, max_cols = 3) {
       
@@ -1279,9 +1268,9 @@ QProMS <- R6Class(
           echarts4r$e_x_axis(min = min_plot, max = max_plot) %>%
           echarts4r$e_y_axis(min = min_plot, max = max_plot) %>%
           echarts4r$e_color(self$color_palette) %>%
-          echarts4r::e_toolbox_feature(feature = "dataZoom") %>% 
-          echarts4r::e_tooltip(
-            formatter = htmlwidgets::JS("
+          echarts4r$e_toolbox_feature(feature = "dataZoom") %>% 
+          echarts4r$e_tooltip(
+            formatter = htmlwidgets$JS("
             function(params){
               return('<strong>' + params.name + '</strong>');
             }
@@ -1491,48 +1480,72 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_heatmap = function(distance_method = "euclidean", clustering_method = "complete", n_cluster = 0, reorder = FALSE, show_names = FALSE) {
+    plot_heatmap = function(z_score, clustering_method, n_cluster, manual_order, order) {
       
-      h <- heatmaply(
-        x = self$anova_sig_matrix,
-        colors = self$color_palette,
-        showticklabels = c(TRUE, show_names),
-        dist_method = distance_method,
-        hclust_method = clustering_method,
-        k_row = n_cluster,
-        revC = reorder,
-        branches_lwd = 0.3,
-        dend_hoverinfo = FALSE,
-        row_dend_left = TRUE,
-        label_names = c("Name", "Sample", "z-score"),
-        fontsize_col = 14,
-        plot_method = "plotly",
-        colorbar_len = 0.3,
-        colorbar_thickness = 6
-      )
+      mat_base <- self$anova_table %>%
+        dplyr$filter(significant) %>%
+        dplyr$select(-c(p_val, p_adj, significant, cluster)) %>%
+        column_to_rownames("gene_names") %>%
+        as.matrix()
       
-      if(n_cluster == 0){
-        self$clusters_def <- FALSE
-      }else{
-        self$clusters_def <- TRUE
-        
-        dend <- hclust(dist(self$anova_sig_matrix, method = distance_method), method = clustering_method)
-        
-        clusters <- cutree(dend, k = n_cluster) %>% 
-          enframe(name = "gene_names", value = "cluster") %>% 
-          dplyr$mutate(cluster = paste0("cluster_", cluster))
-        
-        self$anova_table <- self$anova_table %>% 
-          dplyr$select(-cluster) %>% 
-          dplyr$left_join(clusters, by = "gene_names") %>% 
-          dplyr$mutate(cluster = dplyr$if_else(is.na(cluster), "not_defined", cluster))
-        
+      if (z_score) {
+        mat = t(apply(mat_base, 1, scale))
+        colnames(mat) <- colnames(mat_base)
+        mat_name <- "z-score"
+      } else{
+        mat <- mat_base
+        mat_name <- "log2(Intensity)"
       }
       
-      return(h)
+      if (manual_order) {
+        col_order <- self$expdesign %>%
+          dplyr$arrange(factor(condition, levels = order)) %>%
+          dplyr$select(label, condition) %>%
+          deframe()
+        col_method = "groups"
+      } else {
+        col_method = "hclust"
+      }
+      
+      if (n_cluster == 0) {
+        n_k <- NULL
+      } else {
+        n_k <- n_cluster
+        alpha_cols <- viridis(n = n_cluster , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+        alpha_cols <- stringr$str_replace(alpha_cols, pattern = "FF", replacement = "80")
+      }
+      
+      ht <- main_heatmap(
+        mat,
+        name = mat_name,
+        colors = self$color_palette,
+        colorbar_grid = setup_colorbar_grid(y_start = 0.65)) %>%
+        add_col_labels() %>%
+        add_row_clustering(
+          k = n_k,
+          method = clustering_method,
+          colors = alpha_cols,
+          name = "Clusters"
+        ) %>%
+        add_col_clustering(method = col_method,
+                                      groups = col_order,
+                                      show_colorbar = FALSE) 
+      
+      if (n_cluster != 0) {
+        clusters <- ht@plots@listData$Clusters@data %>%
+          enframe(name = "gene_names", value = "cluster") %>%
+          dplyr$mutate(cluster = paste0("cluster_", cluster))
+        
+        self$anova_table <- self$anova_table %>%
+          dplyr$select(-cluster) %>%
+          dplyr$left_join(clusters, by = "gene_names") %>%
+          dplyr$mutate(cluster = dplyr$if_else(is.na(cluster), "not_defined", cluster))
+      }
+      
+      return(ht)
       
     },
-    plot_cluster_profile = function(gene, order){
+    plot_protein_profile = function(gene, order){
       
       maual_order <- self$expdesign %>%
         dplyr$arrange(factor(condition, levels = order)) %>%
@@ -1556,7 +1569,7 @@ QProMS <- R6Class(
         dplyr$arrange(factor(label, levels = maual_order)) %>% 
         echarts4r$e_chart(label, renderer = "svg", dispose = TRUE) %>% 
         echarts4r$e_line(intensity, name = gene) %>% 
-        echarts4r$e_band2(min, max, name = clust) %>% 
+        echarts4r$e_band2(min, max, name = paste0(clust, " 95% CI")) %>% 
         echarts4r$e_color(alpha_cols) %>%
         echarts4r$e_y_axis(scale=TRUE) %>% 
         echarts4r$e_x_axis(name = "", axisLabel = list(interval = 0, rotate = 45)) %>% 
