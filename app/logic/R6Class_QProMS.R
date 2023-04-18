@@ -77,8 +77,8 @@ QProMS <- R6Class(
     anova_p_adj_method = "BH",
     anova_clust_method = "hclust",
     z_score = TRUE,
-    anova_reorder = FALSE,
-    anova_profile_order = NULL,
+    anova_manual_order = FALSE,
+    anova_col_order = NULL,
     clusters_def = NULL,
     clusters_number = 0,
     ###########
@@ -490,7 +490,7 @@ QProMS <- R6Class(
       table <- stat_table %>% 
         dplyr$select(gene_names, dplyr$starts_with(test)) %>% 
         dplyr$rename_at(dplyr$vars(dplyr$matches(test)), ~ stringr$str_remove(., paste0(test, "_"))) %>% 
-        dplyr$arrange(-fold_change, p_val, -significant) %>% 
+        dplyr$arrange(-significant, -fold_change, p_val) %>% 
         dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ -log10(.))) %>% 
         dplyr$mutate(dplyr$across(c("fold_change", "p_val", "p_adj"), ~ round(., 2)))
       
@@ -1270,7 +1270,7 @@ QProMS <- R6Class(
           echarts4r$e_color(self$color_palette) %>%
           echarts4r$e_toolbox_feature(feature = "dataZoom") %>% 
           echarts4r$e_tooltip(
-            formatter = htmlwidgets$JS("
+            formatter = JS("
             function(params){
               return('<strong>' + params.name + '</strong>');
             }
@@ -1502,6 +1502,9 @@ QProMS <- R6Class(
           dplyr$arrange(factor(condition, levels = order)) %>%
           dplyr$select(label, condition) %>%
           deframe()
+        
+        self$anova_col_order <- names(col_order)
+        
         col_method = "groups"
       } else {
         col_method = "hclust"
@@ -1511,8 +1514,8 @@ QProMS <- R6Class(
         n_k <- NULL
       } else {
         n_k <- n_cluster
-        alpha_cols <- viridis(n = n_cluster , direction = -1, end = 0.90, begin = 0.10, option = self$palette)
-        alpha_cols <- stringr$str_replace(alpha_cols, pattern = "FF", replacement = "80")
+        alpha_cols <- viridis(n = n_cluster , direction = -1, end = 0.90, begin = 0.10, option = "H")
+        alpha_cols <- stringr$str_replace(alpha_cols, pattern = "FF", replacement = "E6")
       }
       
       ht <- main_heatmap(
@@ -1542,37 +1545,103 @@ QProMS <- R6Class(
           dplyr$mutate(cluster = dplyr$if_else(is.na(cluster), "not_defined", cluster))
       }
       
+      if (!manual_order) {
+        self$anova_col_order <-
+          tibble(
+            label = ht@shapes@listData$col_dendro@data$labels,
+            order = 1:nrow(self$expdesign)
+          ) %>%
+          dplyr$arrange(factor(order, levels = ht@shapes@listData$col_dendro@data$order)) %>%
+          dplyr$pull(label)
+      }
+      
       return(ht)
       
     },
-    plot_protein_profile = function(gene, order){
+    plot_protein_profile = function(gene) {
       
-      maual_order <- self$expdesign %>%
-        dplyr$arrange(factor(condition, levels = order)) %>%
-        dplyr$pull(label)
+      cluster_specific_col <- self$anova_table %>%
+        dplyr$filter(gene_names %in% gene) %>%
+        dplyr$distinct(cluster) %>%
+        dplyr$pull(cluster) %>%
+        stringr$str_extract(pattern = "[:digit:]") %>%
+        as.numeric()
       
-      clust <- self$anova_table %>%
-        dplyr$filter(gene_names == gene) %>%
-        dplyr$pull(cluster)
-      
-      alpha_cols <- viridis(n = 2 , direction = 1, end = 0.90, begin = 0.10, option = self$palette)
-      
-      alpha_cols[2] <- stringr$str_replace(alpha_cols[2], pattern = "FF", replacement = "33")
+      alpha_cols <- viridis(n = self$clusters_number, direction = -1, end = 0.90, begin = 0.10, option = "H")
+      alpha_cols <- stringr$str_replace(alpha_cols, pattern = "FF", replacement = "E6")
+      sub_alpha_cols <- alpha_cols[cluster_specific_col] %>% tidyr$replace_na("#22262980")
       
       p <- self$anova_table %>%
-        tidyr$pivot_longer(!c(gene_names, p_val, p_adj, significant, cluster), names_to = "label", values_to = "intensity") %>% 
-        dplyr$filter(cluster == clust) %>%
-        dplyr$group_by(label) %>% 
-        dplyr$mutate(max = max(intensity), min = min(intensity)) %>% 
-        dplyr$ungroup() %>% 
-        dplyr$filter(gene_names == gene) %>% 
-        dplyr$arrange(factor(label, levels = maual_order)) %>% 
-        echarts4r$e_chart(label, renderer = "svg", dispose = TRUE) %>% 
-        echarts4r$e_line(intensity, name = gene) %>% 
-        echarts4r$e_band2(min, max, name = paste0(clust, " 95% CI")) %>% 
-        echarts4r$e_color(alpha_cols) %>%
-        echarts4r$e_y_axis(scale=TRUE) %>% 
-        echarts4r$e_x_axis(name = "", axisLabel = list(interval = 0, rotate = 45)) %>% 
+        tidyr$pivot_longer(
+          !c(gene_names, p_val, p_adj, significant, cluster),
+          names_to = "label",
+          values_to = "intensity"
+        ) %>%
+        dplyr$filter(gene_names %in% gene) %>%
+        dplyr$mutate(intensity = round(intensity, 2)) %>%
+        dplyr$group_by(cluster, gene_names) %>%
+        dplyr$arrange(factor(label, levels = self$anova_col_order)) %>%
+        echarts4r$e_chart(label, renderer = "svg", dispose = TRUE) %>%
+        echarts4r$e_line(intensity, bind = gene_names) %>%
+        echarts4r$e_color(sub_alpha_cols) %>%
+        echarts4r$e_x_axis(name = "", axisLabel = list(interval = 0, rotate = 45)) %>%
+        echarts4r$e_y_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_tooltip() %>%
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataZoom")) %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      
+      return(p)
+      
+    },
+    plot_cluster_profile_single = function(clust, color_band) {
+      
+      title <- clust %>%
+        stringr::str_to_title() %>%
+        stringr::str_replace(pattern = "_", replacement = " ")
+      
+      p <- self$anova_table %>%
+        tidyr::pivot_longer(
+          !c(gene_names, p_val, p_adj, significant, cluster),
+          names_to = "label",
+          values_to = "intensity"
+        ) %>%
+        dplyr::filter(cluster == clust) %>%
+        dplyr::group_by(label) %>%
+        dplyr::summarise(
+          n = dplyr::n(),
+          sd = sd(intensity, na.rm = TRUE),
+          median = median(intensity, na.rm = TRUE)
+        ) %>%
+        dplyr::ungroup() %>%
+        dplyr::mutate(
+          error = qt(0.975, df = n - 1) * sd / sqrt(n),
+          lower_bound = median - error,
+          upper_bound = median + error
+        ) %>%
+        dplyr::arrange(factor(label, levels = self$anova_col_order)) %>%
+        echarts4r$e_charts(label, renderer = "svg") %>%
+        echarts4r$e_line(median,
+               symbol = "none",
+               color = "#222629",
+               name = "Median") %>%
+        echarts4r$e_band2(
+          lower_bound,
+          upper_bound,
+          itemStyle = list(borderWidth = 0),
+          name = "95% CI"
+        ) %>%
+        echarts4r$e_color(color_band) %>%
+        echarts4r$e_x_axis(name = "", axisLabel = list(interval = 0, rotate = 45)) %>%
+        echarts4r$e_title(text = title) %>%
+        # echarts4r$e_y_axis(scale=TRUE) %>%
         echarts4r$e_y_axis(
           name = "log2 Intensity",
           nameLocation = "center",
@@ -1582,11 +1651,31 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>% 
-        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
-        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataZoom")) %>% 
+        echarts4r$e_group("grp") %>% 
+        echarts4r$e_connect_group("grp")
       
       return(p)
       
+    },
+    plot_cluster_profile = function() {
+      
+      alpha_cols <- viridis(n = self$clusters_number , direction = -1, end = 0.90, begin = 0.10, option = "H")
+      alpha_cols <- stringr$str_replace(alpha_cols, pattern = "FF", replacement = "E6")
+      
+      n_clust <- tibble(cluster = "cluster_", numb = 1:self$clusters_number) %>% 
+        dplyr::mutate(cluster = paste0(cluster, numb)) %>% 
+        dplyr$pull(cluster)
+      
+      profile_plots <- map2(
+        .x = n_clust,
+        .y = alpha_cols,
+        .f = ~ self$plot_cluster_profile_single(clust = .x, color_band = .y)
+      )
+      
+      p <- self$e_arrange_list(profile_plots)
+      
+      return(p)
     }
   )
 )

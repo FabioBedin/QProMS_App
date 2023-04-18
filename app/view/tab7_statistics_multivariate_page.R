@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, observeEvent, req, reactive, uiOutput, renderUI],
+  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, h6, observeEvent, req, reactive, uiOutput, renderUI, isolate],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   dplyr[filter, `%>%`, pull, distinct],
@@ -8,6 +8,7 @@ box::use(
   shinyjqui[orderInput],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   echarts4r[echarts4rOutput, renderEcharts4r],
+  shinyGizmo[conditionalJS, jsCalls],
   # waiter[Waiter, spin_5, Waitress],
 )
 
@@ -66,14 +67,25 @@ ui <- function(id) {
               ),
               br(),
               h4("Heatmap parameters"),
+              h6("N° of cluster"),
               div(
                 style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
+                div(
+                  style = "width: 100%; flex: 1 1 0;",
+                  numericInput(
+                    inputId = ns("n_cluster_input"),
+                    label = NULL,
+                    value = 0,
+                    min = 0,
+                    step = 1
+                  )
+                ),
                 div(
                   style = "width: 100%;  flex: 3 1 0;",
                   selectInput(
                     inputId = ns("clust_method"),
-                    label = "Clustering method",
-                    choices = c("Hierarchical Clustering" = "hclust", "K-means" = "kmeans"),
+                    label = NULL,
+                    choices = c("Hierarchical Clustering" = "hclust", "K-means Clustering" = "kmeans"),
                     selected = "hclust"
                   )
                 ),
@@ -87,37 +99,18 @@ ui <- function(id) {
                   )
                 )
               ),
-              h5("N° of cluster"),
-              div(
-                style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
-                div(
-                  style = "width: 100%; flex: 2 1 0;",
-                  numericInput(
-                    inputId = ns("n_cluster_input"),
-                    label = NULL,
-                    value = 0,
-                    min = 0,
-                    step = 1
-                  )
-                ),
-                div(
-                  style = "width: 100%; flex: 1 1 0; text-align: center;",
-                  prettyCheckbox(
-                    inputId = ns("reorder_input"),
-                    label = "Reorder", 
-                    value = FALSE,
-                    shape = "curve"
-                  )
-                ), 
-                div(
-                  style = "width: 100%; flex: 1 1 0; text-align: center;",
-                  prettyCheckbox(
-                    inputId = ns("show_name"),
-                    label = "Row names", 
-                    value = FALSE,
-                    shape = "curve"
-                  )
-                )
+              br(),
+              prettyCheckbox(
+                inputId = ns("reorder_input"),
+                label = "Order column manually", 
+                value = FALSE,
+                shape = "curve"
+              ),
+              conditionalJS(
+                uiOutput(ns("profile_order_ui")),
+                condition = "input.reorder_input",
+                jsCall = jsCalls$show(),
+                ns = ns
               ),
               br(),
               actionBttn(
@@ -146,31 +139,26 @@ ui <- function(id) {
         ),
         fluidRow(
           box(
-            title = "Profile plot",
+            title = "Protein profile plot",
             status = "primary",
             width = 12,
             height = 466,
             maximizable = TRUE,
-            sidebar = boxSidebar(
-              id = ns("profle_sidebar"),
-              div(
-                style = "padding-right: 0.5rem",
-                h4("Define order"),
-                uiOutput(ns("profile_order_ui")),
-                br(),
-                actionBttn(
-                  inputId = ns("update"),
-                  label = "Update", 
-                  style = "material-flat",
-                  color = "primary",
-                  size = "md",
-                  block = TRUE
-                )
-              )
-            ),
             echarts4rOutput(ns("profile_plot"))
           )
         )
+      )
+    ),
+    fluidRow(
+      box(
+        title = "Clusters profile plots",
+        id = ns("multi"),
+        status = "primary",
+        width = 12,
+        maximizable = TRUE,
+        collapsible = TRUE,
+        # collapsed = TRUE,
+        uiOutput(ns("cluster_profile_plots"))
       )
     )
   )
@@ -281,8 +269,7 @@ server <- function(id, r6) {
       r6$anova_clust_method <- input$clust_method
       r6$z_score <- input$zscore_input
       r6$clusters_number <- as.double(input$n_cluster_input)
-      r6$anova_reorder <- input$reorder_input
-      r6$anova_profile_order <- input$profile_order
+      r6$anova_manual_order <- input$reorder_input
       
       # waitress$start()
       
@@ -307,11 +294,10 @@ server <- function(id, r6) {
           z_score = r6$z_score,
           clustering_method = r6$anova_clust_method,
           n_cluster = r6$clusters_number,
-          manual_order = r6$anova_reorder,
-          order = r6$anova_profile_order
+          manual_order = r6$anova_manual_order,
+          order = isolate(input$profile_order)
         )
       }
-
 
     })
     
@@ -330,7 +316,7 @@ server <- function(id, r6) {
         highlight = TRUE,
         defaultPageSize = 7,
         height = "auto",
-        selection = "single",
+        selection = "multiple",
         onClick = "select",
         defaultSelected = 1,
         columns = list(
@@ -369,19 +355,22 @@ server <- function(id, r6) {
         highlights <- table[gene_selected(), ] %>% 
           pull(gene_names)
         
-        r6$plot_protein_profile(gene = highlights, order = r6$anova_profile_order)
+        r6$plot_protein_profile(gene = highlights)
       }
       
     })
     
-    observeEvent(input$update, {
+    output$cluster_profile_plots <- renderUI({
+      
+      watch("profile")
       
       req(input$run_statistics)
-      req(input$profile_order)
       
-      r6$anova_profile_order <- input$profile_order
-      
-      trigger("profile")
+      if(r6$clusters_number > 0){
+        r6$plot_cluster_profile()
+      }else{
+        return(NULL)
+      }
       
     })
 
