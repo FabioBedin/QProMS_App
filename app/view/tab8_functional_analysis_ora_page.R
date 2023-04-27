@@ -1,0 +1,388 @@
+box::use(
+  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput],
+  gargoyle[init, watch, trigger],
+)
+
+#' @export
+ui <- function(id) {
+  ns <- NS(id)
+  
+  tabItem(
+    tabName = "functional_analysis_ora",
+    fluidRow(
+      valueBoxOutput(ns("significant"), width = 3),
+      valueBoxOutput(ns("fdr_thr"), width = 3),
+      valueBoxOutput(ns("n_nodes"), width = 3),
+      valueBoxOutput(ns("n_edges"), width = 3)
+    ),
+    fluidRow(
+      bs4Callout(
+        div(
+          style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("from_statistic_input"),
+              label = "Genes from",
+              choices = c("Univariate" = "univariate", "Multivariate" = "multivariate"),
+              selected = "univariate"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            uiOutput(ns("ui_groups_input"))
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("alpha_input"),
+              label = "Alpha",
+              choices = c(0.05, 0.01),
+              selected = 0.05
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("truncation_input"),
+              label = "Truncation",
+              choices = c(
+                "Benjamini & Hochberg" = "BH",
+                "Bonferroni" = "bonferroni",
+                "Holm (1979)" = "holm",
+                "Hochberg (1988)" = "hochberg",
+                "Hommel (1988)" = "hommel",
+                "Benjamini & Yekutieli" = "BY",
+                "None" = "none"),
+              selected = "BH"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0; text-align: center;",
+            prettyCheckbox(
+              inputId = ns("background_input"),
+              label = "Background", 
+              value = FALSE,
+              shape = "curve"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            actionBttn(
+              inputId = ns("run_analysis"),
+              label = "Run analysis", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
+        ),
+        title = NULL,
+        status = "info",
+        width = 12,
+        elevation = 1
+      )
+    ),
+    fluidRow(
+      box(
+        title = "Functional plot",
+        status = "primary",
+        width = 6,
+        height = 700,
+        maximizable = TRUE,
+        sidebar = boxSidebar(
+          id = ns("functional_sidebar"),
+          div(
+            style = "padding-right: 0.5rem",
+            h4("Parameters"),
+            div(
+              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("ontology"),
+                  label = "Term",
+                  choices = c("BP", "MF", "CC"),
+                  selected = "BP"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;  text-align: center;",
+                uiOutput(ns("ui_direction_input"))
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                numericInput(
+                  inputId = ns("top_n_input"),
+                  label = "Top n",
+                  value = 5,
+                  min = 1,
+                  max = 15,
+                  step = 1
+                )
+              )
+            ),
+            sliderTextInput(
+              inputId = ns("simplify_thr"), 
+              label = "Reduce redundancy in GO terms",
+              choices = c("highly simplified", "2", "3", "4", "5", "6", "7", "8", "9", "not simplified"), 
+              selected = "7",
+              grid = TRUE,
+              force_edges = TRUE,
+            ),
+            br(),
+            actionBttn(
+              inputId = ns("update"),
+              label = "Update", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
+        )
+      ),
+      box(
+        title = "Network",
+        status = "primary",
+        width = 6,
+        height = 700,
+        maximizable = TRUE
+      )
+    ),
+    fluidRow(
+      box(
+        title = "Result Table",
+        status = "primary",
+        width = 12,
+        maximizable = TRUE,
+        collapsible = TRUE
+      )
+    )
+  )
+
+}
+
+#' @export
+server <- function(id, r6) {
+  moduleServer(id, function(input, output, session) {
+    
+    init("functional")
+    
+    output$ui_groups_input <- renderUI({
+      
+      watch("functional")
+      
+      tests <- c(r6$primary_condition, r6$additional_condition)
+      
+      pickerInput(
+        inputId = session$ns("test_uni_input"),
+        label = "Contrasts",
+        choices = tests,
+        selected = r6$primary_condition,
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE, 
+          title = "None",
+          `selected-text-format` = "count > 2",
+          size = 5)
+      )
+      
+      
+    })
+    
+    output$ui_direction_input <- renderUI({
+      
+      watch("functional")
+      
+      if(is.null(r6$ora_table)) {
+        tests <- paste0(r6$primary_condition, "_up")
+        sel <- tests
+      } else {
+        tests <- names(r6$ora_result_list)
+        sel <- tests[1]
+      }
+      
+      pickerInput(
+        inputId = session$ns("direction_input"),
+        label = "Contrasts",
+        choices = tests,
+        selected = sel,
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE, 
+          title = "None",
+          `selected-text-format` = "count > 2",
+          size = 5)
+      )
+      
+      
+    })
+    
+    output$significant <- renderValueBox({
+      
+      watch("functional")
+      
+      if(is.null(r6$ora_table)){
+        value <- 0
+      }else{
+        sig <- nrow(r6$ora_table)
+        
+        term <- "BP"
+        
+        value <- paste0(sig, " terms in ", term)
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("adjust", verify_fa = FALSE),
+        color = "primary",
+        footer = p("Significant", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$fdr_thr <- renderValueBox({
+      
+      watch("functional")
+      
+      if(is.null(r6$ora_table)){
+        value <- "Undefinded"
+      }else{
+        value <- r6$go_ora_alpha
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("crosshairs"),
+        color = "primary",
+        footer = p("FDR", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$n_nodes <- renderValueBox({
+      
+      watch("functional")
+      
+      if(is.null(r6$ora_table)){
+        value <- "Undefinded"
+      }else{
+        value <- 12
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("compress"),
+        color = "primary",
+        footer = p("N° of nodes", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$n_edges <- renderValueBox({
+      
+      watch("functional")
+      
+      if(is.null(r6$ora_table)){
+        value <- "Undefinded"
+      }else{
+        value <- 54
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("compress"),
+        color = "primary",
+        footer = p("N° of edges", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    observeEvent(input$run_analysis ,{
+      
+      req(input$from_statistic_input)
+      req(input$test_uni_input)
+      req(input$alpha_input)
+      req(input$truncation_input)
+      req(input$ontology)
+      req(input$direction_input)
+      req(input$top_n_input)
+      req(input$simplify_thr)
+      
+      r6$go_ora_from_statistic <- input$from_statistic_input
+      r6$go_ora_tested_condition <- input$test_uni_input
+      r6$go_ora_alpha <- as.double(input$alpha_input)
+      r6$go_ora_p_adj_method <- input$truncation_input
+      r6$go_ora_term <- input$ontology
+      r6$go_ora_univariate_direction <- input$direction_input
+      r6$go_ora_top_n <- input$top_n_input
+      
+      if (input$simplify_thr == "highly simplified") {
+        simp_thr <- 0.1
+      } else if (input$simplify_thr == "not simplified") {
+        simp_thr <- 1
+      } else {
+        simp_thr <- as.numeric(input$simplify_thr) / 10
+      }
+      r6$go_ora_simplify_thr <- simp_thr
+      
+      r6$go_ora(
+        list_from = r6$go_ora_from_statistic,
+        test = r6$go_ora_tested_condition,
+        alpha = r6$go_ora_alpha,
+        p_adj_method = r6$go_ora_p_adj_method,
+        background = isolate(input$background_input)
+      )
+      
+      r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
+      
+      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_univariate_direction)
+      
+      
+      trigger("functional")
+    })
+    
+    observeEvent(input$update, {
+      
+      req(input$simplify_thr)
+      req(input$ontology)
+      req(input$direction_input)
+      req(input$top_n_input)
+      
+      r6$go_ora_term <- input$ontology
+      r6$go_ora_univariate_direction <- input$direction_input
+      r6$go_ora_top_n <- input$top_n_input
+      
+      if (input$simplify_thr == "highly simplified") {
+        simp_thr <- 0.1
+      } else if (input$simplify_thr == "not simplified") {
+        simp_thr <- 1
+      } else {
+        simp_thr <- as.numeric(input$simplify_thr) / 10
+      }
+      r6$go_ora_simplify_thr <- simp_thr
+      
+      r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
+      
+      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_univariate_direction)
+      
+      print(r6$go_ora_simplify_thr)
+      
+      trigger("functional")
+      
+    })
+
+  })
+}

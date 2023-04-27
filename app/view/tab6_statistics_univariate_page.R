@@ -1,6 +1,6 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   echarts4r[echarts4rOutput, renderEcharts4r],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   stringr[str_replace_all],
@@ -24,6 +24,20 @@ ui <- function(id) {
       valueBoxOutput(ns("down_reg"), width = 2),
       valueBoxOutput(ns("fdr_thr"), width = 2),
       valueBoxOutput(ns("fc_thr"), width = 2)
+    ),
+    fluidRow(
+      bs4Callout(
+        selectInput(
+          inputId = ns("test_input23"),
+          label = NULL,
+          choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
+          selected = "welch"
+        ),
+        title = "Parameters",
+        status = "info",
+        width = 12,
+        elevation = 1
+      )
     ),
     fluidRow(
       box(
@@ -167,6 +181,8 @@ server <- function(id, r6) {
       watch("stat")
       
       test <- r6$all_test_combination
+      
+      test <- test[! test %in% r6$primary_condition]
       
       pickerInput(
         inputId = session$ns("additional_input"),

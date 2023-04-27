@@ -13,6 +13,7 @@ box::use(
   app/view/tab5_pca_page,
   app/view/tab6_statistics_univariate_page,
   app/view/tab7_statistics_multivariate_page,
+  app/view/tab8_functional_analysis_ora_page,
 )
 
 box::use(
@@ -114,7 +115,8 @@ ui <- function(id) {
         tab4_correlation_page$ui(ns("tab4_correlation_page")),
         tab5_pca_page$ui(ns("tab5_pca_page")),
         tab6_statistics_univariate_page$ui(ns("tab6_statistics_univariate_page")),
-        tab7_statistics_multivariate_page$ui(ns("tab7_statistics_multivariate_page"))
+        tab7_statistics_multivariate_page$ui(ns("tab7_statistics_multivariate_page")),
+        tab8_functional_analysis_ora_page$ui(ns("tab8_functional_analysis_ora_page"))
       )
     )
   )
@@ -141,6 +143,7 @@ server <- function(id) {
     tab5_pca_page$server("tab5_pca_page", r6 = object)
     tab6_statistics_univariate_page$server("tab6_statistics_univariate_page", r6 = object)
     tab7_statistics_multivariate_page$server("tab7_statistics_multivariate_page", r6 = object)
+    tab8_functional_analysis_ora_page$server("tab8_functional_analysis_ora_page", r6 = object)
     
     
     observeEvent(unlock_pages(), {
@@ -176,7 +179,7 @@ server <- function(id) {
       })
       removeUI(selector = "#app-statistics_blocked")
 
-      output$function_analysis <- renderMenu({ menuItem("Function Analysis", icon = icon("chart-column"), tabName = "function_analysis") })
+      output$function_analysis <- renderMenu({ menuItem("Function Analysis", icon = icon("chart-column"), tabName = "functional_analysis_ora") })
       removeUI(selector = "#app-function_analysis_blocked")
       
     })

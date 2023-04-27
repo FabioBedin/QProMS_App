@@ -11,14 +11,16 @@ box::use(
   dplyr,
   tidyr,
   stringr,
-  purrr[map, map2, reduce, map_dbl],
+  purrr[map, map2, reduce, map_dbl, pluck, list_rbind, set_names, possibly],
   reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
   vsn[vsn2, predict],
   corrmorant[...],
   ggplot2[scale_fill_viridis_c, geom_point],
-  iheatmapr[...]
+  iheatmapr[...],
+  clusterProfiler[enrichGO, filter, simplify],
+  org.Hs.eg.db[org.Hs.eg.db],
 )
 
 #' @export
@@ -81,6 +83,19 @@ QProMS <- R6Class(
     anova_col_order = NULL,
     clusters_def = NULL,
     clusters_number = 0,
+    #################
+    # parameters For ORA #
+    ora_result_list = NULL,
+    ora_result_list_simplified = NULL,
+    ora_table = NULL,
+    go_ora_from_statistic = NULL,
+    go_ora_tested_condition = NULL,
+    go_ora_alpha = 0.05,
+    go_ora_p_adj_method = "BH",
+    go_ora_term = "BP",
+    go_ora_univariate_direction = NULL,
+    go_ora_top_n = NULL,
+    go_ora_simplify_thr = 0.7,
     ###########
     # Methods #
     loading_data = function(input_path, input_type) {
@@ -506,6 +521,25 @@ QProMS <- R6Class(
       
       return(table)
     },
+    print_ora_table = function(ontology = "BP", groups) {
+      
+      self$ora_table <- map(self$ora_result_list_simplified, ~ pluck(.x, "result")) %>%
+        list_rbind(names_to = "group") %>% 
+        as_tibble() %>%
+        dplyr$filter(ONTOLOGY == ontology) %>%
+        dplyr$filter(group %in% groups) %>% 
+        tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
+        tidyr$separate(BgRatio, into = c("c", "d"), sep = "/", remove = FALSE) %>%
+        dplyr$mutate(fold_change = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
+        dplyr$select(-c(a,b,c,d)) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
+        dplyr$relocate(ID) %>% 
+        dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
+        dplyr$relocate(Count, .after = fold_change) %>%
+        dplyr$arrange(-pvalue)
+      
+    },
     stat_tidy_vector = function(data, name) {
       
       tidy_vec <- data %>%
@@ -665,6 +699,91 @@ QProMS <- R6Class(
       
       self$anova_table <- stat_data
     },
+    go_ora_make_grp_data = function(test) {
+      
+      groupped_data <- self$stat_table %>%
+        dplyr$select(gene_names, dplyr$starts_with(test)) %>%
+        dplyr$rename_at(dplyr$vars(dplyr$matches(test)),
+                         ~ stringr$str_remove(., paste0(test, "_"))) %>%
+        dplyr$filter(significant)
+      
+      if(nrow(groupped_data) > 0) {
+        groupped_data <- groupped_data %>%
+          dplyr$mutate(direction = dplyr$if_else(fold_change > 0, paste0(test, "_up"), paste0(test, "_down"))) %>%
+          dplyr$select(gene_names, direction) 
+      } else {
+        groupped_data <- tibble(
+          gene_names = c("NO_Significant", "NO_Significant"),
+          direction = c(paste0(test, "_up"), paste0(test, "_down"))
+        )
+      }
+      
+      return(groupped_data)
+      
+    },
+    go_ora = function(list_from, test, alpha, p_adj_method, background) {
+      
+      if (list_from == "univariate") {
+        groupped_data <-
+          map(
+            .x = test,
+            .f = ~ self$go_ora_make_grp_data(test = .x)) %>% 
+          reduce(dplyr$bind_rows) %>% 
+          dplyr$group_by(direction)
+        
+        uni <- self$stat_table %>%
+          dplyr$pull(gene_names)
+      } else{
+        groupped_data <- self$anova_table %>%
+          dplyr$filter(significant) %>%
+          dplyr$select(gene_names, cluster) %>%
+          dplyr$group_by(cluster)
+        
+        if(nrow(groupped_data) > 0) {
+          groupped_data <- tibble(
+            gene_names = "NO_Significant",
+            cluster = "not_defined"
+          )
+        }
+        
+        uni <- self$anova_table %>%
+          dplyr$pull(gene_names)
+      }
+      
+      unnamed_gene_lists <-
+        groupped_data %>% dplyr$group_map(~ dplyr$pull(.x, gene_names))
+      
+      gene_vector <-
+        set_names(unnamed_gene_lists, dplyr$group_keys(groupped_data) %>% dplyr$pull())
+      
+      if (!background) {
+        uni <- NULL
+      }
+      
+      self$ora_result_list <- map(
+        .x = gene_vector,
+        .f = possibly(
+          ~ enrichGO(
+            gene          = .x,
+            OrgDb         = org.Hs.eg.db,
+            keyType       = 'SYMBOL',
+            ont           = "ALL",
+            pAdjustMethod = p_adj_method,
+            universe      = uni,
+            readable      = TRUE
+          ) %>% filter(p.adjust < alpha)
+        )
+      )
+      
+    },
+    go_ora_simplify = function(thr) {
+      
+      self$ora_result_list_simplified <- map(
+        .x = self$ora_result_list,
+        .f = possibly( ~ simplify(.x, cutoff = thr))
+      )
+      
+    },
     e_arrange_list = function(list, max_cols = 3) {
       
       plots <- list
@@ -717,6 +836,7 @@ QProMS <- R6Class(
         echarts4r$e_x_axis(name = "Replicates") %>%
         echarts4r$e_y_axis(name = "Counts") %>%
         echarts4r$e_tooltip(trigger = "item") %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_color(self$color_palette) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
         echarts4r$e_y_axis(
@@ -759,6 +879,7 @@ QProMS <- R6Class(
         echarts4r$e_bar(occurrence) %>%
         echarts4r$e_y_axis(name = "Counts") %>%
         echarts4r$e_tooltip(trigger = "item") %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_color(self$color_palette) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
         echarts4r$e_y_axis(
@@ -797,6 +918,7 @@ QProMS <- R6Class(
           itemStyle = list(borderWidth = 3)
         ) %>%
         echarts4r$e_tooltip(trigger = "item") %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_color(self$color_palette) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
         echarts4r$e_y_axis(
@@ -847,7 +969,8 @@ QProMS <- R6Class(
             fontSize = 16,
             lineHeight = 60
           )
-        ) %>%  
+        ) %>% 
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_color(self$color_palette) %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
@@ -875,6 +998,7 @@ QProMS <- R6Class(
         echarts4r$e_y_axis(name = "Counts") %>%
         echarts4r$e_tooltip(trigger = "item") %>%
         echarts4r$e_color(color) %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
         echarts4r$e_y_axis(
           name = "Counts",
@@ -931,6 +1055,7 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_color(color) %>% 
         echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
@@ -968,6 +1093,7 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         
       if(imp_visualization){
@@ -1004,6 +1130,7 @@ QProMS <- R6Class(
               lineHeight = 60
             )
           ) %>%
+          echarts4r$e_grid(containLabel = TRUE) %>%
           echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }
       
@@ -1040,6 +1167,7 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_color(color) %>%
         echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
@@ -1126,6 +1254,7 @@ QProMS <- R6Class(
             )
           ) %>% 
           echarts4r$e_color(self$color_palette) %>% 
+          echarts4r$e_grid(containLabel = TRUE) %>%
           echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataView")) %>% 
           echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }else{
@@ -1170,6 +1299,7 @@ QProMS <- R6Class(
           ) %>%
           echarts4r$e_legend() %>% 
           echarts4r$e_color(self$color_palette) %>% 
+          echarts4r$e_grid(containLabel = TRUE) %>%
           echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore")) %>% 
           echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       }
@@ -1210,6 +1340,7 @@ QProMS <- R6Class(
           inRange = list(color = color)
         ) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_toolbox_feature(feature = c("saveAsImage"))
         
       
@@ -1260,6 +1391,7 @@ QProMS <- R6Class(
               lineHeight = 60
             )
           ) %>%
+          echarts4r$e_grid(containLabel = TRUE) %>%
           echarts4r$e_toolbox_feature(feature = "saveAsImage")
       }else{
         p <- data_scatter %>%
@@ -1294,6 +1426,7 @@ QProMS <- R6Class(
               lineHeight = 60
             )
           ) %>%
+          echarts4r$e_grid(containLabel = TRUE) %>%
           echarts4r$e_title(paste0("correlation: ", value), left = "center") %>%  
           echarts4r$e_toolbox_feature(feature = "saveAsImage") 
       }
@@ -1440,6 +1573,7 @@ QProMS <- R6Class(
             lineHeight = 50
           )
         ) %>% 
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_title(text = test, left = "center") %>%
         echarts4r$e_group("grp") %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
@@ -1594,6 +1728,7 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_tooltip() %>%
         echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataZoom")) %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
@@ -1604,29 +1739,29 @@ QProMS <- R6Class(
     plot_cluster_profile_single = function(clust, color_band) {
       
       title <- clust %>%
-        stringr::str_to_title() %>%
-        stringr::str_replace(pattern = "_", replacement = " ")
+        stringr$str_to_title() %>%
+        stringr$str_replace(pattern = "_", replacement = " ")
       
       p <- self$anova_table %>%
-        tidyr::pivot_longer(
+        tidyr$pivot_longer(
           !c(gene_names, p_val, p_adj, significant, cluster),
           names_to = "label",
           values_to = "intensity"
         ) %>%
-        dplyr::filter(cluster == clust) %>%
-        dplyr::group_by(label) %>%
-        dplyr::summarise(
-          n = dplyr::n(),
+        dplyr$filter(cluster == clust) %>%
+        dplyr$group_by(label) %>%
+        dplyr$summarise(
+          n = dplyr$n(),
           sd = sd(intensity, na.rm = TRUE),
           median = median(intensity, na.rm = TRUE)
         ) %>%
-        dplyr::ungroup() %>%
-        dplyr::mutate(
+        dplyr$ungroup() %>%
+        dplyr$mutate(
           error = qt(0.975, df = n - 1) * sd / sqrt(n),
           lower_bound = median - error,
           upper_bound = median + error
         ) %>%
-        dplyr::arrange(factor(label, levels = self$anova_col_order)) %>%
+        dplyr$arrange(factor(label, levels = self$anova_col_order)) %>%
         echarts4r$e_charts(label, renderer = "svg") %>%
         echarts4r$e_line(median,
                symbol = "none",
@@ -1641,7 +1776,7 @@ QProMS <- R6Class(
         echarts4r$e_color(color_band) %>%
         echarts4r$e_x_axis(name = "", axisLabel = list(interval = 0, rotate = 45)) %>%
         echarts4r$e_title(text = title) %>%
-        # echarts4r$e_y_axis(scale=TRUE) %>%
+        echarts4r$e_grid(containLabel = TRUE) %>%
         echarts4r$e_y_axis(
           name = "log2 Intensity",
           nameLocation = "center",
@@ -1664,7 +1799,7 @@ QProMS <- R6Class(
       alpha_cols <- stringr$str_replace(alpha_cols, pattern = "FF", replacement = "E6")
       
       n_clust <- tibble(cluster = "cluster_", numb = 1:self$clusters_number) %>% 
-        dplyr::mutate(cluster = paste0(cluster, numb)) %>% 
+        dplyr$mutate(cluster = paste0(cluster, numb)) %>% 
         dplyr$pull(cluster)
       
       profile_plots <- map2(
