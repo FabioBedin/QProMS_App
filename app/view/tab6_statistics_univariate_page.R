@@ -27,13 +27,84 @@ ui <- function(id) {
     ),
     fluidRow(
       bs4Callout(
-        selectInput(
-          inputId = ns("test_input23"),
-          label = NULL,
-          choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
-          selected = "welch"
+        div(
+          style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("test_input"),
+              label = "Test type",
+              choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
+              selected = "welch", 
+              width = "auto"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0; text-align: center;",
+            prettyCheckbox(
+              inputId = ns("paider_input"),
+              label = "Paired", 
+              value = FALSE,
+              shape = "curve", 
+              width = "auto"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            numericInput(
+              inputId = ns("fc_input"),
+              label = "Fold change",
+              value = 1,
+              min = 0,
+              step = 0.5, 
+              width = "auto"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("alpha_input"),
+              label = "Alpha",
+              choices = c(0.05, 0.01),
+              selected = 0.05, 
+              width = "auto"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("truncation_input"),
+              label = "Truncation",
+              choices = c(
+                "Benjamini & Hochberg" = "BH",
+                "Bonferroni" = "bonferroni",
+                "Holm (1979)" = "holm",
+                "Hochberg (1988)" = "hochberg",
+                "Hommel (1988)" = "hommel",
+                "Benjamini & Yekutieli" = "BY",
+                "None" = "none"),
+              selected = "BH", 
+              width = "auto"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            uiOutput(ns("ui_primary_input"))
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            actionBttn(
+              inputId = ns("run_statistics"),
+              label = "Run statistics", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE, 
+              width = "auto"
+            )
+          )
         ),
-        title = "Parameters",
+        title = NULL,
         status = "info",
         width = 12,
         elevation = 1
@@ -48,91 +119,14 @@ ui <- function(id) {
         maximizable = TRUE,
         sidebar = boxSidebar(
           id = ns("volcano_sidebar"),
-          startOpen = TRUE,
           div(
             style = "padding-right: 0.5rem",
-            h4("Test"),
+            h4("Additional contrast"),
             div(
-              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
-              div(
-                style = "width: 100%; flex: 3 1 0;",
-                selectInput(
-                  inputId = ns("test_input"),
-                  label = NULL,
-                  choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
-                  selected = "welch"
-                )
-              ),
-              div(
-                style = "width: 100%; flex: 1 1 0;  text-align: center;",
-                prettyCheckbox(
-                  inputId = ns("paider_input"),
-                  label = "Paired", 
-                  value = FALSE,
-                  shape = "curve"
-                )
-              )
-            ),
-            h4("Parameters"),
-            div(
-              style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
-              div(
-                style = "width: 100%; flex: 1 1 0;",
-                numericInput(
-                  inputId = ns("fc_input"),
-                  label = "Fold change",
-                  value = 1,
-                  min = 0,
-                  step = 0.5
-                )
-              ),
-              div(
-                style = "width: 100%; flex: 1 1 0;",
-                selectInput(
-                  inputId = ns("alpha_input"),
-                  label = "Alpha",
-                  choices = c(0.05, 0.01),
-                  selected = 0.05
-                )
-              ),
-              div(
-                style = "width: 100%; flex: 2 1 0;",
-                selectInput(
-                  inputId = ns("truncation_input"),
-                  label = "Truncation",
-                  choices = c(
-                    "Benjamini & Hochberg" = "BH",
-                    "Bonferroni" = "bonferroni",
-                    "Holm (1979)" = "holm",
-                    "Hochberg (1988)" = "hochberg",
-                    "Hommel (1988)" = "hommel",
-                    "Benjamini & Yekutieli" = "BY",
-                    "None" = "none"),
-                  selected = "BH"
-                )
-              )
-            ),
-            h4("Contrast"),
-            div(
-              style = "display: flex; justify-content: center; gap: 20px",
-              div(
-                style = "width: 100%;",
-                uiOutput(ns("ui_primary_input"))
-              ),
-              div(
-                style = "width: 100%;",
-                uiOutput(ns("ui_additional_input"))
-              )
-            ),
-            br(),
-            actionBttn(
-              inputId = ns("run_statistics"),
-              label = "Run statistics", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
+              style = "width: 100%;",
+              uiOutput(ns("ui_additional_input"))
             )
+            #mettere update button
           )
         ),
         uiOutput(ns("volcano_plot_multiple"))
@@ -168,6 +162,7 @@ server <- function(id, r6) {
         choices = test, 
         selected = r6$primary_condition,
         multiple = FALSE,
+        # width = "auto",
         options = list(
           `live-search` = TRUE, 
           size = 5)

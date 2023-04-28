@@ -96,6 +96,7 @@ QProMS <- R6Class(
     go_ora_univariate_direction = NULL,
     go_ora_top_n = NULL,
     go_ora_simplify_thr = 0.7,
+    go_ora_plot_value = "fold_change",
     ###########
     # Methods #
     loading_data = function(input_path, input_type) {
@@ -1809,6 +1810,117 @@ QProMS <- R6Class(
       )
       
       p <- self$e_arrange_list(profile_plots)
+      
+      return(p)
+    },
+    plot_ora_empty = function(val) {
+      
+      data <- data.frame(x = val, y = "No enrichment terms")
+      
+      p <- echarts4r$e_chart(data, x, renderer = "svg") %>%
+        echarts4r$e_bar(y) %>%
+        echarts4r$e_legend(show = FALSE) %>%
+        echarts4r$e_draft(text = "No enrichment terms",
+                          size = "50px",
+                          color = "red") %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      
+      return(p)
+      
+    },
+    plot_ora = function(term, groups, selected, value) {
+      
+      if(length(groups) == 1 & !is.null(selected)) {
+        
+        colors <- viridis(n = 3, direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+        
+        if (term == "BP") {
+          color <- colors[1]
+        } else if (term == "MF") {
+          color <- colors[2]
+        } else {
+          color <- colors[3]
+        }
+        
+        single_plot_table <- self$ora_table %>%
+          dplyr$filter(group == groups)
+        
+        if(nrow(single_plot_table) == 0) {
+          p <- self$plot_ora_empty(val = value)
+        } else {
+          p <- single_plot_table %>%
+            dplyr$filter(ID %in% selected) %>%
+            dplyr$rename(value := !!value) %>% 
+            dplyr$arrange(value) %>%
+            echarts4r$e_chart(ID, renderer = "svg") %>%
+            echarts4r$e_bar(value, bind = Description) %>%
+            echarts4r$e_flip_coords() %>%
+            echarts4r$e_grid(containLabel = TRUE) %>%
+            echarts4r$e_color(color) %>%
+            echarts4r$e_tooltip(
+              formatter = JS(
+                "
+                function(params){
+                  return('<strong>' + params.name +
+                          '</strong><br />Value: ' + params.value[0])
+                          }
+              "
+              )
+            ) %>%
+            echarts4r$e_x_axis(
+              name = value,
+              nameLocation = "center",
+              nameTextStyle = list(
+                fontWeight = "bold",
+                fontSize = 16,
+                lineHeight = 60
+              )
+            ) %>%
+            echarts4r$e_y_axis(axisLabel = list(fontSize = 0)) %>%
+            echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView")) %>% 
+            echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+        }
+      } else if (length(groups) > 1 & !is.null(selected)) {
+        color <- viridis(n = length(groups), direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+        alpha_cols <- stringr$str_replace(color, pattern = "FF", replacement = "CC")
+        
+        multiple_plot_table <- self$ora_table %>%
+          dplyr$filter(group %in% groups)
+        
+        if(nrow(multiple_plot_table) == 0) {
+          p <- self$plot_ora_empty(val = value)
+        } else {
+          p <- multiple_plot_table %>%
+            dplyr$filter(ID %in% selected) %>%
+            dplyr$rename(value := !!value) %>% 
+            dplyr$mutate(numeric_id = stringr$str_remove(ID, "GO:")) %>%
+            dplyr$mutate(numeric_id = as.numeric(numeric_id)) %>%
+            dplyr$mutate(rank_id = round(rank(numeric_id)), 0) %>%
+            dplyr$arrange(value) %>%
+            dplyr$group_by(group) %>%
+            echarts4r$e_charts(group, renderer = "svg") %>%
+            echarts4r$e_scatter(rank_id, value, bind = Description, scale_js = "function(data){ return data[2];}") %>%
+            echarts4r$e_tooltip(
+              formatter = JS(
+                "
+                function(params){
+                  return('<strong>' + params.name +
+                          '</strong><br />Value: ' + params.value[2])
+                          }
+              "
+              )
+            ) %>%
+            echarts4r$e_color(alpha_cols) %>%
+            echarts4r$e_y_axis(interval = 1, axisLabel = list(fontSize = 0)) %>%
+            echarts4r$e_x_axis(axisLabel = list(interval = 0, rotate = 45)) %>% 
+            echarts4r$e_grid(containLabel = TRUE) %>% 
+            echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+        }
+      } else {
+        p <- self$plot_ora_empty(val = value)
+      }
+      
+      
       
       return(p)
     }

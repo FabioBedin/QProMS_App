@@ -1,8 +1,13 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req],
+  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput],
   gargoyle[init, watch, trigger],
+  reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
+  dplyr[group_by, `%>%`, pull, slice_max],
+  tibble[rowid_to_column],
+  echarts4r[echarts4rOutput, renderEcharts4r],
+  waiter[Waiter, spin_5],
 )
 
 #' @export
@@ -27,7 +32,8 @@ ui <- function(id) {
               inputId = ns("from_statistic_input"),
               label = "Genes from",
               choices = c("Univariate" = "univariate", "Multivariate" = "multivariate"),
-              selected = "univariate"
+              selected = "univariate", 
+              width = "auto"
             )
           ),
           div(
@@ -40,7 +46,8 @@ ui <- function(id) {
               inputId = ns("alpha_input"),
               label = "Alpha",
               choices = c(0.05, 0.01),
-              selected = 0.05
+              selected = 0.05, 
+              width = "auto"
             )
           ),
           div(
@@ -56,7 +63,8 @@ ui <- function(id) {
                 "Hommel (1988)" = "hommel",
                 "Benjamini & Yekutieli" = "BY",
                 "None" = "none"),
-              selected = "BH"
+              selected = "BH", 
+              width = "auto"
             )
           ),
           div(
@@ -65,7 +73,8 @@ ui <- function(id) {
               inputId = ns("background_input"),
               label = "Background", 
               value = FALSE,
-              shape = "curve"
+              shape = "curve", 
+              width = "auto"
             )
           ),
           div(
@@ -76,7 +85,8 @@ ui <- function(id) {
               style = "material-flat",
               color = "primary",
               size = "md",
-              block = TRUE
+              block = TRUE, 
+              width = "auto"
             )
           )
         ),
@@ -133,6 +143,12 @@ ui <- function(id) {
               grid = TRUE,
               force_edges = TRUE,
             ),
+            selectInput(
+              inputId = ns("plot_value_input"),
+              label = "Genes from",
+              choices = c("Fold change" = "fold_change", "p.value" = "pvalue", "p.ajdust" = "p.ajdust", "q.value" = "qvalue"),
+              selected = "fold_change"
+            ),
             br(),
             actionBttn(
               inputId = ns("update"),
@@ -143,7 +159,8 @@ ui <- function(id) {
               block = TRUE
             )
           )
-        )
+        ),
+        echarts4rOutput(ns("functional_plot"), height = "650")
       ),
       box(
         title = "Network",
@@ -159,7 +176,8 @@ ui <- function(id) {
         status = "primary",
         width = 12,
         maximizable = TRUE,
-        collapsible = TRUE
+        collapsible = TRUE, 
+        reactableOutput(ns("table"))
       )
     )
   )
@@ -170,6 +188,8 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
+    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
+    
     init("functional")
     
     output$ui_groups_input <- renderUI({
@@ -178,18 +198,28 @@ server <- function(id, r6) {
       
       tests <- c(r6$primary_condition, r6$additional_condition)
       
-      pickerInput(
+      selectInput(
         inputId = session$ns("test_uni_input"),
         label = "Contrasts",
         choices = tests,
         selected = r6$primary_condition,
         multiple = TRUE,
-        options = list(
-          `live-search` = TRUE, 
-          title = "None",
-          `selected-text-format` = "count > 2",
-          size = 5)
+        width = "auto",
       )
+      
+      # pickerInput(
+      #   inputId = session$ns("test_uni_input"),
+      #   label = "Contrasts",
+      #   choices = tests,
+      #   selected = r6$primary_condition,
+      #   multiple = TRUE,
+      #   width = "auto",
+      #   options = list(
+      #     `live-search` = TRUE, 
+      #     title = "None",
+      #     `selected-text-format` = "count > 2",
+      #     size = 5)
+      # )
       
       
     })
@@ -203,7 +233,7 @@ server <- function(id, r6) {
         sel <- tests
       } else {
         tests <- names(r6$ora_result_list)
-        sel <- tests[1]
+        sel <- r6$go_ora_univariate_direction
       }
       
       pickerInput(
@@ -215,7 +245,7 @@ server <- function(id, r6) {
         options = list(
           `live-search` = TRUE, 
           title = "None",
-          `selected-text-format` = "count > 2",
+          `selected-text-format` = "count > 1",
           size = 5)
       )
       
@@ -231,7 +261,7 @@ server <- function(id, r6) {
       }else{
         sig <- nrow(r6$ora_table)
         
-        term <- "BP"
+        term <- r6$go_ora_term
         
         value <- paste0(sig, " terms in ", term)
       }
@@ -312,6 +342,8 @@ server <- function(id, r6) {
     
     observeEvent(input$run_analysis ,{
       
+      w$show()
+      
       req(input$from_statistic_input)
       req(input$test_uni_input)
       req(input$alpha_input)
@@ -320,6 +352,7 @@ server <- function(id, r6) {
       req(input$direction_input)
       req(input$top_n_input)
       req(input$simplify_thr)
+      req(input$plot_value_input)
       
       r6$go_ora_from_statistic <- input$from_statistic_input
       r6$go_ora_tested_condition <- input$test_uni_input
@@ -328,6 +361,7 @@ server <- function(id, r6) {
       r6$go_ora_term <- input$ontology
       r6$go_ora_univariate_direction <- input$direction_input
       r6$go_ora_top_n <- input$top_n_input
+      r6$go_ora_plot_value <- input$plot_value_input
       
       if (input$simplify_thr == "highly simplified") {
         simp_thr <- 0.1
@@ -350,8 +384,9 @@ server <- function(id, r6) {
       
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_univariate_direction)
       
-      
       trigger("functional")
+      
+      w$hide()
     })
     
     observeEvent(input$update, {
@@ -360,10 +395,12 @@ server <- function(id, r6) {
       req(input$ontology)
       req(input$direction_input)
       req(input$top_n_input)
+      req(input$plot_value_input)
       
       r6$go_ora_term <- input$ontology
       r6$go_ora_univariate_direction <- input$direction_input
       r6$go_ora_top_n <- input$top_n_input
+      r6$go_ora_plot_value <- input$plot_value_input
       
       if (input$simplify_thr == "highly simplified") {
         simp_thr <- 0.1
@@ -378,9 +415,78 @@ server <- function(id, r6) {
       
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_univariate_direction)
       
-      print(r6$go_ora_simplify_thr)
-      
       trigger("functional")
+      
+    })
+    
+    output$table <- renderReactable({
+      
+      watch("functional")
+      
+      req(input$run_analysis)
+      
+      default_selected <- r6$ora_table %>% 
+        rowid_to_column() %>% 
+        group_by(group) %>% 
+        slice_max(get(r6$go_ora_plot_value), n = r6$go_ora_top_n) %>% 
+        pull(rowid)
+      
+      reactable(
+        r6$ora_table,
+        searchable = TRUE,
+        resizable = TRUE,
+        highlight = TRUE,
+        defaultPageSize = 10,
+        height = "auto",
+        selection = "multiple",
+        onClick = "select",
+        defaultSelected = default_selected,
+        columns = list(
+          ONTOLOGY = colDef(align = "center", name = "Ontology"),
+          ID = colDef(
+            align = "center",
+            sticky = "left",
+            minWidth = 150,
+            style = list(borderRight  = "1px solid #eee")
+          ), 
+          group = colDef(minWidth = 250),
+          fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+          Description = colDef(minWidth = 400),
+          geneID = colDef(minWidth = 1000),
+          GeneRatio = colDef(align = "center", name = "Gene ratio"),
+          BgRatio = colDef(align = "center", name = "Bg ratio"),
+          pvalue = colDef(align = "center", name = "-log(p.val)"),
+          p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+          qvalue = colDef(align = "center", name = "-log(q.val)"),
+          Count = colDef(align = "center")
+        )
+      )
+      
+    })
+    
+    gene_selected <- reactive(getReactableState("table", "selected"))
+    
+    output$functional_plot <- renderEcharts4r({
+      
+      watch("functional")
+      
+      req(input$run_analysis)
+      
+      table <- r6$ora_table
+      
+      if(is.null(gene_selected())) {
+        r6$plot_ora_empty(val = r6$go_ora_plot_value)
+      } else{
+        highlights <- table[gene_selected(),] %>%
+          pull(ID)
+        
+        r6$plot_ora(
+          term = r6$go_ora_term,
+          groups = r6$go_ora_univariate_direction,
+          selected = highlights,
+          value = r6$go_ora_plot_value
+        )
+      }
       
     })
 
