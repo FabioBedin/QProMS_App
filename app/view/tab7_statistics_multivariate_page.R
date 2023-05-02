@@ -56,12 +56,40 @@ ui <- function(id) {
           ),
           div(
             style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("clust_method"),
+              label = "Clustering method",
+              choices = c("Hierarchical Clustering" = "hclust", "K-means Clustering" = "kmeans"),
+              selected = "hclust", 
+              width = "auto"
+            )
           ),
           div(
             style = "width: 100%; flex: 1 1 0;",
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
+            div(
+              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+              div(
+                style = "width: 100%; flex: 3 1 0;",
+                numericInput(
+                  inputId = ns("n_cluster_input"),
+                  label = "N° of clusters",
+                  value = 2,
+                  min = 0,
+                  step = 1, 
+                  width = "auto"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
+                prettyCheckbox(
+                  inputId = ns("zscore_input"),
+                  label = "Z-score", 
+                  value = TRUE,
+                  shape = "curve", 
+                  width = "auto"
+                )
+              ),
+            )
           ),
           div(
             style = "width: 100%; flex: 1 1 0;",
@@ -95,39 +123,6 @@ ui <- function(id) {
             div(
               style = "padding-right: 0.5rem",
               h4("Heatmap parameters"),
-              h6("N° of cluster"),
-              div(
-                style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
-                div(
-                  style = "width: 100%; flex: 1 1 0;",
-                  numericInput(
-                    inputId = ns("n_cluster_input"),
-                    label = NULL,
-                    value = 2,
-                    min = 0,
-                    step = 1
-                  )
-                ),
-                div(
-                  style = "width: 100%;  flex: 3 1 0;",
-                  selectInput(
-                    inputId = ns("clust_method"),
-                    label = NULL,
-                    choices = c("Hierarchical Clustering" = "hclust", "K-means Clustering" = "kmeans"),
-                    selected = "hclust"
-                  )
-                ),
-                div(
-                  style = "width: 100%;  flex: 1 1 0;",
-                  prettyCheckbox(
-                    inputId = ns("zscore_input"),
-                    label = "Z-score", 
-                    value = TRUE,
-                    shape = "curve"
-                  )
-                )
-              ),
-              br(),
               prettyCheckbox(
                 inputId = ns("reorder_input"),
                 label = "Order column manually", 
@@ -142,8 +137,8 @@ ui <- function(id) {
               ),
               br(),
               actionBttn(
-                inputId = ns("run_statistics2"),
-                label = "Run statistics", 
+                inputId = ns("update"),
+                label = "Update", 
                 style = "material-flat",
                 color = "primary",
                 size = "md",
@@ -303,6 +298,18 @@ server <- function(id, r6) {
       
       r6$stat_anova(alpha = r6$anova_alpha, p_adj_method = r6$anova_p_adj_method)
       # waitress$hide()
+      
+      trigger("anova")
+      trigger("profile")
+    })
+    
+    observeEvent(input$update, {
+      
+      req(input$run_statistics)
+      
+      r6$anova_manual_order <- input$reorder_input
+      
+      r6$stat_anova(alpha = r6$anova_alpha, p_adj_method = r6$anova_p_adj_method)
       
       trigger("anova")
       trigger("profile")

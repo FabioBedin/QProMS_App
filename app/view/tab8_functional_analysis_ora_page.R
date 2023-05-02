@@ -31,15 +31,15 @@ ui <- function(id) {
             style = "width: 100%; flex: 1 1 0;",
             uiOutput(ns("ui_from_statistic_input"))
           ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            conditionalJS(
-              uiOutput(ns("ui_groups_input")),
-              condition = "input.from_statistic_input == 'univariate'",
-              jsCall = jsCalls$show(),
-              ns = ns
-            )
-          ),
+          conditionalJS(
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              uiOutput(ns("ui_groups_input"))
+            ),
+            condition = "input.from_statistic_input == 'univariate'",
+            jsCall = jsCalls$show(),
+            ns = ns
+          ), 
           div(
             style = "width: 100%; flex: 1 1 0;",
             selectInput(
@@ -244,22 +244,12 @@ server <- function(id, r6) {
       
       tests <- c(r6$primary_condition, r6$additional_condition)
       
-      # selectInput(
-      #   inputId = session$ns("test_uni_input"),
-      #   label = "Contrasts",
-      #   choices = tests,
-      #   selected = r6$primary_condition,
-      #   multiple = TRUE,
-      #   width = "auto",
-      # )
-      
       pickerInput(
         inputId = session$ns("test_uni_input"),
         label = "Contrasts",
         choices = tests,
         selected = r6$primary_condition,
         multiple = TRUE,
-        width = "auto",
         options = list(
           `live-search` = TRUE,
           title = "None",
@@ -472,6 +462,8 @@ server <- function(id, r6) {
     
     observeEvent(input$update, {
       
+      w$show()
+      
       req(input$simplify_thr)
       req(input$ontology)
       req(input$direction_input)
@@ -504,6 +496,8 @@ server <- function(id, r6) {
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus)
       
       trigger("functional")
+      
+      w$hide()
       
     })
     

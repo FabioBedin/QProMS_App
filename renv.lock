@@ -1731,6 +1731,15 @@
         "zip"
       ]
     },
+    "org.Hs.eg.db": {
+      "Package": "org.Hs.eg.db",
+      "Version": "3.16.0",
+      "Source": "Bioconductor",
+      "Hash": "e22193c47c891d1a011dade7f262cc65",
+      "Requirements": [
+        "AnnotationDbi"
+      ]
+    },
     "patchwork": {
       "Package": "patchwork",
       "Version": "1.1.2",
