@@ -31,22 +31,28 @@ ui <- function(id) {
           style = "display: flex; justify-content: center; align-items: center; gap: 20px",
           div(
             style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("test_input"),
-              label = "Test type",
-              choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
-              selected = "welch", 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0; text-align: center;",
-            prettyCheckbox(
-              inputId = ns("paider_input"),
-              label = "Paired", 
-              value = FALSE,
-              shape = "curve", 
-              width = "auto"
+            div(
+              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+              div(
+                style = "width: 100%; flex: 3 1 0;",
+                selectInput(
+                  inputId = ns("test_input"),
+                  label = "Test type",
+                  choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
+                  selected = "welch", 
+                  width = "auto"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
+                prettyCheckbox(
+                  inputId = ns("paider_input"),
+                  label = "Paired", 
+                  value = FALSE,
+                  shape = "curve", 
+                  width = "auto"
+                )
+              )
             )
           ),
           div(

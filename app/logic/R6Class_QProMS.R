@@ -93,7 +93,7 @@ QProMS <- R6Class(
     go_ora_alpha = 0.05,
     go_ora_p_adj_method = "BH",
     go_ora_term = "BP",
-    go_ora_univariate_direction = NULL,
+    go_ora_focus = NULL,
     go_ora_top_n = NULL,
     go_ora_simplify_thr = 0.7,
     go_ora_plot_value = "fold_change",
@@ -740,7 +740,7 @@ QProMS <- R6Class(
           dplyr$select(gene_names, cluster) %>%
           dplyr$group_by(cluster)
         
-        if(nrow(groupped_data) > 0) {
+        if(nrow(groupped_data) == 0) {
           groupped_data <- tibble(
             gene_names = "NO_Significant",
             cluster = "not_defined"

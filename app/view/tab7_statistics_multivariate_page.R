@@ -1,6 +1,6 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, h6, observeEvent, req, reactive, uiOutput, renderUI, isolate],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   dplyr[filter, `%>%`, pull, distinct],
   iheatmapr[...],
@@ -24,6 +24,65 @@ ui <- function(id) {
       valueBoxOutput(ns("clusters"), width = 4)
     ),
     fluidRow(
+      bs4Callout(
+        div(
+          style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("alpha_input"),
+              label = "Alpha",
+              choices = c(0.05, 0.01),
+              selected = 0.05, 
+              width = "auto"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            selectInput(
+              inputId = ns("truncation_input"),
+              label = "Truncation",
+              choices = c(
+                "Benjamini & Hochberg" = "BH",
+                "Bonferroni" = "bonferroni",
+                "Holm (1979)" = "holm",
+                "Hochberg (1988)" = "hochberg",
+                "Hommel (1988)" = "hommel",
+                "Benjamini & Yekutieli" = "BY",
+                "None" = "none"),
+              selected = "BH", 
+              width = "auto"
+            )
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+          ),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            actionBttn(
+              inputId = ns("run_statistics"),
+              label = "Run statistics", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE, 
+              width = "auto"
+            )
+          )
+        ),
+        title = NULL,
+        status = "info",
+        width = 12,
+        elevation = 1
+      )
+    ),
+    fluidRow(
       column(7,
         box(
           title = "Heatmap",
@@ -33,39 +92,8 @@ ui <- function(id) {
           maximizable = TRUE,
           sidebar = boxSidebar(
             id = ns("heatmap_sidebar"),
-            startOpen = TRUE,
             div(
               style = "padding-right: 0.5rem",
-              h4("ANOVA parameters"),
-              div(
-                style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
-                div(
-                  style = "width: 100%;",
-                  selectInput(
-                    inputId = ns("alpha_input"),
-                    label = "Alpha",
-                    choices = c(0.05, 0.01),
-                    selected = 0.05
-                  )
-                ),
-                div(
-                  style = "width: 100%;",
-                  selectInput(
-                    inputId = ns("truncation_input"),
-                    label = "Truncation",
-                    choices = c(
-                      "Benjamini & Hochberg" = "BH",
-                      "Bonferroni" = "bonferroni",
-                      "Holm (1979)" = "holm",
-                      "Hochberg (1988)" = "hochberg",
-                      "Hommel (1988)" = "hommel",
-                      "Benjamini & Yekutieli" = "BY",
-                      "None" = "none"),
-                    selected = "BH"
-                  )
-                )
-              ),
-              br(),
               h4("Heatmap parameters"),
               h6("N° of cluster"),
               div(
@@ -75,7 +103,7 @@ ui <- function(id) {
                   numericInput(
                     inputId = ns("n_cluster_input"),
                     label = NULL,
-                    value = 0,
+                    value = 2,
                     min = 0,
                     step = 1
                   )
@@ -114,7 +142,7 @@ ui <- function(id) {
               ),
               br(),
               actionBttn(
-                inputId = ns("run_statistics"),
+                inputId = ns("run_statistics2"),
                 label = "Run statistics", 
                 style = "material-flat",
                 color = "primary",

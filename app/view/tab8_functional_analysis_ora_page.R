@@ -8,6 +8,7 @@ box::use(
   tibble[rowid_to_column],
   echarts4r[echarts4rOutput, renderEcharts4r],
   waiter[Waiter, spin_5],
+  shinyGizmo[conditionalJS, jsCalls],
 )
 
 #' @export
@@ -28,17 +29,16 @@ ui <- function(id) {
           style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
           div(
             style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("from_statistic_input"),
-              label = "Genes from",
-              choices = c("Univariate" = "univariate", "Multivariate" = "multivariate"),
-              selected = "univariate", 
-              width = "auto"
-            )
+            uiOutput(ns("ui_from_statistic_input"))
           ),
           div(
             style = "width: 100%; flex: 1 1 0;",
-            uiOutput(ns("ui_groups_input"))
+            conditionalJS(
+              uiOutput(ns("ui_groups_input")),
+              condition = "input.from_statistic_input == 'univariate'",
+              jsCall = jsCalls$show(),
+              ns = ns
+            )
           ),
           div(
             style = "width: 100%; flex: 1 1 0;",
@@ -68,7 +68,7 @@ ui <- function(id) {
             )
           ),
           div(
-            style = "width: 100%; flex: 1 1 0; text-align: center;",
+            style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
             prettyCheckbox(
               inputId = ns("background_input"),
               label = "Background", 
@@ -120,10 +120,6 @@ ui <- function(id) {
                 )
               ),
               div(
-                style = "width: 100%; flex: 1 1 0;  text-align: center;",
-                uiOutput(ns("ui_direction_input"))
-              ),
-              div(
                 style = "width: 100%; flex: 1 1 0;",
                 numericInput(
                   inputId = ns("top_n_input"),
@@ -133,7 +129,25 @@ ui <- function(id) {
                   max = 15,
                   step = 1
                 )
-              )
+              ),
+              conditionalJS(
+                div(
+                  style = "width: 100%; flex: 1 1 0;  text-align: center;",
+                  uiOutput(ns("ui_direction_input"))
+                ),
+                condition = "input.from_statistic_input == 'univariate'",
+                jsCall = jsCalls$show(),
+                ns = ns
+              ),
+              conditionalJS(
+                div(
+                  style = "width: 100%; flex: 1 1 0;  text-align: center;",
+                  uiOutput(ns("ui_cluster_input"))
+                ),
+                condition = "input.from_statistic_input == 'multivariate'",
+                jsCall = jsCalls$show(),
+                ns = ns
+              ),
             ),
             sliderTextInput(
               inputId = ns("simplify_thr"), 
@@ -192,34 +206,66 @@ server <- function(id, r6) {
     
     init("functional")
     
+    output$ui_from_statistic_input <- renderUI({
+      
+      watch("functional")
+      watch("stat")
+      watch("anova")
+      
+      if(is.null(r6$stat_table) & is.null(r6$anova_table)) {
+        scelte <- c("External table" = "external")
+        sel <- "external"
+      } else if (!is.null(r6$stat_table) & is.null(r6$anova_table)) {
+        scelte <- c("Univariate" = "univariate", "External table" = "external")
+        sel <- "univariate"
+      } else if (is.null(r6$stat_table) & !is.null(r6$anova_table)) {
+        scelte <- c("Multivariate" = "multivariate", "External table" = "external")
+        sel <- "multivariate"
+      } else {
+        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "External table" = "external")
+        sel <- "univariate"
+      }
+      
+      selectInput(
+        inputId = session$ns("from_statistic_input"),
+        label = "Genes from",
+        choices = scelte,
+        selected = sel, 
+        width = "auto"
+      )
+      
+    })
+    
     output$ui_groups_input <- renderUI({
       
       watch("functional")
+      watch("stat")
+      watch("anova")
       
       tests <- c(r6$primary_condition, r6$additional_condition)
       
-      selectInput(
-        inputId = session$ns("test_uni_input"),
-        label = "Contrasts",
-        choices = tests,
-        selected = r6$primary_condition,
-        multiple = TRUE,
-        width = "auto",
-      )
-      
-      # pickerInput(
+      # selectInput(
       #   inputId = session$ns("test_uni_input"),
       #   label = "Contrasts",
       #   choices = tests,
       #   selected = r6$primary_condition,
       #   multiple = TRUE,
       #   width = "auto",
-      #   options = list(
-      #     `live-search` = TRUE, 
-      #     title = "None",
-      #     `selected-text-format` = "count > 2",
-      #     size = 5)
       # )
+      
+      pickerInput(
+        inputId = session$ns("test_uni_input"),
+        label = "Contrasts",
+        choices = tests,
+        selected = r6$primary_condition,
+        multiple = TRUE,
+        width = "auto",
+        options = list(
+          `live-search` = TRUE,
+          title = "None",
+          `selected-text-format` = "count > 2",
+          size = 5)
+      )
       
       
     })
@@ -233,12 +279,40 @@ server <- function(id, r6) {
         sel <- tests
       } else {
         tests <- names(r6$ora_result_list)
-        sel <- r6$go_ora_univariate_direction
+        sel <- r6$go_ora_focus
       }
       
       pickerInput(
         inputId = session$ns("direction_input"),
         label = "Contrasts",
+        choices = tests,
+        selected = sel,
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE, 
+          title = "None",
+          `selected-text-format` = "count > 1",
+          size = 5)
+      )
+      
+      
+    })
+    
+    output$ui_cluster_input <- renderUI({
+      
+      watch("functional")
+      
+      if(is.null(r6$ora_table)) {
+        tests <- "cluster_1"
+        sel <- tests
+      } else {
+        tests <- names(r6$ora_result_list)
+        sel <- r6$go_ora_focus
+      }
+      
+      pickerInput(
+        inputId = session$ns("cluster_input"),
+        label = "Clusters",
         choices = tests,
         selected = sel,
         multiple = TRUE,
@@ -359,9 +433,16 @@ server <- function(id, r6) {
       r6$go_ora_alpha <- as.double(input$alpha_input)
       r6$go_ora_p_adj_method <- input$truncation_input
       r6$go_ora_term <- input$ontology
-      r6$go_ora_univariate_direction <- input$direction_input
       r6$go_ora_top_n <- input$top_n_input
       r6$go_ora_plot_value <- input$plot_value_input
+      
+      if (input$from_statistic_input == "univariate") {
+        r6$go_ora_focus <- input$direction_input
+      } else if (input$from_statistic_input == "multivariate") {
+        r6$go_ora_focus <- input$cluster_input
+      } else {
+        r6$go_ora_focus <- NULL ## da sistemare per external table
+      }
       
       if (input$simplify_thr == "highly simplified") {
         simp_thr <- 0.1
@@ -382,7 +463,7 @@ server <- function(id, r6) {
       
       r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
       
-      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_univariate_direction)
+      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus)
       
       trigger("functional")
       
@@ -398,9 +479,16 @@ server <- function(id, r6) {
       req(input$plot_value_input)
       
       r6$go_ora_term <- input$ontology
-      r6$go_ora_univariate_direction <- input$direction_input
       r6$go_ora_top_n <- input$top_n_input
       r6$go_ora_plot_value <- input$plot_value_input
+      
+      if (input$from_statistic_input == "univariate") {
+        r6$go_ora_focus <- input$direction_input
+      } else if (input$from_statistic_input == "multivariate") {
+        r6$go_ora_focus <- input$cluster_input
+      } else {
+        r6$go_ora_focus <- NULL ## da sistemare per external table
+      }
       
       if (input$simplify_thr == "highly simplified") {
         simp_thr <- 0.1
@@ -413,7 +501,7 @@ server <- function(id, r6) {
       
       r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
       
-      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_univariate_direction)
+      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus)
       
       trigger("functional")
       
@@ -482,7 +570,7 @@ server <- function(id, r6) {
         
         r6$plot_ora(
           term = r6$go_ora_term,
-          groups = r6$go_ora_univariate_direction,
+          groups = r6$go_ora_focus,
           selected = highlights,
           value = r6$go_ora_plot_value
         )
