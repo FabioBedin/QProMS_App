@@ -181,7 +181,46 @@ ui <- function(id) {
         status = "primary",
         width = 6,
         height = 700,
-        maximizable = TRUE
+        maximizable = TRUE,
+        sidebar = boxSidebar(
+          id = ns("network_sidebar"),
+          div(
+            style = "padding-right: 0.5rem",
+            h4("Parameters"),
+            div(
+              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+              div(
+                style = "width: 100%; flex: 3 1 0;",
+                selectInput(
+                  inputId = ns("layout"),
+                  label = "Layout",
+                  choices = c("force", "circular"),
+                  selected = "force"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
+                prettyCheckbox(
+                  inputId = ns("names_input"),
+                  label = "Show names", 
+                  value = FALSE,
+                  shape = "curve", 
+                  width = "auto"
+                )
+              )
+            ),
+            br(),
+            actionBttn(
+              inputId = ns("update_net"),
+              label = "Update", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
+        ),
+        echarts4rOutput(ns("network_plot"), height = "650")
       )
     ),
     fluidRow(
@@ -501,6 +540,14 @@ server <- function(id, r6) {
       
     })
     
+    observeEvent(input$update_net, {
+      
+      req(input$run_analysis)
+      
+      trigger("functional")
+      
+    })
+    
     output$table <- renderReactable({
       
       watch("functional")
@@ -567,6 +614,32 @@ server <- function(id, r6) {
           groups = r6$go_ora_focus,
           selected = highlights,
           value = r6$go_ora_plot_value
+        )
+      }
+      
+    })
+    
+    output$network_plot <- renderEcharts4r({
+      
+      watch("functional")
+      
+      req(input$run_analysis)
+      
+      table <- r6$ora_table
+      
+      if(is.null(gene_selected())) {
+        r6$plot_ora_empty(val = r6$go_ora_plot_value)
+      } else{
+        highlights <- table[gene_selected(),] %>%
+          pull(ID)
+        
+        r6$plot_ora_network(
+          term = r6$go_ora_term,
+          groups = r6$go_ora_focus,
+          selected = highlights,
+          val = r6$go_ora_plot_value,
+          layout = isolate(input$layout), 
+          show_names = isolate(input$names_input)
         )
       }
       

@@ -14,6 +14,7 @@ box::use(
   app/view/tab6_statistics_univariate_page,
   app/view/tab7_statistics_multivariate_page,
   app/view/tab8_functional_analysis_ora_page,
+  app/view/tab10_network_analysis_page,
 )
 
 box::use(
@@ -99,7 +100,9 @@ ui <- function(id) {
         menuItemOutput(ns("statistics_blocked")),
         menuItemOutput(ns("statistics")),
         menuItemOutput(ns("function_analysis_blocked")),
-        menuItemOutput(ns("function_analysis"))
+        menuItemOutput(ns("function_analysis")),
+        menuItemOutput(ns("network_analysis_blocked")),
+        menuItemOutput(ns("network_analysis"))
       )
     ),
     controlbar = dashboardControlbar(),
@@ -116,7 +119,8 @@ ui <- function(id) {
         tab5_pca_page$ui(ns("tab5_pca_page")),
         tab6_statistics_univariate_page$ui(ns("tab6_statistics_univariate_page")),
         tab7_statistics_multivariate_page$ui(ns("tab7_statistics_multivariate_page")),
-        tab8_functional_analysis_ora_page$ui(ns("tab8_functional_analysis_ora_page"))
+        tab8_functional_analysis_ora_page$ui(ns("tab8_functional_analysis_ora_page")),
+        tab10_network_analysis_page$ui(ns("tab10_network_analysis_page"))
       )
     )
   )
@@ -134,7 +138,8 @@ server <- function(id) {
     output$correlation_blocked  <- renderMenu({ menuItem("Correlation", icon = icon("lock"), tabName = "") })
     output$pca_blocked <- renderMenu({ menuItem("PCA", icon = icon("lock"), tabName = "") })
     output$statistics_blocked <- renderMenu({ menuItem("Statistics", icon = icon("lock"), tabName = "") })
-    output$function_analysis_blocked <- renderMenu({ menuItem("Function Analysis", icon = icon("lock"), tabName = "") })
+    output$function_analysis_blocked <- renderMenu({ menuItem("Functional Analysis", icon = icon("lock"), tabName = "") })
+    output$network_analysis_blocked <- renderMenu({ menuItem("Network Analysis", icon = icon("lock"), tabName = "") })
     
     unlock_pages <- tab1_upload_data_page$server("tab1_upload_data_page", r6 = object)
     tab2_wrangling_data_page$server("tab2_wrangling_data_page", r6 = object)
@@ -144,6 +149,7 @@ server <- function(id) {
     tab6_statistics_univariate_page$server("tab6_statistics_univariate_page", r6 = object)
     tab7_statistics_multivariate_page$server("tab7_statistics_multivariate_page", r6 = object)
     tab8_functional_analysis_ora_page$server("tab8_functional_analysis_ora_page", r6 = object)
+    tab10_network_analysis_page$server("tab10_network_analysis_page", r6 = object)
     
     
     observeEvent(unlock_pages(), {
@@ -164,7 +170,6 @@ server <- function(id) {
         menuItem(
           "Statistics",
           icon = icon("circle-half-stroke"),
-          # tabName = "statistics",
           menuSubItem(
             text = "Univariate",
             tabName = "statistics_uni",
@@ -179,8 +184,11 @@ server <- function(id) {
       })
       removeUI(selector = "#app-statistics_blocked")
 
-      output$function_analysis <- renderMenu({ menuItem("Function Analysis", icon = icon("chart-column"), tabName = "functional_analysis_ora") })
+      output$function_analysis <- renderMenu({ menuItem("Functional Analysis", icon = icon("chart-column"), tabName = "functional_analysis_ora") })
       removeUI(selector = "#app-function_analysis_blocked")
+      
+      output$network_analysis <- renderMenu({ menuItem("Network Analysis", icon = icon("code-fork"), tabName = "network") })
+      removeUI(selector = "#app-network_analysis_blocked")
       
     })
     

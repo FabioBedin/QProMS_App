@@ -9,7 +9,7 @@ box::use(
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   echarts4r[echarts4rOutput, renderEcharts4r],
   shinyGizmo[conditionalJS, jsCalls],
-  # waiter[Waiter, spin_5, Waitress],
+  waiter[Waiter, spin_5],
 )
 
 #' @export
@@ -194,7 +194,7 @@ server <- function(id, r6) {
     
     init("anova", "profile")
     
-    # waitress <- Waitress$new(session$ns("heatmap"))
+    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
     output$profile_order_ui <- renderUI({
       
@@ -282,6 +282,8 @@ server <- function(id, r6) {
     
     observeEvent(input$run_statistics, {
       
+      w$show()
+      
       req(input$alpha_input)
       req(input$truncation_input)
       req(input$clust_method)
@@ -294,13 +296,12 @@ server <- function(id, r6) {
       r6$clusters_number <- as.double(input$n_cluster_input)
       r6$anova_manual_order <- input$reorder_input
       
-      # waitress$start()
-      
       r6$stat_anova(alpha = r6$anova_alpha, p_adj_method = r6$anova_p_adj_method)
-      # waitress$hide()
       
       trigger("anova")
       trigger("profile")
+      
+      w$hide()
     })
     
     observeEvent(input$update, {

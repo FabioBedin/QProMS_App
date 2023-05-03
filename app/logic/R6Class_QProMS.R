@@ -1923,6 +1923,96 @@ QProMS <- R6Class(
       
       
       return(p)
+    },
+    plot_ora_network = function(term, groups, selected, val, layout, show_names) {
+      
+      if (length(groups) == 1 & !is.null(selected)) {
+        colors <-
+          viridis(
+            n = 3,
+            direction = -1,
+            end = 0.90,
+            begin = 0.10,
+            option = self$palette
+          )
+        
+        if (term == "BP") {
+          color <- colors[1]
+        } else if (term == "MF") {
+          color <- colors[2]
+        } else {
+          color <- colors[3]
+        }
+        
+      } else {
+        color <-
+          viridis(
+            n = length(groups),
+            direction = -1,
+            end = 0.90,
+            begin = 0.10,
+            option = self$palette
+          )
+      }
+      
+      net_table <- self$ora_table %>% 
+        dplyr$filter(ID %in% selected)
+      
+      nodes <- net_table %>%
+        dplyr$rename(value := !!val) %>%
+        dplyr$arrange(value) %>% 
+        tidyr$separate_rows(geneID, sep = "/") %>%
+        dplyr$select(Description, geneID, group, value) %>%
+        tidyr$pivot_longer(!c(group, value), names_to = "category", values_to = "id") %>%
+        dplyr$distinct(id, .keep_all = TRUE) %>%
+        dplyr$mutate(size = dplyr$if_else(category == "geneID", 10, 25)) %>%
+        dplyr$mutate(symbol = dplyr$if_else(category == "geneID", "circle", "diamond")) %>%
+        dplyr$select(-category)
+      
+      edges <- net_table %>%
+        tidyr$separate_rows(geneID, sep = "/") %>%
+        dplyr$select(source = Description, target = geneID) %>%
+        dplyr$mutate(value = 1)
+      
+      p <- echarts4r$e_charts(renderer = "svg") %>%
+        echarts4r$e_graph(
+          roam = TRUE,
+          layout = layout,
+          zoom = 0.5,
+          circular = list(rotateLabel = TRUE),
+          force = list(
+            initLayout = "circular",
+            repulsion = 200,
+            edgeLength = 50,
+            layoutAnimation = FALSE
+          ),
+          emphasis = list(focus = "adjacency")
+        ) %>%
+        echarts4r$e_graph_nodes(
+          nodes = nodes,
+          names = id,
+          value = value,
+          size = size,
+          category = group,
+          symbol = symbol
+        ) %>%
+        echarts4r$e_graph_edges(
+          edges = edges,
+          source = source,
+          target = target,
+          value = value,
+          size = value
+        ) %>%
+        echarts4r$e_color(color) %>%
+        echarts4r$e_tooltip() %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+      
+      if (show_names) {
+        p <- p %>% 
+          echarts4r$e_labels(fontSize = 10) 
+      }
+      
+      return(p)
     }
   )
 )

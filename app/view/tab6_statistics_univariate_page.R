@@ -131,8 +131,16 @@ ui <- function(id) {
             div(
               style = "width: 100%;",
               uiOutput(ns("ui_additional_input"))
+            ),
+            br(),
+            actionBttn(
+              inputId = ns("update"),
+              label = "Update", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
             )
-            #mettere update button
           )
         ),
         uiOutput(ns("volcano_plot_multiple"))
@@ -375,6 +383,26 @@ server <- function(id, r6) {
       
       tests <- c(r6$primary_condition, r6$additional_condition)
 
+      r6$stat_t_test(
+        test = tests,
+        fc = r6$fold_change,
+        alpha = r6$univariate_alpha,
+        p_adj_method = r6$univariate_p_adj_method,
+        paired_test = r6$univariate_paired,
+        test_type = r6$univariate_test_type
+      )
+      
+      trigger("stat")
+    })
+    
+    observeEvent(input$update ,{
+      
+      req(input$run_statistics)
+      
+      r6$additional_condition <- input$additional_input
+      
+      tests <- c(r6$primary_condition, r6$additional_condition)
+      
       r6$stat_t_test(
         test = tests,
         fc = r6$fold_change,
