@@ -1,12 +1,12 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive],
+  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   dplyr[group_by, `%>%`, pull, slice_max],
   tibble[rowid_to_column],
-  echarts4r[echarts4rOutput, renderEcharts4r],
+  echarts4r[echarts4rOutput, renderEcharts4r, echarts4rProxy, e_focus_adjacency_p],
   waiter[Waiter, spin_5],
   shinyGizmo[conditionalJS, jsCalls],
 )
@@ -528,9 +528,14 @@ server <- function(id, r6) {
       } else {
         simp_thr <- as.numeric(input$simplify_thr) / 10
       }
-      r6$go_ora_simplify_thr <- simp_thr
       
-      r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
+      if (r6$go_ora_simplify_thr != simp_thr) {
+        
+        r6$go_ora_simplify_thr <- simp_thr
+        
+        r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
+        
+      }
       
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus)
       
@@ -642,6 +647,20 @@ server <- function(id, r6) {
           show_names = isolate(input$names_input)
         )
       }
+      
+    })
+    
+    # e_focus <- reactiveVal(value = NULL)
+    
+    observeEvent(input$functional_plot_mouseover_data, {
+      print(input$functional_plot_mouseover_row)
+      # e_focus(input$functional_plot_mouseover_data_value$name[1])
+      
+      echarts4rProxy(session$ns("network_plot")) %>% 
+        e_focus_adjacency_p(
+          seriesIndex = 0,
+          index = input$functional_plot_mouseover_row
+        )
       
     })
 

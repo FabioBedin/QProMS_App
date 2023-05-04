@@ -1877,6 +1877,7 @@ QProMS <- R6Class(
               )
             ) %>%
             echarts4r$e_y_axis(axisLabel = list(fontSize = 0)) %>%
+            echarts4r$e_legend(show = FALSE) %>% 
             echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView")) %>% 
             echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         }
@@ -2005,6 +2006,7 @@ QProMS <- R6Class(
         ) %>%
         echarts4r$e_color(color) %>%
         echarts4r$e_tooltip() %>% 
+        echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       if (show_names) {
