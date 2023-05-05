@@ -1554,8 +1554,7 @@ QProMS <- R6Class(
           lineStyle = list(type = "dashed", width = .8)
         ) %>%
         echarts4r$e_toolbox() %>%
-        echarts4r$e_toolbox_feature(feature = "dataZoom") %>%
-        echarts4r$e_toolbox_feature(feature = "saveAsImage") %>%
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataZoom")) %>%
         echarts4r$e_x_axis(
           name = "Fold_change",
           nameLocation = "center",
@@ -1858,13 +1857,8 @@ QProMS <- R6Class(
             echarts4r$e_grid(containLabel = TRUE) %>%
             echarts4r$e_color(color) %>%
             echarts4r$e_tooltip(
-              formatter = JS(
-                "
-                function(params){
-                  return('<strong>' + params.name +
-                          '</strong><br />Value: ' + params.value[0])
-                          }
-              "
+              formatter = htmlwidgets::JS(
+                "function(params){return('<strong>Size: </strong>' + params.value[0])}"
               )
             ) %>%
             echarts4r$e_x_axis(
@@ -1878,7 +1872,7 @@ QProMS <- R6Class(
             ) %>%
             echarts4r$e_y_axis(axisLabel = list(fontSize = 0)) %>%
             echarts4r$e_legend(show = FALSE) %>% 
-            echarts4r$e_labels(show = TRUE, formatter= '{b}') %>%
+            echarts4r$e_labels(show = TRUE, formatter= '{b}', position = "insideLeft") %>%
             echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView")) %>% 
             echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         }
@@ -1903,13 +1897,8 @@ QProMS <- R6Class(
             echarts4r$e_charts(group, renderer = "svg") %>%
             echarts4r$e_scatter(rank_id, value, bind = Description, scale_js = "function(data){ return data[2];}") %>%
             echarts4r$e_tooltip(
-              formatter = JS(
-                "
-                function(params){
-                  return('<strong>' + params.name +
-                          '</strong><br />Value: ' + params.value[2])
-                          }
-              "
+              formatter = htmlwidgets::JS(
+                "function(params){return('<strong>Size: </strong>' + params.value[2])}"
               )
             ) %>%
             echarts4r$e_color(alpha_cols) %>%
@@ -1917,6 +1906,7 @@ QProMS <- R6Class(
             echarts4r$e_x_axis(axisLabel = list(interval = 0, rotate = 45)) %>% 
             echarts4r$e_grid(containLabel = TRUE) %>% 
             echarts4r$e_labels(show = TRUE, formatter= '{b}') %>%
+            echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView", "dataZoom")) %>% 
             echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         }
       } else {
@@ -1981,7 +1971,7 @@ QProMS <- R6Class(
         echarts4r$e_graph(
           roam = TRUE,
           layout = layout,
-          zoom = 0.5,
+          zoom = 0.8,
           circular = list(rotateLabel = TRUE),
           force = list(
             initLayout = "circular",

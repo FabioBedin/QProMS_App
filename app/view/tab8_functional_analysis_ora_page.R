@@ -124,7 +124,7 @@ ui <- function(id) {
                 numericInput(
                   inputId = ns("top_n_input"),
                   label = "Top n",
-                  value = 5,
+                  value = 10,
                   min = 1,
                   max = 15,
                   step = 1
