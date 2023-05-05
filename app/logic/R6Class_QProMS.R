@@ -1878,6 +1878,7 @@ QProMS <- R6Class(
             ) %>%
             echarts4r$e_y_axis(axisLabel = list(fontSize = 0)) %>%
             echarts4r$e_legend(show = FALSE) %>% 
+            echarts4r$e_labels(show = TRUE, formatter= '{b}') %>%
             echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView")) %>% 
             echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         }
@@ -1915,6 +1916,7 @@ QProMS <- R6Class(
             echarts4r$e_y_axis(interval = 1, axisLabel = list(fontSize = 0)) %>%
             echarts4r$e_x_axis(axisLabel = list(interval = 0, rotate = 45)) %>% 
             echarts4r$e_grid(containLabel = TRUE) %>% 
+            echarts4r$e_labels(show = TRUE, formatter= '{b}') %>%
             echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         }
       } else {

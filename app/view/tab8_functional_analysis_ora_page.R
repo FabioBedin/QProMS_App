@@ -653,7 +653,7 @@ server <- function(id, r6) {
     # e_focus <- reactiveVal(value = NULL)
     
     observeEvent(input$functional_plot_mouseover_data, {
-      print(input$functional_plot_mouseover_row)
+      # print(input$functional_plot_mouseover_row)
       # e_focus(input$functional_plot_mouseover_data_value$name[1])
       
       echarts4rProxy(session$ns("network_plot")) %>% 
