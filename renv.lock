@@ -246,6 +246,44 @@
         "lattice"
       ]
     },
+    "OmnipathR": {
+      "Package": "OmnipathR",
+      "Version": "3.6.0",
+      "Source": "Bioconductor",
+      "git_url": "https://git.bioconductor.org/packages/OmnipathR",
+      "git_branch": "RELEASE_3_16",
+      "git_last_commit": "6188f30",
+      "git_last_commit_date": "2022-11-01",
+      "Hash": "881d6172181d46c83da2306b889c2247",
+      "Requirements": [
+        "checkmate",
+        "crayon",
+        "curl",
+        "digest",
+        "dplyr",
+        "httr",
+        "igraph",
+        "jsonlite",
+        "later",
+        "logger",
+        "magrittr",
+        "progress",
+        "purrr",
+        "rappdirs",
+        "readr",
+        "readxl",
+        "rlang",
+        "rmarkdown",
+        "rvest",
+        "stringr",
+        "tibble",
+        "tidyr",
+        "tidyselect",
+        "withr",
+        "xml2",
+        "yaml"
+      ]
+    },
     "R.cache": {
       "Package": "R.cache",
       "Version": "0.16.0",
@@ -630,6 +668,16 @@
       "Requirements": [
         "rematch",
         "tibble"
+      ]
+    },
+    "checkmate": {
+      "Package": "checkmate",
+      "Version": "2.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ca9c113196136f4a9ca9ce6079c2c99e",
+      "Requirements": [
+        "backports"
       ]
     },
     "cli": {
@@ -1944,6 +1992,17 @@
       "Hash": "5e3c5dc0b071b21fa128676560dbe94d",
       "Requirements": []
     },
+    "rbioapi": {
+      "Package": "rbioapi",
+      "Version": "0.7.8",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c0403340f0cc6ae4b32b40d5975a4d53",
+      "Requirements": [
+        "httr",
+        "jsonlite"
+      ]
+    },
     "reactR": {
       "Package": "reactR",
       "Version": "0.4.4",
@@ -2153,6 +2212,25 @@
       "Hash": "06c85365a03fdaf699966cc1d3cf53ea",
       "Requirements": []
     },
+    "rvest": {
+      "Package": "rvest",
+      "Version": "1.0.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "a4a5ac819a467808c60e36e92ddf195e",
+      "Requirements": [
+        "cli",
+        "glue",
+        "httr",
+        "lifecycle",
+        "magrittr",
+        "rlang",
+        "selectr",
+        "tibble",
+        "withr",
+        "xml2"
+      ]
+    },
     "sass": {
       "Package": "sass",
       "Version": "0.4.2",
@@ -2197,6 +2275,17 @@
         "ggplot2",
         "rlang",
         "tidyr"
+      ]
+    },
+    "selectr": {
+      "Package": "selectr",
+      "Version": "0.4-2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "3838071b66e0c566d55cc26bd6e27bf4",
+      "Requirements": [
+        "R6",
+        "stringr"
       ]
     },
     "shadowtext": {
@@ -2710,10 +2799,10 @@
     },
     "xfun": {
       "Package": "xfun",
-      "Version": "0.31",
+      "Version": "0.39",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "a318c6f752b8dcfe9fb74d897418ab2b",
+      "Hash": "8f56e9acb54fb525e66464d57ab58bcb",
       "Requirements": []
     },
     "xml2": {

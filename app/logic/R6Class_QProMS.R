@@ -2,7 +2,7 @@ box::use(
   R6[R6Class],
   data.table[fread],
   janitor[make_clean_names, get_dupes],
-  tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe],
+  tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe, rowid_to_column],
   viridis[viridis],
   magrittr[`%>%`],
   stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median],
@@ -21,6 +21,8 @@ box::use(
   iheatmapr[...],
   clusterProfiler[enrichGO, filter, simplify],
   org.Hs.eg.db[org.Hs.eg.db],
+  rbioapi[rba_string_interactions_network],
+  OmnipathR[get_complex_genes, import_omnipath_complexes],
 )
 
 #' @export
@@ -97,6 +99,11 @@ QProMS <- R6Class(
     go_ora_top_n = NULL,
     go_ora_simplify_thr = 0.7,
     go_ora_plot_value = "fold_change",
+    ##########################
+    # parameters for network #
+    nodes_table = NULL,
+    edges_table = NULL,
+    name_for_edges = NULL,
     ###########
     # Methods #
     loading_data = function(input_path, input_type) {
@@ -783,6 +790,123 @@ QProMS <- R6Class(
         .x = self$ora_result_list,
         .f = possibly( ~ simplify(.x, cutoff = thr))
       )
+      
+    },
+    make_nodes = function(list_from, focus, direction) {
+      
+      if (list_from == "univariate") {
+        
+        nodes_table <- self$stat_table %>%
+          dplyr$select(gene_names, dplyr$starts_with(focus)) %>%
+          dplyr$rename_at(dplyr$vars(dplyr$matches(focus)), ~ stringr$str_remove(., paste0(focus, "_"))) %>%
+          dplyr$filter(significant) %>%
+          dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ -log10(.))) %>%
+          dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ round(., 2))) %>% 
+          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;_]*")) %>%
+          dplyr$distinct(gene_names, .keep_all = TRUE) %>% 
+          dplyr$mutate(
+            category = dplyr$if_else(fold_change > 0, "up", "down"),
+            size = p_val * 2
+          )
+        
+        if (direction == "up") {
+          nodes_table <- nodes_table %>% 
+            dplyr$filter(category == "up")
+        } else if (direction == "down") {
+          nodes_table <- nodes_table %>% 
+            dplyr$filter(category == "down")
+        }
+        
+      } else {
+        
+        nodes_table <- self$anova_table %>% 
+          dplyr$filter(significant) %>%
+          dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ -log10(.))) %>%
+          dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ round(., 2))) %>% 
+          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;_]*")) %>%
+          dplyr$distinct(gene_names, .keep_all = TRUE) %>% 
+          dplyr$filter(cluster %in% focus) %>% 
+          dplyr$mutate(
+            category = cluster,
+            size = p_val * 2
+          )
+        
+      }
+      
+      self$nodes_table <- nodes_table
+      self$name_for_edges <- nodes_table %>%
+        dplyr$pull(gene_names)
+      
+    },
+    make_edges = function(source) {
+      
+      edges_string_table <- NULL
+      edges_corum_table <- NULL
+      
+      if("string" %in% source) {
+        
+        edges_string_table <-
+          self$name_for_edges %>%
+          rba_string_interactions_network(species = 9606) %>%
+          dplyr$filter(escore != 0, dscore != 0) %>%
+          tidyr$unite("stringId", stringId_A:stringId_B, remove = TRUE) %>%
+          dplyr$distinct(stringId, .keep_all = TRUE) %>%
+          ## string calculation for fisical score
+          dplyr$mutate(score1 = (escore - 0.041) * (1 - 0.041)) %>%
+          dplyr$mutate(score2 = (dscore - 0.041) * (1 - 0.041)) %>%
+          dplyr$mutate(score_combin = 1 - (1 - score1) * (1 - score2)) %>%
+          dplyr$mutate(score = score_combin + 0.041 * (1 - score_combin)) %>%
+          ## end
+          dplyr$select(source = preferredName_A, target = preferredName_B, score) %>%
+          dplyr$filter(source != target) %>%
+          dplyr$mutate(complex = "not defined")
+        
+        if (nrow(edges_string_table) == 0) {
+          edges_string_table <- NULL
+        }
+        
+      }
+      
+      if("corum" %in% source) {
+        
+        raw_corum_table <-
+          get_complex_genes(import_omnipath_complexes(resources = "CORUM"),
+                            self$name_for_edges,
+                            total_match = FALSE) %>%
+          unique() %>%
+          dplyr$select(name, components_genesymbols) %>%
+          tidyr$separate_rows(components_genesymbols, sep = "_") %>%
+          dplyr$filter(components_genesymbols %in% self$name_for_edges) %>%
+          unique() %>%
+          get_dupes(name)
+        
+        if (nrow(raw_corum_table) != 0) {
+          
+          expand_nodes <- raw_corum_table %>%
+            dplyr$group_by(name) %>%
+            dplyr$group_map( ~ dplyr$pull(.x, components_genesymbols))
+          
+          edges_corum_table <-
+            map(.x = expand_nodes, .f = ~ as.data.frame(t(combn(.x, 2)))) %>%
+            reduce(dplyr$bind_rows) %>%
+            dplyr$rename(target = V1,  source = V2) %>%
+            dplyr$left_join(raw_corum_table, by = c("source" = "components_genesymbols")) %>%
+            dplyr$select(-dupe_count) %>%
+            dplyr$rename(complex = name) %>%
+            dplyr$mutate(score = 1)
+          
+        } else {
+          edges_corum_table <- NULL
+        }
+        
+      }
+      
+      if (is.null(edges_string_table) & is.null(edges_corum_table)) {
+        self$edges_table <- NULL
+      } else {
+        self$edges_table <- edges_string_table %>%
+          bind_rows(edges_corum_table)
+      }
       
     },
     e_arrange_list = function(list, max_cols = 3) {
@@ -1857,7 +1981,7 @@ QProMS <- R6Class(
             echarts4r$e_grid(containLabel = TRUE) %>%
             echarts4r$e_color(color) %>%
             echarts4r$e_tooltip(
-              formatter = htmlwidgets::JS(
+              formatter = JS(
                 "function(params){return('<strong>Size: </strong>' + params.value[0])}"
               )
             ) %>%
@@ -1874,6 +1998,7 @@ QProMS <- R6Class(
             echarts4r$e_legend(show = FALSE) %>% 
             echarts4r$e_labels(show = TRUE, formatter= '{b}', position = "insideLeft") %>%
             echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView")) %>% 
+            echarts4r$e_group("ora") %>% 
             echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         }
       } else if (length(groups) > 1 & !is.null(selected)) {
@@ -1897,7 +2022,7 @@ QProMS <- R6Class(
             echarts4r$e_charts(group, renderer = "svg") %>%
             echarts4r$e_scatter(rank_id, value, bind = Description, scale_js = "function(data){ return data[2];}") %>%
             echarts4r$e_tooltip(
-              formatter = htmlwidgets::JS(
+              formatter = JS(
                 "function(params){return('<strong>Size: </strong>' + params.value[2])}"
               )
             ) %>%
@@ -1906,6 +2031,7 @@ QProMS <- R6Class(
             echarts4r$e_x_axis(axisLabel = list(interval = 0, rotate = 45)) %>% 
             echarts4r$e_grid(containLabel = TRUE) %>% 
             echarts4r$e_labels(show = TRUE, formatter= '{b}') %>%
+            echarts4r$e_group("ora") %>% 
             echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView", "dataZoom")) %>% 
             echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
         }
@@ -1949,18 +2075,22 @@ QProMS <- R6Class(
       }
       
       net_table <- self$ora_table %>% 
-        dplyr$filter(ID %in% selected)
-      
-      nodes <- net_table %>%
+        dplyr$filter(ID %in% selected) %>% 
         dplyr$rename(value := !!val) %>%
         dplyr$arrange(value) %>% 
+        rowid_to_column()
+      
+      nodes <- net_table %>%
         tidyr$separate_rows(geneID, sep = "/") %>%
         dplyr$select(Description, geneID, group, value) %>%
         tidyr$pivot_longer(!c(group, value), names_to = "category", values_to = "id") %>%
         dplyr$distinct(id, .keep_all = TRUE) %>%
         dplyr$mutate(size = dplyr$if_else(category == "geneID", 10, 25)) %>%
         dplyr$mutate(symbol = dplyr$if_else(category == "geneID", "circle", "diamond")) %>%
-        dplyr$select(-category)
+        dplyr$select(-category) %>% 
+        dplyr$left_join(net_table %>% dplyr$select(rowid, Description), by = c("id" = "Description")) %>% 
+        dplyr$arrange(rowid) %>% 
+        dplyr$select(-rowid)
       
       edges <- net_table %>%
         tidyr$separate_rows(geneID, sep = "/") %>%
@@ -1999,6 +2129,8 @@ QProMS <- R6Class(
         echarts4r$e_color(color) %>%
         echarts4r$e_tooltip() %>% 
         echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
+        echarts4r$e_group("ora") %>% 
+        echarts4r$e_connect_group("ora") %>% 
         echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       if (show_names) {

@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal],
+  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal, downloadHandler],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   dplyr[group_by, `%>%`, pull, slice_max],
@@ -9,6 +9,7 @@ box::use(
   echarts4r[echarts4rOutput, renderEcharts4r, echarts4rProxy, e_focus_adjacency_p],
   waiter[Waiter, spin_5],
   shinyGizmo[conditionalJS, jsCalls],
+  utils[write.csv]
 )
 
 #' @export
@@ -39,7 +40,7 @@ ui <- function(id) {
             condition = "input.from_statistic_input == 'univariate'",
             jsCall = jsCalls$show(),
             ns = ns
-          ), 
+          ),
           div(
             style = "width: 100%; flex: 1 1 0;",
             selectInput(
@@ -230,6 +231,21 @@ ui <- function(id) {
         width = 12,
         maximizable = TRUE,
         collapsible = TRUE, 
+        sidebar = boxSidebar(
+          id = ns("table_sidebar"),
+          div(
+            style = "padding-right: 0.5rem",
+            h4("Download table"),
+            downloadBttn(
+              outputId  = ns("download_table"),
+              label = "Download", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
+        ),
         reactableOutput(ns("table"))
       )
     )
@@ -663,6 +679,15 @@ server <- function(id, r6) {
         )
       
     })
+    
+    output$download_table <- downloadHandler(
+      filename = function() {
+        paste("ora_table", ".csv", sep="")
+      },
+      content = function(file) {
+        write.csv(r6$ora_table, file)
+      }
+    )
 
   })
 }

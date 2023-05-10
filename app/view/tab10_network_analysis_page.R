@@ -1,7 +1,9 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, br, h4],
+  shiny[moduleServer, NS, fluidRow, div, column, br, h4, observeEvent, uiOutput, renderUI, selectInput],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   shinyWidgets[actionBttn],
+  gargoyle[init, watch, trigger],
+  shinyGizmo[conditionalJS, jsCalls],
 )
 
 #' @export
@@ -19,8 +21,37 @@ ui <- function(id) {
       bs4Callout(
         div(
           style = "display: flex; justify-content: center; align-items: center; gap: 20px",
-          div(style = "width: 100%; flex: 1 1 0;"),
-          div(style = "width: 100%; flex: 1 1 0;"),
+          div(
+            style = "width: 100%; flex: 1 1 0;",
+            uiOutput(ns("ui_from_statistic_input"))
+          ),
+          conditionalJS(
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              uiOutput(ns("ui_test_input"))
+            ),
+            condition = "input.from_statistic_input == 'univariate'",
+            jsCall = jsCalls$show(),
+            ns = ns
+          ),
+          conditionalJS(
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              uiOutput(ns("ui_direction_input"))
+            ),
+            condition = "input.from_statistic_input == 'univariate'",
+            jsCall = jsCalls$show(),
+            ns = ns
+          ),
+          conditionalJS(
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              uiOutput(ns("ui_cluster_input"))
+            ),
+            condition = "input.from_statistic_input == 'multivariate'",
+            jsCall = jsCalls$show(),
+            ns = ns
+          ),
           div(style = "width: 100%; flex: 1 1 0;"),
           div(style = "width: 100%; flex: 1 1 0;"),
           div(
@@ -99,6 +130,46 @@ ui <- function(id) {
 #' @export
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
+    
+    init("ppi_network")
+    
+    output$ui_from_statistic_input <- renderUI({
+      
+      watch("ppi_network")
+      watch("stat")
+      watch("anova")
+      
+      if(is.null(r6$stat_table) & is.null(r6$anova_table)) {
+        scelte <- c("External table" = "external")
+        sel <- "external"
+      } else if (!is.null(r6$stat_table) & is.null(r6$anova_table)) {
+        scelte <- c("Univariate" = "univariate", "External table" = "external")
+        sel <- "univariate"
+      } else if (is.null(r6$stat_table) & !is.null(r6$anova_table)) {
+        scelte <- c("Multivariate" = "multivariate", "External table" = "external")
+        sel <- "multivariate"
+      } else {
+        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "External table" = "external")
+        sel <- "univariate"
+      }
+      
+      selectInput(
+        inputId = session$ns("from_statistic_input"),
+        label = "Genes from",
+        choices = scelte,
+        selected = sel, 
+        width = "auto"
+      )
+      
+    })
+    
+    observeEvent(input$generate_network, {
+      
+      r6$make_nodes(list_from = "univariate", focus = "tc1d22b_vs_ev", direction = "up")
+      
+      print(r6$nodes_table)
+      print(r6$name_for_edges)
+    })
 
   })
 }

@@ -1,14 +1,15 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn],
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
   magrittr[`%>%`],
   htmlwidgets[JS],
   dplyr[filter, select, pull],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
+  utils[write.csv]
 )
 
 #' @export
@@ -151,6 +152,21 @@ ui <- function(id) {
         width = 4,
         height = 700,
         maximizable = TRUE,
+        sidebar = boxSidebar(
+          id = ns("table_sidebar"),
+          div(
+            style = "padding-right: 0.5rem",
+            h4("Download table"),
+            downloadBttn(
+              outputId  = ns("download_table"),
+              label = "Download", 
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
+        ),
         reactableOutput(ns("table"))
       )
     )
@@ -488,6 +504,15 @@ server <- function(id, r6) {
       )
       
     })
+    
+    output$download_table <- downloadHandler(
+      filename = function() {
+        paste("table", ".csv", sep="")
+      },
+      content = function(file) {
+        write.csv(r6$stat_table, file)
+      }
+    )
     
     
 
