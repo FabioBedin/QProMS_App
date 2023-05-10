@@ -67,7 +67,7 @@ box::use(
 ui <- function(id) {
   ns <- NS(id)
   dashboardPage(
-    title = "QProMS",
+    title = "QProMS beta",
     fullscreen = TRUE,
     preloader = list(html = spin_5(), color = "#adb5bd"),
     header = dashboardHeader(
