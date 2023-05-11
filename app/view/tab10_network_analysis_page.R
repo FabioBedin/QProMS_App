@@ -1,9 +1,10 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, br, h4, observeEvent, uiOutput, renderUI, selectInput],
+  shiny[moduleServer, NS, fluidRow, div, column, br, h4, observeEvent, uiOutput, renderUI, selectInput, req],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   shinyWidgets[actionBttn],
   gargoyle[init, watch, trigger],
   shinyGizmo[conditionalJS, jsCalls],
+  echarts4r[echarts4rOutput, renderEcharts4r],
 )
 
 #' @export
@@ -96,8 +97,8 @@ ui <- function(id) {
               block = TRUE
             )
           )
-        )
-        # iheatmaprOutput(ns("heatmap"), height = "900px")
+        ),
+        echarts4rOutput(ns("network_plot"), height = "900")
       )
     ),
     column(5,
@@ -165,10 +166,24 @@ server <- function(id, r6) {
     
     observeEvent(input$generate_network, {
       
-      r6$make_nodes(list_from = "univariate", focus = "tc1d22b_vs_ev", direction = "up")
+      r6$make_nodes(list_from = "univariate", focus = "tc1d22b_vs_ev", direction = "both")
+      r6$make_edges(source = c("string", "corum"))
       
-      print(r6$nodes_table)
-      print(r6$name_for_edges)
+      # print(r6$nodes_table)
+      # print(r6$edges_table)
+    })
+    
+    output$network_plot <- renderEcharts4r({
+      
+      req(input$generate_network)
+      
+      r6$plot_ppi_network(
+        list_from = "univariate",
+        score_thr = 0.8,
+        isolate_nodes = FALSE,
+        layout = "force",
+        show_names = TRUE
+      )
     })
 
   })

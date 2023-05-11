@@ -806,7 +806,26 @@ QProMS <- R6Class(
           dplyr$distinct(gene_names, .keep_all = TRUE) %>% 
           dplyr$mutate(
             category = dplyr$if_else(fold_change > 0, "up", "down"),
-            size = p_val * 2
+            size = p_val * 5,
+            color = dplyr$case_when(
+              fold_change > 0 & fold_change <= 1.5 ~ "#fddbc7",
+              fold_change > 1.5 &
+                fold_change <= 2 ~ "#f4a582",
+              fold_change > 2 &
+                fold_change <= 2.5 ~ "#d6604d",
+              fold_change > 2.5 &
+                fold_change <= 3 ~ "#b2182b",
+              fold_change > 3 ~ "#67001f",
+              fold_change < 0 &
+                fold_change >= -1.5 ~ "#d1e5f0",
+              fold_change < -1.5 &
+                fold_change >= -2 ~ "#92c5de",
+              fold_change < -2 &
+                fold_change >= -2.5 ~ "#4393c3",
+              fold_change < -2.5 &
+                fold_change >= -3 ~ "#2166ac",
+              fold_change < -3 ~ "#053061",
+            )
           )
         
         if (direction == "up") {
@@ -859,7 +878,7 @@ QProMS <- R6Class(
           ## end
           dplyr$select(source = preferredName_A, target = preferredName_B, score) %>%
           dplyr$filter(source != target) %>%
-          dplyr$mutate(complex = "not defined")
+          dplyr$mutate(complex = "not defined", color = "#999999")
         
         if (nrow(edges_string_table) == 0) {
           edges_string_table <- NULL
@@ -893,7 +912,7 @@ QProMS <- R6Class(
             dplyr$left_join(raw_corum_table, by = c("source" = "components_genesymbols")) %>%
             dplyr$select(-dupe_count) %>%
             dplyr$rename(complex = name) %>%
-            dplyr$mutate(score = 1)
+            dplyr$mutate(score = 1, color = "#4daf4a")
           
         } else {
           edges_corum_table <- NULL
@@ -905,7 +924,8 @@ QProMS <- R6Class(
         self$edges_table <- NULL
       } else {
         self$edges_table <- edges_string_table %>%
-          bind_rows(edges_corum_table)
+          dplyr$bind_rows(edges_corum_table) %>% 
+          dplyr$mutate(size = 2.5)
       }
       
     },
@@ -1640,8 +1660,8 @@ QProMS <- R6Class(
                fold_change = c(self$fold_change, max(table$fold_change), self$fold_change))
       
       p <- table %>%
-        dplyr$mutate(color = dplyr$case_when(fold_change > 0 & significant ~ "#cf4446", 
-                                               fold_change < 0 & significant ~ "#0d0887",
+        dplyr$mutate(color = dplyr$case_when(fold_change > 0 & significant ~ "#67001f", 
+                                               fold_change < 0 & significant ~ "#053061",
                                                TRUE ~ "#e9ecef")) %>%
         dplyr$group_by(color) %>%
         dplyr$mutate(fold_change = round(fold_change, 2)) %>%
@@ -1665,7 +1685,7 @@ QProMS <- R6Class(
         echarts4r$e_line(
           p_val,
           legend = FALSE,
-          color = "#440154",
+          color = "#000",
           symbol = "none",
           lineStyle = list(type = "dashed", width = .8)
         ) %>%
@@ -1673,7 +1693,7 @@ QProMS <- R6Class(
         echarts4r$e_line(
           p_val,
           legend = FALSE,
-          color = "#440154",
+          color = "#000",
           symbol = "none",
           lineStyle = list(type = "dashed", width = .8)
         ) %>%
@@ -2139,6 +2159,74 @@ QProMS <- R6Class(
       }
       
       return(p)
+    },
+    plot_ppi_network = function(list_from, score_thr, isolate_nodes, layout, show_names) {
+      
+      edges <- self$edges_table %>% 
+        dplyr$filter(score >= score_thr)
+      nodes <- self$nodes_table
+      
+      if(!isolate_nodes) {
+        
+        edge_source <- edges %>% dplyr$pull(source)
+        edge_target <- edges %>% dplyr$pull(target)
+        
+        list <- c(edge_source, edge_target)
+        final_list <- unique(list)
+        
+        nodes <- nodes %>%
+          dplyr$filter(gene_names %in% final_list)
+        
+      }
+      
+      p <- echarts4r$e_charts() %>%
+        echarts4r$e_graph(
+          roam = TRUE,
+          layout = layout,
+          zoom = 0.5,
+          force = list(
+            initLayout = "circular",
+            repulsion = 800,
+            edgeLength = 150,
+            layoutAnimation = FALSE
+          ),
+          autoCurveness = TRUE,
+          emphasis = list(focus = "adjacency")
+        ) %>%
+        echarts4r$e_graph_nodes(
+          nodes = nodes,
+          names = gene_names,
+          value = p_val,
+          size = size,
+          category = category
+          # legend = FALSE
+        ) %>%
+        echarts4r$e_graph_edges(
+          edges = edges,
+          source = source,
+          target = target,
+          value = score,
+          size = size
+        ) %>%
+        echarts4r$e_tooltip()
+      
+      if (show_names) {
+        p <- p %>% 
+          echarts4r$e_labels(fontSize = 10) 
+      }
+      
+      for(i in 1:nrow(edges)) {
+        p$x$opts$series[[1]]$links[[i]]$lineStyle$color <- edges[i, ]$color
+      }
+      
+      if(list_from == "univariate") {
+        for (i in 1:nrow(nodes)) {
+          p$x$opts$series[[1]]$data[[i]]$itemStyle$color <- nodes[i, ]$color
+        }
+      }
+      
+      return(p)
+      
     }
   )
 )
