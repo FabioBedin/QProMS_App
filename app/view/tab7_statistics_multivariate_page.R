@@ -349,6 +349,7 @@ server <- function(id, r6) {
         table,
         searchable = TRUE,
         resizable = TRUE,
+        wrap = FALSE,
         highlight = TRUE,
         defaultPageSize = 7,
         height = "auto",

@@ -531,6 +531,16 @@
       "Hash": "543776ae6848fde2f48ff3816d0628bc",
       "Requirements": []
     },
+    "bio3d": {
+      "Package": "bio3d",
+      "Version": "2.4-4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "a76da9a5ede34b6ecaf9c6a6b9bb63cf",
+      "Requirements": [
+        "Rcpp"
+      ]
+    },
     "bit": {
       "Package": "bit",
       "Version": "4.0.5",
@@ -1984,6 +1994,24 @@
         "reshape2"
       ]
     },
+    "r3dmol": {
+      "Package": "r3dmol",
+      "Version": "0.2.0",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "swsoyee",
+      "RemoteRepo": "r3dmol",
+      "RemoteRef": "master",
+      "RemoteSha": "3dc4f8888e191dc50127949f36c69906eaa2974e",
+      "Hash": "bb658238486af383ca5ee99ecd6267d3",
+      "Requirements": [
+        "bio3d",
+        "htmlwidgets",
+        "magrittr",
+        "rjson"
+      ]
+    },
     "rappdirs": {
       "Package": "rappdirs",
       "Version": "0.3.3",
@@ -2168,6 +2196,14 @@
         "readxl",
         "tibble"
       ]
+    },
+    "rjson": {
+      "Package": "rjson",
+      "Version": "0.2.21",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "f9da75e6444e95a1baf8ca24909d63b9",
+      "Requirements": []
     },
     "rlang": {
       "Package": "rlang",

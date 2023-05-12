@@ -104,6 +104,9 @@ QProMS <- R6Class(
     nodes_table = NULL,
     edges_table = NULL,
     name_for_edges = NULL,
+    network_from_statistic = NULL,
+    network_focus =  "cluster_1",
+    selected_nodes = NULL,
     ###########
     # Methods #
     loading_data = function(input_path, input_type) {
@@ -495,6 +498,7 @@ QProMS <- R6Class(
           searchable = TRUE,
           resizable = TRUE,
           highlight = TRUE,
+          wrap = FALSE,
           height = "auto",
           columns = list(
             gene_names = colDef(
@@ -547,6 +551,60 @@ QProMS <- R6Class(
         dplyr$relocate(Count, .after = fold_change) %>%
         dplyr$arrange(-pvalue)
       
+    },
+    print_nodes = function(isolate_nodes, score_thr) {
+      
+      edges <- self$edges_table %>% 
+        dplyr$filter(score >= score_thr)
+      nodes <- self$nodes_table
+      
+      if(!isolate_nodes) {
+        
+        edge_source <- edges %>% dplyr$pull(source)
+        edge_target <- edges %>% dplyr$pull(target)
+        
+        list <- c(edge_source, edge_target)
+        final_list <- unique(list)
+        
+        nodes <- nodes %>%
+          dplyr$filter(gene_names %in% final_list)
+        
+      }
+      
+      nodes_tab <- nodes %>% 
+        dplyr$select(c(gene_names, category, p_val, p_adj))
+        
+      return(nodes_tab)
+      
+    },
+    print_edges = function(score_thr) {
+      
+      self$edges_table %>% 
+        dplyr$filter(score >= score_thr) %>% 
+        dplyr$select(-c(color, size)) %>% 
+        dplyr$mutate(score = dplyr$if_else(complex == "not defined", round(score, 2), 1)) %>% 
+        tidyr$separate_rows(complex, sep = ",") %>% 
+        dplyr$relocate(complex, .after = database) %>% 
+        reactable(
+          searchable = TRUE,
+          resizable = TRUE,
+          highlight = TRUE,
+          wrap = FALSE,
+          paginateSubRows = TRUE,
+          height = "auto",
+          defaultPageSize = 7,
+          # selection = "multiple",
+          # onClick = "select",
+          groupBy = "source",
+          columns = list(
+            target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
+            source = colDef(name = "Source"),
+            database = colDef(name = "Database"),
+            complex = colDef(minWidth = 300, name = "Complex"),
+            score = colDef(align = "center", name = "Score")
+          )
+        )
+        
     },
     stat_tidy_vector = function(data, name) {
       
@@ -741,7 +799,7 @@ QProMS <- R6Class(
         
         uni <- self$stat_table %>%
           dplyr$pull(gene_names)
-      } else{
+      } else if (list_from == "multivariate"){
         groupped_data <- self$anova_table %>%
           dplyr$filter(significant) %>%
           dplyr$select(gene_names, cluster) %>%
@@ -758,14 +816,20 @@ QProMS <- R6Class(
           dplyr$pull(gene_names)
       }
       
-      unnamed_gene_lists <-
-        groupped_data %>% dplyr$group_map(~ dplyr$pull(.x, gene_names))
-      
-      gene_vector <-
-        set_names(unnamed_gene_lists, dplyr$group_keys(groupped_data) %>% dplyr$pull())
-      
       if (!background) {
         uni <- NULL
+      }
+      
+      if (list_from == "nodes") {
+        unnamed_gene_lists <- self$selected_nodes %>% list()
+        gene_vector <- set_names(unnamed_gene_lists, "nodes")
+        uni <- NULL
+      } else {
+        unnamed_gene_lists <-
+          groupped_data %>% dplyr$group_map(~ dplyr$pull(.x, gene_names))
+        
+        gene_vector <-
+          set_names(unnamed_gene_lists, dplyr$group_keys(groupped_data) %>% dplyr$pull())
       }
       
       self$ora_result_list <- map(
@@ -866,7 +930,7 @@ QProMS <- R6Class(
         
         edges_string_table <-
           self$name_for_edges %>%
-          rba_string_interactions_network(species = 9606) %>%
+          rba_string_interactions_network(species = 9606, verbose = FALSE) %>%
           dplyr$filter(escore != 0, dscore != 0) %>%
           tidyr$unite("stringId", stringId_A:stringId_B, remove = TRUE) %>%
           dplyr$distinct(stringId, .keep_all = TRUE) %>%
@@ -878,7 +942,12 @@ QProMS <- R6Class(
           ## end
           dplyr$select(source = preferredName_A, target = preferredName_B, score) %>%
           dplyr$filter(source != target) %>%
-          dplyr$mutate(complex = "not defined", color = "#999999")
+          dplyr$mutate(
+            complex = "not defined",
+            color = "#999999",
+            size = round(score * 10 / 2, 0),
+            database = "String"
+          )
         
         if (nrow(edges_string_table) == 0) {
           edges_string_table <- NULL
@@ -912,7 +981,20 @@ QProMS <- R6Class(
             dplyr$left_join(raw_corum_table, by = c("source" = "components_genesymbols")) %>%
             dplyr$select(-dupe_count) %>%
             dplyr$rename(complex = name) %>%
-            dplyr$mutate(score = 1, color = "#4daf4a")
+            unique() %>% 
+            dplyr$mutate(score = 1, color = "#4daf4a") %>% 
+            dplyr$group_by(source, target, color) %>% 
+            tidyr$nest() %>% 
+            tidyr$unnest_wider(data, names_sep = "_") %>%
+            dplyr$ungroup() %>% 
+            dplyr$rowwise() %>% 
+            dplyr$mutate(
+              score = sum(data_score),
+              complex = toString(data_complex),
+              size = dplyr$if_else(score <= 5, score, 5),
+              database = "Corum"
+            ) %>% 
+            dplyr$select(source, target, complex, score, color, size, database)
           
         } else {
           edges_corum_table <- NULL
@@ -924,8 +1006,7 @@ QProMS <- R6Class(
         self$edges_table <- NULL
       } else {
         self$edges_table <- edges_string_table %>%
-          dplyr$bind_rows(edges_corum_table) %>% 
-          dplyr$mutate(size = 2.5)
+          dplyr$bind_rows(edges_corum_table)
       }
       
     },
@@ -2160,7 +2241,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_ppi_network = function(list_from, score_thr, isolate_nodes, layout, show_names) {
+    plot_ppi_network = function(list_from, score_thr, isolate_nodes, layout, show_names, selected, filtred) {
       
       edges <- self$edges_table %>% 
         dplyr$filter(score >= score_thr)
@@ -2177,6 +2258,11 @@ QProMS <- R6Class(
         nodes <- nodes %>%
           dplyr$filter(gene_names %in% final_list)
         
+      }
+      
+      if (filtred) {
+        nodes <- nodes %>%
+          dplyr$filter(gene_names %in% selected)
       }
       
       p <- echarts4r$e_charts() %>%
@@ -2198,8 +2284,8 @@ QProMS <- R6Class(
           names = gene_names,
           value = p_val,
           size = size,
-          category = category
-          # legend = FALSE
+          category = category,
+          legend = FALSE
         ) %>%
         echarts4r$e_graph_edges(
           edges = edges,
@@ -2208,7 +2294,9 @@ QProMS <- R6Class(
           value = score,
           size = size
         ) %>%
-        echarts4r$e_tooltip()
+        echarts4r$e_tooltip() %>% 
+        echarts4r$e_toolbox_feature(feature = "saveAsImage") %>% 
+        echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
       
       if (show_names) {
         p <- p %>% 
@@ -2222,6 +2310,19 @@ QProMS <- R6Class(
       if(list_from == "univariate") {
         for (i in 1:nrow(nodes)) {
           p$x$opts$series[[1]]$data[[i]]$itemStyle$color <- nodes[i, ]$color
+        }
+      }
+      
+      if (!is.null(selected) & !filtred) {
+        for (i in 1:nrow(nodes)) {
+          if (p$x$opts$series[[1]]$data[[i]]$name %in% selected) {
+            p$x$opts$series[[1]]$data[[i]]$itemStyle$borderColor <- "#000"
+            p$x$opts$series[[1]]$data[[i]]$itemStyle$borderWidth <- 2
+            p$x$opts$series[[1]]$data[[i]]$itemStyle$color <- "yellow"
+            p$x$opts$series[[1]]$data[[i]]$symbolSize <- 30
+            # p$x$opts$series[[1]]$data[[i]]$itemStyle$shadowBlur <- 5
+            # p$x$opts$series[[1]]$data[[i]]$itemStyle$shadowColor <- "#000"
+          }
         }
       }
       

@@ -271,13 +271,13 @@ server <- function(id, r6) {
         scelte <- c("External table" = "external")
         sel <- "external"
       } else if (!is.null(r6$stat_table) & is.null(r6$anova_table)) {
-        scelte <- c("Univariate" = "univariate", "External table" = "external")
+        scelte <- c("Univariate" = "univariate", "External table" = "external", "Selected nodes" = "nodes")
         sel <- "univariate"
       } else if (is.null(r6$stat_table) & !is.null(r6$anova_table)) {
-        scelte <- c("Multivariate" = "multivariate", "External table" = "external")
+        scelte <- c("Multivariate" = "multivariate", "External table" = "external", "Selected nodes" = "nodes")
         sel <- "multivariate"
       } else {
-        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "External table" = "external")
+        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "External table" = "external", "Selected nodes" = "nodes")
         sel <- "univariate"
       }
       
@@ -585,6 +585,7 @@ server <- function(id, r6) {
         r6$ora_table,
         searchable = TRUE,
         resizable = TRUE,
+        wrap = FALSE,
         highlight = TRUE,
         defaultPageSize = 10,
         height = "auto",

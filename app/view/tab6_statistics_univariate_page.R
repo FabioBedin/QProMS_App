@@ -466,6 +466,7 @@ server <- function(id, r6) {
         searchable = TRUE,
         resizable = TRUE,
         highlight = TRUE,
+        wrap = FALSE,
         height = "auto",
         selection = "multiple",
         onClick = "select",
