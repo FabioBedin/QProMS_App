@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, br, h4, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, boxLabel],
+  shiny[moduleServer, NS, fluidRow, div, column, br, h4, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive, icon],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, boxLabel, toast],
   shinyWidgets[actionBttn, pickerInput, prettyCheckbox],
   gargoyle[init, watch, trigger],
   shinyGizmo[conditionalJS, jsCalls],
@@ -110,20 +110,22 @@ ui <- function(id) {
               inputId = ns("score_thr"),
               label = "Score threshold",
               min = 0,
-              max = 1,
+              max = 0.9,
               value = 0.4,
               step = 0.1,
               width = "100%"
             ), 
+            h4("Layout parameters"),
             div(
               style = "display: flex; justify-content: center; align-items: center; gap: 20px",
               div(
-                style = "width: 100%; flex: 1 1 0;",
+                style = "width: 100%; flex: 2 1 0;",
                 selectInput(
                   inputId = ns("layout"),
-                  label = "Layout",
+                  label = NULL,
                   choices = c("force", "circular"),
-                  selected = "force"
+                  selected = "force",
+                  width = "100%"
                 )
               ),
               div(
@@ -145,7 +147,11 @@ ui <- function(id) {
                   shape = "curve", 
                   width = "auto"
                 )
-              ),
+              )
+            ),
+            h4("Subset network"),
+            div(
+              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
               div(
                 style = "width: 100%; flex: 1 1 0;",
                 prettyCheckbox(
@@ -154,6 +160,17 @@ ui <- function(id) {
                   value = FALSE,
                   shape = "curve", 
                   width = "auto"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 2 1 0;",
+                actionBttn(
+                  inputId = ns("save_selected"),
+                  label = "Save selected nodes",
+                  style = "bordered",
+                  color = "primary",
+                  size = "md"
+                  # block = TRUE
                 )
               )
             ),
@@ -174,33 +191,33 @@ ui <- function(id) {
     column(5,
            fluidRow(
              box(
-               title = "Table",
+               title = "Nodes table",
                status = "primary",
                width = 12,
                height = 466,
                maximizable = TRUE,
                label = boxLabel("Score info", "info", "The STRINGscore is derived from a combination of both the experimental score and the database score.\nThe CORUMscore indicates the total number of complexes that involve the interaction between two given nodes."),
-               sidebar = boxSidebar(
-                 id = ns("table_sidebar"),
-                 div(
-                   style = "padding-right: 0.5rem",
-                   h4("Download table"),
-                   actionBttn(
-                     inputId = ns("save_selected"),
-                     label = "Save selected nodes",
-                     style = "material-flat",
-                     color = "primary",
-                     size = "md",
-                     block = TRUE
-                   )
-                 )
-               ),
+               # sidebar = boxSidebar(
+               #   id = ns("table_sidebar"),
+               #   div(
+               #     style = "padding-right: 0.5rem",
+               #     h4("Download table"),
+               #     actionBttn(
+               #       inputId = ns("save_selected"),
+               #       label = "Save selected nodes",
+               #       style = "material-flat",
+               #       color = "primary",
+               #       size = "md",
+               #       block = TRUE
+               #     )
+               #   )
+               # ),
                reactableOutput(ns("table"))
              )
            ),
            fluidRow(
              box(
-               title = "Protein structure",
+               title = "Edges table",
                status = "primary",
                width = 12,
                height = 466,
@@ -433,6 +450,17 @@ server <- function(id, r6) {
       
       r6$selected_nodes <- nodes[gene_selected(), ] %>% 
         pull(gene_names)
+      
+      toast(
+        title = "Selected nodes saved!",
+        body = "Now you can use them for funtional analysis.",
+        options = list(
+          class = "bg-success",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("check")
+        )
+      )
       
     })
     

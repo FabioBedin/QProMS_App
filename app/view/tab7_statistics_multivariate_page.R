@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, h6, observeEvent, req, reactive, uiOutput, renderUI, isolate],
+  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, h6, observeEvent, req, reactive, uiOutput, renderUI, isolate, observe],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   dplyr[filter, `%>%`, pull, distinct],
@@ -7,9 +7,9 @@ box::use(
   gargoyle[init, watch, trigger],
   shinyjqui[orderInput],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
-  echarts4r[echarts4rOutput, renderEcharts4r],
+  echarts4r[echarts4rOutput, renderEcharts4r, e_chart],
   shinyGizmo[conditionalJS, jsCalls],
-  waiter[Waiter, spin_5],
+  waiter[Waiter, spin_5, withWaiter],
 )
 
 #' @export
@@ -146,7 +146,22 @@ ui <- function(id) {
               )
             )
           ),
-          iheatmaprOutput(ns("heatmap"), height = "900px")
+          conditionalJS(
+            div(
+              echarts4rOutput(ns("fake_heatmal_plot"), height = "1")
+            ),
+            condition = "input.run_statistics === null",
+            jsCall = jsCalls$show(),
+            ns = ns
+          ),
+          conditionalJS(
+            div(
+              iheatmaprOutput(ns("heatmap"), height = "900px")
+            ),
+            condition = "input.run_statistics > 0",
+            jsCall = jsCalls$show(),
+            ns = ns
+          )
         )
       ), 
       column(5,
@@ -180,8 +195,8 @@ ui <- function(id) {
         width = 12,
         maximizable = TRUE,
         collapsible = TRUE,
-        # collapsed = TRUE,
         uiOutput(ns("cluster_profile_plots"))
+        # echarts4rOutput(ns("fake_loading_plot"), height = "1")
       )
     )
   )
@@ -306,6 +321,8 @@ server <- function(id, r6) {
     
     observeEvent(input$update, {
       
+      w$show()
+      
       req(input$run_statistics)
       
       r6$anova_manual_order <- input$reorder_input
@@ -314,6 +331,8 @@ server <- function(id, r6) {
       
       trigger("anova")
       trigger("profile")
+      
+      w$hide()
     })
     
     
@@ -395,7 +414,30 @@ server <- function(id, r6) {
         r6$plot_protein_profile(gene = highlights)
       }
       
+      
+      
     })
+    
+    # output$fake_loading_plot <- renderEcharts4r({
+    #   
+    #   req(input$run_statistics)
+    #   
+    #   watch("profile")
+    #   
+    #   req(input$profile_plot)
+    #   
+    #   e_chart()
+    #   
+    #   # w$hide()
+    #   
+    # })
+    
+    output$fake_heatmap_plot <- renderEcharts4r({
+      
+      e_chart()
+      
+    })
+
     
     output$cluster_profile_plots <- renderUI({
       
@@ -408,6 +450,7 @@ server <- function(id, r6) {
       }else{
         return(NULL)
       }
+      
       
     })
 

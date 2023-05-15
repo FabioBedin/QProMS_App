@@ -99,10 +99,10 @@ ui <- function(id) {
         menuItemOutput(ns("pca")),
         menuItemOutput(ns("statistics_blocked")),
         menuItemOutput(ns("statistics")),
-        menuItemOutput(ns("function_analysis_blocked")),
-        menuItemOutput(ns("function_analysis")),
         menuItemOutput(ns("network_analysis_blocked")),
-        menuItemOutput(ns("network_analysis"))
+        menuItemOutput(ns("network_analysis")),
+        menuItemOutput(ns("function_analysis_blocked")),
+        menuItemOutput(ns("function_analysis"))
       )
     ),
     controlbar = dashboardControlbar(),

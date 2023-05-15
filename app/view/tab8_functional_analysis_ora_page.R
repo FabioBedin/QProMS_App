@@ -148,7 +148,7 @@ ui <- function(id) {
                 condition = "input.from_statistic_input == 'multivariate'",
                 jsCall = jsCalls$show(),
                 ns = ns
-              ),
+              )
             ),
             sliderTextInput(
               inputId = ns("simplify_thr"), 
@@ -271,13 +271,13 @@ server <- function(id, r6) {
         scelte <- c("External table" = "external")
         sel <- "external"
       } else if (!is.null(r6$stat_table) & is.null(r6$anova_table)) {
-        scelte <- c("Univariate" = "univariate", "External table" = "external", "Selected nodes" = "nodes")
+        scelte <- c("Univariate" = "univariate", "Selected nodes" = "nodes", "External table" = "external")
         sel <- "univariate"
       } else if (is.null(r6$stat_table) & !is.null(r6$anova_table)) {
-        scelte <- c("Multivariate" = "multivariate", "External table" = "external", "Selected nodes" = "nodes")
+        scelte <- c("Multivariate" = "multivariate", "Selected nodes" = "nodes", "External table" = "external")
         sel <- "multivariate"
       } else {
-        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "External table" = "external", "Selected nodes" = "nodes")
+        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "Selected nodes" = "nodes", "External table" = "external")
         sel <- "univariate"
       }
       
@@ -485,6 +485,8 @@ server <- function(id, r6) {
         r6$go_ora_focus <- input$direction_input
       } else if (input$from_statistic_input == "multivariate") {
         r6$go_ora_focus <- input$cluster_input
+      } else if (input$from_statistic_input == "nodes") {
+        r6$go_ora_focus <- "nodes"
       } else {
         r6$go_ora_focus <- NULL ## da sistemare per external table
       }
