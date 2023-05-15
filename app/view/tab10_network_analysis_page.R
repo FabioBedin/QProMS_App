@@ -196,22 +196,6 @@ ui <- function(id) {
                width = 12,
                height = 466,
                maximizable = TRUE,
-               label = boxLabel("Score info", "info", "The STRINGscore is derived from a combination of both the experimental score and the database score.\nThe CORUMscore indicates the total number of complexes that involve the interaction between two given nodes."),
-               # sidebar = boxSidebar(
-               #   id = ns("table_sidebar"),
-               #   div(
-               #     style = "padding-right: 0.5rem",
-               #     h4("Download table"),
-               #     actionBttn(
-               #       inputId = ns("save_selected"),
-               #       label = "Save selected nodes",
-               #       style = "material-flat",
-               #       color = "primary",
-               #       size = "md",
-               #       block = TRUE
-               #     )
-               #   )
-               # ),
                reactableOutput(ns("table"))
              )
            ),
@@ -222,7 +206,9 @@ ui <- function(id) {
                width = 12,
                height = 466,
                maximizable = TRUE,
-               r3dmolOutput(ns("protein_structure"))
+               label = boxLabel("Score info", "info", "The STRINGscore is derived from a combination of both the experimental score and the database score.\nThe CORUMscore indicates the total number of complexes that involve the interaction between two given nodes."),
+               # r3dmolOutput(ns("protein_structure"))
+               reactableOutput(ns("table_edges"))
              )
            )
           )
@@ -368,7 +354,6 @@ server <- function(id, r6) {
       
       req(input$generate_network)
       
-      # r6$print_edges(score_thr = isolate(input$score_thr))
       nodes <- r6$print_nodes(
         isolate_nodes = isolate(input$isolate_nodes_input),
         score_thr = isolate(input$score_thr)
@@ -392,6 +377,17 @@ server <- function(id, r6) {
           p_adj = colDef(align = "center", name = "-log(p.adj)")
         )
       )
+      
+    })
+    
+    output$table_edges <- renderReactable({
+      
+      watch("ppi_network")
+      
+      req(input$generate_network)
+      
+      r6$print_edges(score_thr = isolate(input$score_thr))
+      
       
     })
     

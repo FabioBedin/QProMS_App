@@ -127,7 +127,6 @@ ui <- function(id) {
                   label = "Top n",
                   value = 10,
                   min = 1,
-                  max = 15,
                   step = 1
                 )
               ),
@@ -272,13 +271,13 @@ server <- function(id, r6) {
         sel <- "external"
       } else if (!is.null(r6$stat_table) & is.null(r6$anova_table)) {
         scelte <- c("Univariate" = "univariate", "Selected nodes" = "nodes", "External table" = "external")
-        sel <- "univariate"
+        sel <- input$from_statistic_input
       } else if (is.null(r6$stat_table) & !is.null(r6$anova_table)) {
         scelte <- c("Multivariate" = "multivariate", "Selected nodes" = "nodes", "External table" = "external")
-        sel <- "multivariate"
+        sel <- input$from_statistic_input
       } else {
         scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "Selected nodes" = "nodes", "External table" = "external")
-        sel <- "univariate"
+        sel <- input$from_statistic_input
       }
       
       selectInput(
