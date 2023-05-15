@@ -2022,10 +2022,10 @@
     },
     "rbioapi": {
       "Package": "rbioapi",
-      "Version": "0.7.8",
+      "Version": "0.7.9",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "c0403340f0cc6ae4b32b40d5975a4d53",
+      "Hash": "cdb3508b532337a3b2adc88cee8f40b2",
       "Requirements": [
         "httr",
         "jsonlite"
