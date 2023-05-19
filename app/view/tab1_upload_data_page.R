@@ -35,7 +35,7 @@ ui <- function(id) {
         title = "Upload data",
         status = "primary",
         width = 3,
-        height = "60vh",
+        height = 700,
         br(),
         fileInput(
           inputId = ns("upload_file"),
@@ -200,7 +200,7 @@ ui <- function(id) {
         title = "Experimental Design",
         status = "primary",
         width = 9,
-        height = "60vh",
+        height = 700,
         maximizable = TRUE,
         rHandsontableOutput(ns("expdesign_table")),
         footer = div(
@@ -507,6 +507,8 @@ server <- function(id, r6) {
       req(input$intensity_type)
       req(input$expdesign_table)
       req(input$confirm)
+      
+      r6$make_pdb_database()
       
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,

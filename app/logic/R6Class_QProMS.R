@@ -23,6 +23,7 @@ box::use(
   org.Hs.eg.db[org.Hs.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
+  protti[fetch_uniprot]
 )
 
 #' @export
@@ -107,6 +108,7 @@ QProMS <- R6Class(
     network_from_statistic = NULL,
     network_focus =  "cluster_1",
     selected_nodes = NULL,
+    pdb_database = NULL,
     ###########
     # Methods #
     loading_data = function(input_path, input_type) {
@@ -533,7 +535,7 @@ QProMS <- R6Class(
       
       return(table)
     },
-    print_ora_table = function(ontology = "BP", groups) {
+    print_ora_table = function(ontology = "BP", groups, value) {
       
       self$ora_table <- map(self$ora_result_list_simplified, ~ pluck(.x, "result")) %>%
         list_rbind(names_to = "group") %>% 
@@ -548,8 +550,15 @@ QProMS <- R6Class(
         dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
         dplyr$relocate(ID) %>% 
         dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
-        dplyr$relocate(Count, .after = fold_change) %>%
-        dplyr$arrange(-pvalue)
+        dplyr$relocate(Count, .after = fold_change) 
+      
+      if(value == "fold_change") {
+        self$ora_table <- self$ora_table %>% 
+          dplyr$arrange(-fold_change)
+      } else {
+        self$ora_table <- self$ora_table %>% 
+          dplyr$arrange(-pvalue)
+      }
       
     },
     print_nodes = function(isolate_nodes, score_thr) {
@@ -577,10 +586,11 @@ QProMS <- R6Class(
       return(nodes_tab)
       
     },
-    print_edges = function(score_thr) {
+    print_edges = function(score_thr, selected_nodes) {
       
       self$edges_table %>% 
         dplyr$filter(score >= score_thr) %>% 
+        {if(length(selected_nodes) != 0)dplyr$filter(., source %in% selected_nodes | target %in% selected_nodes) else .} %>%
         dplyr$select(-c(color, size)) %>% 
         dplyr$mutate(score = dplyr$if_else(complex == "not defined", round(score, 2), 1)) %>% 
         tidyr$separate_rows(complex, sep = ",") %>% 
@@ -1008,6 +1018,25 @@ QProMS <- R6Class(
         self$edges_table <- edges_string_table %>%
           dplyr$bind_rows(edges_corum_table)
       }
+      
+    },
+    make_pdb_database = function() {
+      
+      uniprot <- self$raw_data %>% 
+        dplyr$filter(!reverse == "+", !potential_contaminant == "+", !only_identified_by_site == "+") %>% 
+        dplyr$mutate(protein_i_ds= stringr$str_extract(protein_i_ds, "[^;]*")) %>% 
+        dplyr$pull(protein_i_ds) 
+      
+      self$pdb_database <-
+        fetch_uniprot(
+          uniprot_ids = uniprot,
+          columns = c("xref_pdb"),
+          show_progress = FALSE
+        ) %>%  
+        tidyr$drop_na("xref_pdb") %>%
+        dplyr$mutate(pdb_id = stringr$str_extract(xref_pdb, "[^;]*")) %>% 
+        dplyr$inner_join(self$raw_data, by=c("accession"="protein_i_ds")) %>% 
+        dplyr$select(uniprot_id=accession, pdb_id, gene_names) 
       
     },
     e_arrange_list = function(list, max_cols = 3) {
@@ -2277,6 +2306,7 @@ QProMS <- R6Class(
             layoutAnimation = FALSE
           ),
           autoCurveness = TRUE,
+          # selectedMode = "single",
           emphasis = list(focus = "adjacency")
         ) %>%
         echarts4r$e_graph_nodes(

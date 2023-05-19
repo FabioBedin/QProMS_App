@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, br, h4, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive, icon],
+  shiny[moduleServer, NS, fluidRow, div, column, br, h4, h1, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive, icon],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, boxLabel, toast],
   shinyWidgets[actionBttn, pickerInput, prettyCheckbox],
   gargoyle[init, watch, trigger],
@@ -7,6 +7,7 @@ box::use(
   echarts4r[echarts4rOutput, renderEcharts4r],
   dplyr[filter, `%>%`, pull, distinct],
   waiter[Waiter, spin_5],
+  tibble[rowid_to_column],
   r3dmol[r3dmol, r3dmolOutput, renderR3dmol, m_add_model, m_fetch_pdb, m_set_style, m_style_cartoon, m_style_stick, m_zoom_to],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
 )
@@ -185,7 +186,7 @@ ui <- function(id) {
             )
           )
         ),
-        echarts4rOutput(ns("network_plot"), height = "900")
+        echarts4rOutput(ns("network_plot"), height = "975")
       )
     ),
     column(5,
@@ -207,11 +208,20 @@ ui <- function(id) {
                height = 466,
                maximizable = TRUE,
                label = boxLabel("Score info", "info", "The STRINGscore is derived from a combination of both the experimental score and the database score.\nThe CORUMscore indicates the total number of complexes that involve the interaction between two given nodes."),
-               # r3dmolOutput(ns("protein_structure"))
                reactableOutput(ns("table_edges"))
              )
            )
           )
+    ),
+    fluidRow(
+      box(
+        title = "Protein structure",
+        status = "primary",
+        width = 12,
+        height = 700,
+        maximizable = TRUE,
+        r3dmolOutput(ns("protein_structure"), height = "650")
+      )
     )
   )
   
@@ -358,6 +368,17 @@ server <- function(id, r6) {
         isolate_nodes = isolate(input$isolate_nodes_input),
         score_thr = isolate(input$score_thr)
       )
+
+      # if(is.null(input$network_plot_clicked_data$name)){
+      #   selected_rowid <- NULL
+      # } else {
+      #   selected_rowid <- nodes %>% 
+      #     rowid_to_column() %>% 
+      #     filter(gene_names == input$network_plot_clicked_data$name) %>% 
+      #     pull(rowid)
+      #   
+      #   selected_rowid <- c(selected_rowid, gene_selected())
+      # }
       
       reactable(
         nodes,
@@ -369,6 +390,7 @@ server <- function(id, r6) {
         height = "auto",
         defaultPageSize = 7,
         selection = "multiple",
+        # defaultSelected = selected_rowid,
         onClick = "select",
         columns = list(
           gene_names = colDef(name = "Node"),
@@ -386,7 +408,19 @@ server <- function(id, r6) {
       
       req(input$generate_network)
       
-      r6$print_edges(score_thr = isolate(input$score_thr))
+      if(is.null(r6$nodes_table)){
+        highlights <- NULL
+      }else{
+        nodes <- r6$print_nodes(
+          isolate_nodes = isolate(input$isolate_nodes_input),
+          score_thr = isolate(input$score_thr)
+        )
+        
+        highlights <- nodes[gene_selected(), ] %>% 
+          pull(gene_names)
+      }
+      
+      r6$print_edges(score_thr = isolate(input$score_thr), selected_nodes = highlights)
       
       
     })
@@ -407,6 +441,8 @@ server <- function(id, r6) {
         
         highlights <- nodes[gene_selected(), ] %>% 
           pull(gene_names)
+        
+        # highlights <- c(highlights, input$network_plot_clicked_data$name)
       }
       
       r6$plot_ppi_network(
@@ -426,10 +462,31 @@ server <- function(id, r6) {
       
       req(input$generate_network)
       
-      r3dmol() %>% 
-        m_add_model(data = m_fetch_pdb("4zyo")) %>% 
-        m_set_style(style = c(m_style_cartoon(), m_style_stick())) %>% 
-        m_zoom_to()
+      if(!is.null(input$network_plot_clicked_data$name)) {
+        
+        name <- input$network_plot_clicked_data$name
+        
+        pdb_id <- r6$pdb_database %>% 
+          filter(gene_names == name) %>% 
+          pull(pdb_id)
+        if(length(pdb_id) == 0) {
+          pdb_id <- NULL
+        }
+        
+      } else {
+        pdb_id <- NULL      }
+      
+      
+      if(is.null(pdb_id)) {
+        return(h1("No structure avaiable"))
+      } else {
+        r3dmol() %>% 
+          m_add_model(data = m_fetch_pdb(pdb_id)) %>% 
+          m_set_style(style = c(m_style_cartoon(), m_style_stick())) %>% 
+          m_zoom_to()
+      }
+      
+      
       
     })
     

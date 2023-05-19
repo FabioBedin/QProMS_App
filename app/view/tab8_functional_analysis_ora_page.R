@@ -160,7 +160,7 @@ ui <- function(id) {
             selectInput(
               inputId = ns("plot_value_input"),
               label = "Genes from",
-              choices = c("Fold change" = "fold_change", "p.value" = "pvalue", "p.ajdust" = "p.ajdust", "q.value" = "qvalue"),
+              choices = c("Fold change" = "fold_change", "p.value" = "pvalue", "p.adjust" = "p.adjust", "q.value" = "qvalue"),
               selected = "fold_change"
             ),
             br(),
@@ -509,7 +509,7 @@ server <- function(id, r6) {
       
       r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
       
-      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus)
+      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
       
       trigger("functional")
       
@@ -534,6 +534,8 @@ server <- function(id, r6) {
         r6$go_ora_focus <- input$direction_input
       } else if (input$from_statistic_input == "multivariate") {
         r6$go_ora_focus <- input$cluster_input
+      } else if (input$from_statistic_input == "nodes") {
+        r6$go_ora_focus <- "nodes"
       } else {
         r6$go_ora_focus <- NULL ## da sistemare per external table
       }
@@ -554,7 +556,7 @@ server <- function(id, r6) {
         
       }
       
-      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus)
+      r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
       
       trigger("functional")
       
