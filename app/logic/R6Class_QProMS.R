@@ -23,7 +23,6 @@ box::use(
   org.Hs.eg.db[org.Hs.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
-  protti[fetch_uniprot]
 )
 
 #' @export
@@ -1018,25 +1017,6 @@ QProMS <- R6Class(
         self$edges_table <- edges_string_table %>%
           dplyr$bind_rows(edges_corum_table)
       }
-      
-    },
-    make_pdb_database = function() {
-      
-      uniprot <- self$raw_data %>% 
-        dplyr$filter(!reverse == "+", !potential_contaminant == "+", !only_identified_by_site == "+") %>% 
-        dplyr$mutate(protein_i_ds= stringr$str_extract(protein_i_ds, "[^;]*")) %>% 
-        dplyr$pull(protein_i_ds) 
-      
-      self$pdb_database <-
-        fetch_uniprot(
-          uniprot_ids = uniprot,
-          columns = c("xref_pdb"),
-          show_progress = FALSE
-        ) %>%  
-        tidyr$drop_na("xref_pdb") %>%
-        dplyr$mutate(pdb_id = stringr$str_extract(xref_pdb, "[^;]*")) %>% 
-        dplyr$inner_join(self$raw_data, by=c("accession"="protein_i_ds")) %>% 
-        dplyr$select(uniprot_id=accession, pdb_id, gene_names) 
       
     },
     e_arrange_list = function(list, max_cols = 3) {

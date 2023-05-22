@@ -508,8 +508,6 @@ server <- function(id, r6) {
       req(input$expdesign_table)
       req(input$confirm)
       
-      r6$make_pdb_database()
-      
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,
         valid_val_thr = r6$valid_val_thr,

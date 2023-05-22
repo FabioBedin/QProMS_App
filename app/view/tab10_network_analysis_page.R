@@ -8,7 +8,6 @@ box::use(
   dplyr[filter, `%>%`, pull, distinct],
   waiter[Waiter, spin_5],
   tibble[rowid_to_column],
-  r3dmol[r3dmol, r3dmolOutput, renderR3dmol, m_add_model, m_fetch_pdb, m_set_style, m_style_cartoon, m_style_stick, m_zoom_to],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
 )
 
@@ -212,16 +211,6 @@ ui <- function(id) {
              )
            )
           )
-    ),
-    fluidRow(
-      box(
-        title = "Protein structure",
-        status = "primary",
-        width = 12,
-        height = 700,
-        maximizable = TRUE,
-        r3dmolOutput(ns("protein_structure"), height = "650")
-      )
     )
   )
   
@@ -456,39 +445,6 @@ server <- function(id, r6) {
       )
     })
     
-    output$protein_structure <- renderR3dmol({
-      
-      watch("ppi_network")
-      
-      req(input$generate_network)
-      
-      if(!is.null(input$network_plot_clicked_data$name)) {
-        
-        name <- input$network_plot_clicked_data$name
-        
-        pdb_id <- r6$pdb_database %>% 
-          filter(gene_names == name) %>% 
-          pull(pdb_id)
-        if(length(pdb_id) == 0) {
-          pdb_id <- NULL
-        }
-        
-      } else {
-        pdb_id <- NULL      }
-      
-      
-      if(is.null(pdb_id)) {
-        return(h1("No structure avaiable"))
-      } else {
-        r3dmol() %>% 
-          m_add_model(data = m_fetch_pdb(pdb_id)) %>% 
-          m_set_style(style = c(m_style_cartoon(), m_style_stick())) %>% 
-          m_zoom_to()
-      }
-      
-      
-      
-    })
     
     observeEvent(input$save_selected, {
       
