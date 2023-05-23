@@ -507,7 +507,7 @@ server <- function(id, r6) {
         background = isolate(input$background_input)
       )
       
-      r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
+      r6$go_simplify(thr = r6$go_ora_simplify_thr, type = "ora")
       
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
       
@@ -552,7 +552,7 @@ server <- function(id, r6) {
         
         r6$go_ora_simplify_thr <- simp_thr
         
-        r6$go_ora_simplify(thr = r6$go_ora_simplify_thr)
+        r6$go_simplify(thr = r6$go_ora_simplify_thr, type = "ora")
         
       }
       

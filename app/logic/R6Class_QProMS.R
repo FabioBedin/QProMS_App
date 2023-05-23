@@ -11,7 +11,7 @@ box::use(
   dplyr,
   tidyr,
   stringr,
-  purrr[map, map2, reduce, map_dbl, pluck, list_rbind, set_names, possibly],
+  purrr[map, map2, reduce, map_dbl, pluck, list_rbind, set_names, possibly, flatten],
   reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
@@ -19,7 +19,7 @@ box::use(
   corrmorant[...],
   ggplot2[scale_fill_viridis_c, geom_point],
   iheatmapr[...],
-  clusterProfiler[enrichGO, filter, simplify],
+  clusterProfiler[enrichGO, filter, simplify, gseGO],
   org.Hs.eg.db[org.Hs.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
@@ -99,6 +99,19 @@ QProMS <- R6Class(
     go_ora_top_n = NULL,
     go_ora_simplify_thr = 0.7,
     go_ora_plot_value = "fold_change",
+    #######################
+    # parameters for GSEA #
+    gsea_result_list = NULL,
+    gsea_result_list_simplified = NULL,
+    gsea_table = NULL,
+    go_gsea_tested_condition = NULL,
+    go_gsea_alpha = 0.05,
+    go_gsea_p_adj_method = "BH",
+    go_gsea_term = "BP",
+    go_gsea_focus = NULL,
+    go_gsea_top_n = NULL,
+    go_gsea_common_terms = FALSE,
+    go_gsea_simplify_thr = 0.7,
     ##########################
     # parameters for network #
     nodes_table = NULL,
@@ -560,6 +573,24 @@ QProMS <- R6Class(
       }
       
     },
+    print_gsea_table = function(ontology = "BP", groups, only_common) {
+      
+      self$gsea_table <- map(self$gsea_result_list_simplified, ~ pluck(.x, "result")) %>%
+        list_rbind(names_to = "group") %>%
+        as_tibble() %>%
+        dplyr$filter(ONTOLOGY == ontology) %>%
+        dplyr$filter(group %in% groups) %>% 
+        dplyr$select(-leading_edge) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(c(
+          "pvalue", "p.adjust", "qvalue", "NES", "enrichmentScore"
+        ), ~ round(., 2))) %>%
+        dplyr$relocate(ID) %>%
+        {if(only_common)get_dupes(., Description) %>% 
+            dplyr$select(., -dupe_count) else .} %>%
+        dplyr$arrange(-pvalue) 
+      
+    },
     print_nodes = function(isolate_nodes, score_thr) {
       
       edges <- self$edges_table %>% 
@@ -857,11 +888,70 @@ QProMS <- R6Class(
       )
       
     },
-    go_ora_simplify = function(thr) {
+    go_simplify = function(thr, type) {
       
-      self$ora_result_list_simplified <- map(
-        .x = self$ora_result_list,
-        .f = possibly( ~ simplify(.x, cutoff = thr))
+      if (type == "ora") {
+        self$ora_result_list_simplified <- map(
+          .x = self$ora_result_list,
+          .f = possibly( ~ simplify(.x, cutoff = thr))
+        )
+      } else {
+        self$gsea_result_list_simplified <- map(
+          .x = self$gsea_result_list,
+          .f = possibly( ~ simplify(.x, cutoff = thr))
+        )
+      }
+      
+    },
+    go_gsea_rank_vector = function(test) {
+      
+      cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+      cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      
+      # if (!self$is_norm & !self$is_imp) {
+      #   data <- self$filtered_data
+      # } else if (self$is_norm & !self$is_imp) {
+      #   data <- self$normalized_data
+      # } else{
+      #   data <- self$imputed_data
+      # }
+      
+      gsea_vec <- self$imputed_data %>%
+        dplyr$filter(condition == cond_1 | condition == cond_2) %>%
+        dplyr$group_by(gene_names, condition) %>%
+        dplyr$summarise(mean = mean(intensity)) %>%
+        tidyr$pivot_wider(names_from = condition, values_from = mean) %>%
+        dplyr$ungroup() %>%
+        dplyr$mutate(fold_change = get(cond_1) - get(cond_2)) %>%
+        dplyr$arrange(-fold_change) %>%
+        dplyr$select(gene_names, fold_change) %>%
+        deframe() %>%
+        list() 
+      
+      gsea_list_vec <- set_names(gsea_vec, test)
+      
+      return(gsea_list_vec)
+      
+    },
+    go_gsea = function(test, alpha, p_adj_method) {
+      
+      list_of_gesa_vector <- map(
+        .x = test,
+        .f = ~ self$go_gsea_rank_vector(test = .x)
+      ) %>% flatten()
+      
+      self$gsea_result_list <- map(
+        .x = list_of_gesa_vector,
+        .f = possibly(
+          ~ gseGO(
+            geneList     = .x,
+            OrgDb        = org.Hs.eg.db,
+            ont          = "ALL",
+            keyType      = 'SYMBOL',
+            pAdjustMethod = p_adj_method,
+            verbose      = FALSE
+          ) %>% filter(p.adjust < alpha)
+        )
       )
       
     },
@@ -1572,6 +1662,7 @@ QProMS <- R6Class(
           min = min(mat),
           max = 1,
           bottom = 150,
+          precision = 2,
           inRange = list(color = color)
         ) %>%
         echarts4r$e_theme("QProMS_theme") %>% 
@@ -2126,7 +2217,7 @@ QProMS <- R6Class(
             dplyr$rename(value := !!value) %>% 
             dplyr$mutate(numeric_id = stringr$str_remove(ID, "GO:")) %>%
             dplyr$mutate(numeric_id = as.numeric(numeric_id)) %>%
-            dplyr$mutate(rank_id = round(rank(numeric_id)), 0) %>%
+            dplyr$mutate(rank_id = round(rank(numeric_id), 0)) %>%
             dplyr$arrange(value) %>%
             dplyr$group_by(group) %>%
             echarts4r$e_charts(group, renderer = "svg") %>%
@@ -2334,6 +2425,54 @@ QProMS <- R6Class(
             # p$x$opts$series[[1]]$data[[i]]$itemStyle$shadowColor <- "#000"
           }
         }
+      }
+      
+      return(p)
+      
+    },
+    plot_gsea = function(term, groups, selected) {
+      
+      if(length(groups) > 0 & !is.null(selected)) {
+        
+        color <- viridis(n = length(groups), direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+        alpha_cols <- stringr$str_replace(color, pattern = "FF", replacement = "CC")
+        
+        list_nes <- self$gsea_table %>%
+          dplyr$filter(ID %in% selected) %>%
+          dplyr$group_by(group) %>%
+          dplyr$group_map(~ dplyr$pull(.x, NES))
+        
+        p <- self$gsea_table %>% 
+          dplyr$filter(ID %in% selected) %>%
+          dplyr$mutate(numeric_id = stringr$str_remove(ID, "GO:")) %>%
+          dplyr$mutate(numeric_id = as.numeric(numeric_id)) %>%
+          dplyr$mutate(rank_id = round(rank(numeric_id), 0)) %>% 
+          dplyr$arrange(pvalue) %>%
+          dplyr$group_by(group) %>%
+          echarts4r$e_charts(group, renderer = "svg") %>%
+          echarts4r$e_scatter(rank_id, pvalue, bind = Description, scale_js = "function(data){ return data[2]*3;}") %>%
+          echarts4r$e_tooltip(
+            formatter = JS(
+              "function(params){return('<strong>Size: </strong>' + params.value[2] + '<br /><strong>NES: </strong>' + params.value[3])}"
+            )
+          ) %>%
+          echarts4r$e_y_axis(interval = 1, axisLabel = list(fontSize = 0)) %>%
+          echarts4r$e_grid(containLabel = TRUE) %>%
+          echarts4r$e_labels(show = TRUE, formatter = '{b}') %>% 
+          echarts4r$e_color(alpha_cols) %>% 
+          echarts4r$e_visual_map(NES, inRange = list(color = c("#2166ac", "#f7f7f7", "#b2182b")), precision = 2, bottom = "45%") %>% 
+          echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataView", "dataZoom")) %>% 
+          echarts4r$e_show_loading(text = "Loading...", color = "#35608D")
+        
+        for (n in 1:length(list_nes)) {
+          val <- list_nes[[n]]
+          for (i in 1:length(list_nes[[n]])) {
+            p$x$opts$series[[n]]$data[[i]]$value[4] = val[i]
+          }
+        }
+        
+      } else {
+        p <- self$plot_ora_empty(val = "pvalue")
       }
       
       return(p)

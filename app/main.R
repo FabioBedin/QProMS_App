@@ -14,6 +14,7 @@ box::use(
   app/view/tab6_statistics_univariate_page,
   app/view/tab7_statistics_multivariate_page,
   app/view/tab8_functional_analysis_ora_page,
+  app/view/tab9_functional_analysis_gsea_page,
   app/view/tab10_network_analysis_page,
 )
 
@@ -120,6 +121,7 @@ ui <- function(id) {
         tab6_statistics_univariate_page$ui(ns("tab6_statistics_univariate_page")),
         tab7_statistics_multivariate_page$ui(ns("tab7_statistics_multivariate_page")),
         tab8_functional_analysis_ora_page$ui(ns("tab8_functional_analysis_ora_page")),
+        tab9_functional_analysis_gsea_page$ui(ns("tab9_functional_analysis_gsea_page")),
         tab10_network_analysis_page$ui(ns("tab10_network_analysis_page"))
       )
     )
@@ -149,6 +151,7 @@ server <- function(id) {
     tab6_statistics_univariate_page$server("tab6_statistics_univariate_page", r6 = object)
     tab7_statistics_multivariate_page$server("tab7_statistics_multivariate_page", r6 = object)
     tab8_functional_analysis_ora_page$server("tab8_functional_analysis_ora_page", r6 = object)
+    tab9_functional_analysis_gsea_page$server("tab9_functional_analysis_gsea_page", r6 = object)
     tab10_network_analysis_page$server("tab10_network_analysis_page", r6 = object)
     
     
@@ -184,7 +187,23 @@ server <- function(id) {
       })
       removeUI(selector = "#app-statistics_blocked")
 
-      output$function_analysis <- renderMenu({ menuItem("Functional Analysis", icon = icon("chart-column"), tabName = "functional_analysis_ora") })
+      # output$function_analysis <- renderMenu({ menuItem("Functional Analysis", icon = icon("chart-column"), tabName = "functional_analysis_ora") })
+      output$function_analysis <- renderMenu({
+        menuItem(
+          "Functional Analysis",
+          icon = icon("chart-column"),
+          menuSubItem(
+            text = "ORA",
+            tabName = "functional_analysis_ora",
+            icon = icon("cube")
+          ),
+          menuSubItem(
+            text = "GSEA",
+            tabName = "functional_analysis_gsea",
+            icon = icon("cubes")
+          )
+        )
+      })
       removeUI(selector = "#app-function_analysis_blocked")
       
       output$network_analysis <- renderMenu({ menuItem("Network Analysis", icon = icon("code-fork"), tabName = "network") })
