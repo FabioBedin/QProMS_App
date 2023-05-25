@@ -2,7 +2,7 @@ box::use(
   shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow, observeEvent, removeUI],
   bs4Dash[...],
   waiter[useWaiter, useWaitress, spin_5],
-  fresh[create_theme, bs4dash_vars, bs4dash_yiq, bs4dash_layout, bs4dash_sidebar_light, bs4dash_status, bs4dash_color, use_theme, bs4dash_button]
+  fresh[create_theme, bs4dash_vars, bs4dash_yiq, bs4dash_layout, bs4dash_sidebar_light, bs4dash_status, bs4dash_color, use_theme, bs4dash_button, bs_vars_button]
 )
 
 box::use(
@@ -195,12 +195,12 @@ server <- function(id) {
           menuSubItem(
             text = "ORA",
             tabName = "functional_analysis_ora",
-            icon = icon("cube")
+            icon = icon("bars-progress")
           ),
           menuSubItem(
             text = "GSEA",
             tabName = "functional_analysis_gsea",
-            icon = icon("cubes")
+            icon = icon("server")
           )
         )
       })

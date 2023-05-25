@@ -940,6 +940,10 @@ QProMS <- R6Class(
         .f = ~ self$go_gsea_rank_vector(test = .x)
       ) %>% flatten()
       
+      defaultW <- getOption("warn") 
+      
+      options(warn = -1) 
+      
       self$gsea_result_list <- map(
         .x = list_of_gesa_vector,
         .f = possibly(
@@ -953,6 +957,8 @@ QProMS <- R6Class(
           ) %>% filter(p.adjust < alpha)
         )
       )
+      
+      options(warn = defaultW)
       
     },
     make_nodes = function(list_from, focus, direction) {

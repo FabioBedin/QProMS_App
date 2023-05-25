@@ -241,7 +241,7 @@ server <- function(id, r6) {
       r6$go_gsea_alpha <- as.double(input$alpha_input)
       r6$go_gsea_p_adj_method <- input$truncation_input
       r6$go_gsea_term <- input$ontology
-      r6$go_gsea_top_n <- input$top_n_input
+      r6$go_gsea_top_n <- as.double(input$top_n_input)
       r6$go_gsea_common_terms <- input$common_terms_input
       r6$go_gsea_focus <- input$tests_input
       
@@ -278,7 +278,7 @@ server <- function(id, r6) {
       req(input$top_n_input)
 
       r6$go_gsea_term <- input$ontology
-      r6$go_gsea_top_n <- input$top_n_input
+      r6$go_gsea_top_n <- as.double(input$top_n_input)
       r6$go_gsea_common_terms <- input$common_terms_input
 
       if (input$simplify_thr == "highly simplified") {
@@ -366,7 +366,8 @@ server <- function(id, r6) {
         r6$plot_ora_empty(val = "pvalue")
       } else{
         highlights <- table[gene_selected(),] %>%
-          pull(ID)
+          pull(ID) %>% 
+          unique()
 
         r6$plot_gsea(
           term = r6$go_gsea_term,

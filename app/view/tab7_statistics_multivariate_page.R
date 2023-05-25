@@ -209,6 +209,10 @@ server <- function(id, r6) {
     
     init("anova", "profile")
     
+    defaultW <- getOption("warn") 
+    
+    options(warn = -1) 
+    
     w <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
     output$profile_order_ui <- renderUI({
@@ -453,6 +457,8 @@ server <- function(id, r6) {
       
       
     })
+    
+    options(warn = defaultW)
 
 
   })

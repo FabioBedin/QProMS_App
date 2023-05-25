@@ -248,13 +248,15 @@
     },
     "OmnipathR": {
       "Package": "OmnipathR",
-      "Version": "3.6.0",
-      "Source": "Bioconductor",
-      "git_url": "https://git.bioconductor.org/packages/OmnipathR",
-      "git_branch": "RELEASE_3_16",
-      "git_last_commit": "6188f30",
-      "git_last_commit_date": "2022-11-01",
-      "Hash": "881d6172181d46c83da2306b889c2247",
+      "Version": "3.9.3",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "saezlab",
+      "RemoteRepo": "OmnipathR",
+      "RemoteRef": "master",
+      "RemoteSha": "7a3c0de232a20320d4e83b28db6ab4524857424f",
+      "Hash": "4ed09b3cb5eade8cf5bf57fb829c9d7c",
       "Requirements": [
         "checkmate",
         "crayon",
@@ -530,16 +532,6 @@
       "Repository": "CRAN",
       "Hash": "543776ae6848fde2f48ff3816d0628bc",
       "Requirements": []
-    },
-    "bio3d": {
-      "Package": "bio3d",
-      "Version": "2.4-4",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "a76da9a5ede34b6ecaf9c6a6b9bb63cf",
-      "Requirements": [
-        "Rcpp"
-      ]
     },
     "bit": {
       "Package": "bit",
@@ -2178,14 +2170,6 @@
         "readxl",
         "tibble"
       ]
-    },
-    "rjson": {
-      "Package": "rjson",
-      "Version": "0.2.21",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "f9da75e6444e95a1baf8ca24909d63b9",
-      "Requirements": []
     },
     "rlang": {
       "Package": "rlang",
