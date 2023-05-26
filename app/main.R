@@ -110,7 +110,7 @@ ui <- function(id) {
     footer = dashboardFooter(),
     body = dashboardBody(
       useWaiter(),
-      useWaitress(),
+      useWaitress(color = "#adb5bd"),
       # use_theme(QProMS_theme),
       tabItems(
         tab1_upload_data_page$ui(ns("tab1_upload_data_page")),

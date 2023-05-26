@@ -4,10 +4,10 @@ box::use(
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
-  dplyr[group_by, `%>%`, pull, slice_max],
+  dplyr[group_by, `%>%`, pull, slice_max, filter],
   tibble[rowid_to_column],
   echarts4r[echarts4rOutput, renderEcharts4r, echarts4rProxy, e_focus_adjacency_p],
-  waiter[Waiter, spin_5],
+  waiter[Waiter, spin_5, Waitress],
   shinyGizmo[conditionalJS, jsCalls],
   utils[write.csv]
 )
@@ -19,7 +19,11 @@ ui <- function(id) {
   tabItem(
     tabName = "functional_analysis_gsea",
     fluidRow(
-      valueBoxOutput(ns("significant"), width = 3),
+      valueBoxOutput(ns("significant_bp"), width = 4),
+      valueBoxOutput(ns("significant_mf"), width = 4),
+      valueBoxOutput(ns("significant_cc"), width = 4)
+    ),
+    fluidRow(
       bs4Callout(
         div(
           style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
@@ -69,7 +73,7 @@ ui <- function(id) {
         ),
         title = NULL,
         status = "info",
-        width = 9,
+        width = 12,
         elevation = 1
       )
     ),
@@ -168,7 +172,12 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
+    w <-
+      Waitress$new(
+        "#shiny-tab-functional_analysis_gsea > div:nth-child(2) > div > div",
+        theme = "overlay",
+        infinite = TRUE
+      )
 
     init("gsea")
 
@@ -200,35 +209,80 @@ server <- function(id, r6) {
 
     })
     
-    output$significant <- renderValueBox({
-
+    
+    output$significant_bp <- renderValueBox({
+      
       watch("gsea")
-
+      
       if(is.null(r6$gsea_table)){
-        value <- 0
+        value <- "Undefinded"
       }else{
-        sig <- nrow(r6$gsea_table)
-
-        term <- r6$go_gsea_term
-
-        value <- paste0(sig, " terms in ", term)
+        value <- r6$gsea_table_counts %>% 
+          filter(ONTOLOGY == "BP") %>% 
+          pull(count)
       }
-
+      
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("Significant", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant terms in BP", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
-
+      
+    })
+    
+    output$significant_mf <- renderValueBox({
+      
+      watch("gsea")
+      
+      if(is.null(r6$gsea_table)){
+        value <- "Undefinded"
+      }else{
+        value <- r6$gsea_table_counts %>% 
+          filter(ONTOLOGY == "MF") %>% 
+          pull(count)
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("adjust", verify_fa = FALSE),
+        color = "primary",
+        footer = p("Significant terms in MF", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
+    })
+    
+    output$significant_cc <- renderValueBox({
+      
+      watch("gsea")
+      
+      if(is.null(r6$gsea_table)){
+        value <- "Undefinded"
+      }else{
+        value <- r6$gsea_table_counts %>% 
+          filter(ONTOLOGY == "CC") %>% 
+          pull(count)
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("adjust", verify_fa = FALSE),
+        color = "primary",
+        footer = p("Significant terms in CC", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+      
     })
     
 
     observeEvent(input$run_analysis ,{
 
-      w$show()
+      w$start()
 
       req(input$tests_input)
       req(input$alpha_input)
@@ -266,12 +320,10 @@ server <- function(id, r6) {
 
       trigger("gsea")
 
-      w$hide()
+      w$close()
     })
 
     observeEvent(input$update, {
-
-      w$show()
 
       req(input$simplify_thr)
       req(input$ontology)
@@ -300,8 +352,6 @@ server <- function(id, r6) {
       r6$print_gsea_table(ontology = r6$go_gsea_term, groups = r6$go_gsea_focus, only_common = r6$go_gsea_common_terms)
 
       trigger("gsea")
-
-      w$hide()
 
     })
 

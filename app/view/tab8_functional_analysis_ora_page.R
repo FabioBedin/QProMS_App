@@ -4,12 +4,13 @@ box::use(
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
-  dplyr[group_by, `%>%`, pull, slice_max],
+  dplyr[group_by, `%>%`, pull, slice_max, filter],
   tibble[rowid_to_column],
   echarts4r[echarts4rOutput, renderEcharts4r, echarts4rProxy, e_focus_adjacency_p],
-  waiter[Waiter, spin_5],
+  waiter[Waiter, spin_5, Waitress],
   shinyGizmo[conditionalJS, jsCalls],
-  utils[write.csv]
+  utils[write.csv],
+  callr[r_bg]
 )
 
 #' @export
@@ -19,10 +20,9 @@ ui <- function(id) {
   tabItem(
     tabName = "functional_analysis_ora",
     fluidRow(
-      valueBoxOutput(ns("significant"), width = 3),
-      valueBoxOutput(ns("fdr_thr"), width = 3),
-      valueBoxOutput(ns("n_nodes"), width = 3),
-      valueBoxOutput(ns("n_edges"), width = 3)
+      valueBoxOutput(ns("significant_bp"), width = 4),
+      valueBoxOutput(ns("significant_mf"), width = 4),
+      valueBoxOutput(ns("significant_cc"), width = 4)
     ),
     fluidRow(
       bs4Callout(
@@ -256,7 +256,13 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
+    # w <- Waiter$new(html = spin_5(), color = "#adb5bd")
+    w <-
+      Waitress$new(
+        "#shiny-tab-functional_analysis_ora > div:nth-child(2) > div > div",
+        theme = "overlay",
+        infinite = TRUE
+      )
     
     init("functional")
     
@@ -370,18 +376,16 @@ server <- function(id, r6) {
       
     })
     
-    output$significant <- renderValueBox({
+    output$significant_bp <- renderValueBox({
       
       watch("functional")
       
       if(is.null(r6$ora_table)){
-        value <- 0
+        value <- "Undefinded"
       }else{
-        sig <- nrow(r6$ora_table)
-        
-        term <- r6$go_ora_term
-        
-        value <- paste0(sig, " terms in ", term)
+        value <- r6$ora_table_counts %>% 
+          filter(ONTOLOGY == "BP") %>% 
+          pull(count)
       }
       
       valueBox(
@@ -389,70 +393,53 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("Significant", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant terms in BP", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
     })
     
-    output$fdr_thr <- renderValueBox({
+    output$significant_mf <- renderValueBox({
       
       watch("functional")
       
       if(is.null(r6$ora_table)){
         value <- "Undefinded"
       }else{
-        value <- r6$go_ora_alpha
+        value <- r6$ora_table_counts %>% 
+          filter(ONTOLOGY == "MF") %>% 
+          pull(count)
       }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("crosshairs"),
+        icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("FDR", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant terms in MF", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
     })
     
-    output$n_nodes <- renderValueBox({
+    output$significant_cc <- renderValueBox({
       
       watch("functional")
       
       if(is.null(r6$ora_table)){
         value <- "Undefinded"
       }else{
-        value <- 12
+        value <- r6$ora_table_counts %>% 
+          filter(ONTOLOGY == "CC") %>% 
+          pull(count)
       }
       
       valueBox(
         subtitle = NULL,
         value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("compress"),
+        icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("N° of nodes", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
-        elevation = 2
-      )
-      
-    })
-    
-    output$n_edges <- renderValueBox({
-      
-      watch("functional")
-      
-      if(is.null(r6$ora_table)){
-        value <- "Undefinded"
-      }else{
-        value <- 54
-      }
-      
-      valueBox(
-        subtitle = NULL,
-        value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("compress"),
-        color = "primary",
-        footer = p("N° of edges", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant terms in CC", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -460,7 +447,8 @@ server <- function(id, r6) {
     
     observeEvent(input$run_analysis ,{
       
-      w$show()
+      # w$show()
+      w$start()
       
       req(input$from_statistic_input)
       req(input$test_uni_input)
@@ -499,6 +487,18 @@ server <- function(id, r6) {
       }
       r6$go_ora_simplify_thr <- simp_thr
       
+      # ora_result <-
+      #   r_bg(
+      #     r6$go_ora,
+      #     args = list(
+      #       list_from = r6$go_ora_from_statistic,
+      #       test = r6$go_ora_tested_condition,
+      #       alpha = r6$go_ors_alpha,
+      #       p_adj_method = r6$go_ora_p_adj_method,
+      #       background = isolate(input$background_input)
+      #     )
+      #   )
+      
       r6$go_ora(
         list_from = r6$go_ora_from_statistic,
         test = r6$go_ora_tested_condition,
@@ -507,18 +507,32 @@ server <- function(id, r6) {
         background = isolate(input$background_input)
       )
       
+      # if(!ora_result$is_alive()){
+      #   r6$go_simplify(thr = r6$go_ora_simplify_thr, type = "ora")
+      #   
+      #   r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
+      #   
+      #   trigger("functional")
+      #   
+      #   w$hide()
+      # } else {
+      #   w$show()
+      # }
+      
       r6$go_simplify(thr = r6$go_ora_simplify_thr, type = "ora")
-      
+
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
-      
+
       trigger("functional")
-      
-      w$hide()
+
+      # w$hide()
+      w$close()
     })
+    
     
     observeEvent(input$update, {
       
-      w$show()
+      # w$show()
       
       req(input$simplify_thr)
       req(input$ontology)
@@ -560,7 +574,7 @@ server <- function(id, r6) {
       
       trigger("functional")
       
-      w$hide()
+      # w$hide()
       
     })
     

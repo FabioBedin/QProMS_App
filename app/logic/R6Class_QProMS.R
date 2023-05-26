@@ -11,7 +11,7 @@ box::use(
   dplyr,
   tidyr,
   stringr,
-  purrr[map, map2, reduce, map_dbl, pluck, list_rbind, set_names, possibly, flatten],
+  purrr[map, map2, reduce, map_dbl, pluck, list_rbind, set_names, possibly, flatten, map_chr],
   reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
@@ -90,6 +90,7 @@ QProMS <- R6Class(
     ora_result_list = NULL,
     ora_result_list_simplified = NULL,
     ora_table = NULL,
+    ora_table_counts = NULL,
     go_ora_from_statistic = NULL,
     go_ora_tested_condition = NULL,
     go_ora_alpha = 0.05,
@@ -104,6 +105,7 @@ QProMS <- R6Class(
     gsea_result_list = NULL,
     gsea_result_list_simplified = NULL,
     gsea_table = NULL,
+    gsea_table_counts = NULL,
     go_gsea_tested_condition = NULL,
     go_gsea_alpha = 0.05,
     go_gsea_p_adj_method = "BH",
@@ -549,9 +551,15 @@ QProMS <- R6Class(
     },
     print_ora_table = function(ontology = "BP", groups, value) {
       
-      self$ora_table <- map(self$ora_result_list_simplified, ~ pluck(.x, "result")) %>%
+      ora_table_all <- map(self$ora_result_list_simplified, ~ pluck(.x, "result")) %>%
         list_rbind(names_to = "group") %>% 
-        as_tibble() %>%
+        as_tibble()
+      
+      self$ora_table_counts <- ora_table_all %>% 
+        dplyr$group_by(ONTOLOGY) %>% 
+        dplyr$summarise(count = dplyr$n())
+      
+      self$ora_table <- ora_table_all %>% 
         dplyr$filter(ONTOLOGY == ontology) %>%
         dplyr$filter(group %in% groups) %>% 
         tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
@@ -575,9 +583,15 @@ QProMS <- R6Class(
     },
     print_gsea_table = function(ontology = "BP", groups, only_common) {
       
-      self$gsea_table <- map(self$gsea_result_list_simplified, ~ pluck(.x, "result")) %>%
+      gsea_table_all <- map(self$gsea_result_list_simplified, ~ pluck(.x, "result")) %>%
         list_rbind(names_to = "group") %>%
-        as_tibble() %>%
+        as_tibble() 
+      
+      self$gsea_table_counts <- gsea_table_all %>% 
+        dplyr$group_by(ONTOLOGY) %>% 
+        dplyr$summarise(count = dplyr$n())
+      
+      self$gsea_table <- gsea_table_all %>% 
         dplyr$filter(ONTOLOGY == ontology) %>%
         dplyr$filter(group %in% groups) %>% 
         dplyr$select(-leading_edge) %>% 
@@ -618,32 +632,15 @@ QProMS <- R6Class(
     },
     print_edges = function(score_thr, selected_nodes) {
       
-      self$edges_table %>% 
+      edges_tab <- self$edges_table %>% 
         dplyr$filter(score >= score_thr) %>% 
         {if(length(selected_nodes) != 0)dplyr$filter(., source %in% selected_nodes | target %in% selected_nodes) else .} %>%
         dplyr$select(-c(color, size)) %>% 
         dplyr$mutate(score = dplyr$if_else(complex == "not defined", round(score, 2), 1)) %>% 
-        tidyr$separate_rows(complex, sep = ",") %>% 
-        dplyr$relocate(complex, .after = database) %>% 
-        reactable(
-          searchable = TRUE,
-          resizable = TRUE,
-          highlight = TRUE,
-          wrap = FALSE,
-          paginateSubRows = TRUE,
-          height = "auto",
-          defaultPageSize = 7,
-          # selection = "multiple",
-          # onClick = "select",
-          groupBy = "source",
-          columns = list(
-            target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
-            source = colDef(name = "Source"),
-            database = colDef(name = "Database"),
-            complex = colDef(minWidth = 300, name = "Complex"),
-            score = colDef(align = "center", name = "Score")
-          )
-        )
+        tidyr$separate_rows(complex, sep = "/") %>% 
+        dplyr$relocate(complex, .after = database) 
+      
+      return(edges_tab)
         
     },
     stat_tidy_vector = function(data, name) {
@@ -1092,10 +1089,10 @@ QProMS <- R6Class(
             tidyr$nest() %>% 
             tidyr$unnest_wider(data, names_sep = "_") %>%
             dplyr$ungroup() %>% 
+            dplyr$mutate(complex = map_chr(data_complex, stringr$str_flatten, collapse = "/")) %>% 
             dplyr$rowwise() %>% 
             dplyr$mutate(
               score = sum(data_score),
-              complex = toString(data_complex),
               size = dplyr$if_else(score <= 5, score, 5),
               database = "Corum"
             ) %>% 
@@ -2371,7 +2368,7 @@ QProMS <- R6Class(
           dplyr$filter(gene_names %in% selected)
       }
       
-      p <- echarts4r$e_charts() %>%
+      p <- echarts4r$e_charts(renderer = "svg") %>%
         echarts4r$e_graph(
           roam = TRUE,
           layout = layout,
@@ -2433,7 +2430,12 @@ QProMS <- R6Class(
         }
       }
       
-      return(p)
+      if(nrow(nodes) == 0) {
+        return(NULL)
+      } else {
+        return(p)
+      }
+      
       
     },
     plot_gsea = function(term, groups, selected) {

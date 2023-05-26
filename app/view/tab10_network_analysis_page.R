@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, br, h4, h1, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive, icon],
+  shiny[moduleServer, NS, fluidRow, div, column, br, h4, h1, p, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive, icon, reactiveVal],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, boxLabel, toast],
-  shinyWidgets[actionBttn, pickerInput, prettyCheckbox],
+  shinyWidgets[actionBttn, pickerInput, prettyCheckbox, updatePrettyCheckbox],
   gargoyle[init, watch, trigger],
   shinyGizmo[conditionalJS, jsCalls],
   echarts4r[echarts4rOutput, renderEcharts4r],
@@ -18,9 +18,8 @@ ui <- function(id) {
   tabItem(
     tabName = "network",
     fluidRow(
-      valueBoxOutput(ns("string_thr"), width = 4),
-      valueBoxOutput(ns("n_nodes"), width = 4),
-      valueBoxOutput(ns("n_edges"), width = 4)
+      valueBoxOutput(ns("n_nodes"), width = 6),
+      valueBoxOutput(ns("n_edges"), width = 6)
     ),
     fluidRow(
       bs4Callout(
@@ -304,7 +303,46 @@ server <- function(id, r6) {
           size = 5)
       )
       
+    })
+    
+    output$n_nodes <- renderValueBox({
       
+      watch("ppi_network")
+      
+      if(is.null(nodes_box())){
+      value <- "Undefinded"
+      }else{
+        value <- nodes_box()
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("adjust", verify_fa = FALSE),
+        color = "primary",
+        footer = p("N° of nodes", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
+    })
+    
+    output$n_edges <- renderValueBox({
+      
+      watch("ppi_network")
+      
+      if(is.null(edges_box())){
+        value <- "Undefinded"
+      }else{
+        value <- edges_box()
+      }
+      
+      valueBox(
+        subtitle = NULL,
+        value = h4(value, style = "margin-top: 0.5rem;"),
+        icon = icon("adjust", verify_fa = FALSE),
+        color = "primary",
+        footer = p("N° of edges", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        elevation = 2
+      )
     })
     
     observeEvent(input$generate_network, {
@@ -327,6 +365,11 @@ server <- function(id, r6) {
       r6$make_nodes(list_from = r6$network_from_statistic, focus = r6$network_focus, direction = input$ui_direction_input)
       r6$make_edges(source = input$db_source)
       
+      updatePrettyCheckbox(
+        inputId = session$ns("keep_selected"),
+        value = FALSE
+      )
+      
       trigger("ppi_network") 
       
       w$hide()
@@ -347,6 +390,9 @@ server <- function(id, r6) {
     
     gene_selected <- reactive(getReactableState("table", "selected"))
     
+    nodes_box <- reactiveVal(NULL)
+    edges_box <- reactiveVal(NULL)
+    
     output$table <- renderReactable({
       
       watch("ppi_network")
@@ -357,6 +403,8 @@ server <- function(id, r6) {
         isolate_nodes = isolate(input$isolate_nodes_input),
         score_thr = isolate(input$score_thr)
       )
+      
+      nodes_box(nrow(nodes))
 
       # if(is.null(input$network_plot_clicked_data$name)){
       #   selected_rowid <- NULL
@@ -409,7 +457,26 @@ server <- function(id, r6) {
           pull(gene_names)
       }
       
-      r6$print_edges(score_thr = isolate(input$score_thr), selected_nodes = highlights)
+      edges <- r6$print_edges(score_thr = isolate(input$score_thr), selected_nodes = highlights)
+      
+      edges_box(nrow(edges))
+      
+      reactable(
+        edges,
+        searchable = TRUE,
+        resizable = TRUE,
+        highlight = TRUE,
+        wrap = FALSE,
+        height = "auto",
+        defaultPageSize = 7,
+        columns = list(
+          target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
+          source = colDef(name = "Source"),
+          database = colDef(name = "Database"),
+          complex = colDef(minWidth = 300, name = "Complex"),
+          score = colDef(align = "center", name = "Score")
+        )
+      )
       
       
     })
@@ -434,6 +501,13 @@ server <- function(id, r6) {
         # highlights <- c(highlights, input$network_plot_clicked_data$name)
       }
       
+      fil <- isolate(input$keep_selected)
+      
+      if(length(highlights) == 0){
+        highlights <- NULL
+        fil <- FALSE
+      }
+      
       r6$plot_ppi_network(
         list_from = r6$network_from_statistic,
         score_thr = isolate(input$score_thr),
@@ -441,7 +515,7 @@ server <- function(id, r6) {
         layout = isolate(input$layout),
         show_names = isolate(input$names_input),
         selected = highlights,
-        filtred = isolate(input$keep_selected)
+        filtred = fil
       )
     })
     
@@ -472,8 +546,6 @@ server <- function(id, r6) {
       )
       
     })
-    
-    
 
   })
 }
