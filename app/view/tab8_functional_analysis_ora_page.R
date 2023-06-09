@@ -1,13 +1,14 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal, downloadHandler],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
+  shiny[moduleServer, NS, fluidRow, column, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal, downloadHandler, tagList, img, h3],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   dplyr[group_by, `%>%`, pull, slice_max, filter],
   tibble[rowid_to_column],
+  shinyjs[disabled, enable],
   echarts4r[echarts4rOutput, renderEcharts4r, echarts4rProxy, e_focus_adjacency_p],
-  waiter[Waiter, spin_5, Waitress],
+  waiter[Waiter, spin_5],
   shinyGizmo[conditionalJS, jsCalls],
   utils[write.csv],
   callr[r_bg]
@@ -25,76 +26,175 @@ ui <- function(id) {
       valueBoxOutput(ns("significant_cc"), width = 4)
     ),
     fluidRow(
-      bs4Callout(
-        div(
-          style = "display: flex; justify-content: center; gap: 20px; align-items: center;",
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            uiOutput(ns("ui_from_statistic_input"))
-          ),
-          conditionalJS(
+      column(
+        width = 11,
+        accordion(
+          id = ns("advance_params"),
+          accordionItem(
+            title = "Parameters",
+            status = "primary",
+            collapsed = FALSE,
+            solidHeader = TRUE,
             div(
-              style = "width: 100%; flex: 1 1 0;",
-              uiOutput(ns("ui_groups_input"))
-            ),
-            condition = "input.from_statistic_input == 'univariate'",
-            jsCall = jsCalls$show(),
-            ns = ns
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("alpha_input"),
-              label = "Alpha",
-              choices = c(0.05, 0.01),
-              selected = 0.05, 
-              width = "auto"
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                uiOutput(ns("ui_from_statistic_input")),
+                conditionalJS(
+                  uiOutput(ns("ui_groups_input")),
+                  condition = "input.from_statistic_input == 'univariate'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                div(
+                  style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+                  div(
+                    style = "width: 100%; flex: 3 1 0;",
+                    selectInput(
+                      inputId = ns("alpha_input"),
+                      label = "Alpha",
+                      choices = c(0.05, 0.01),
+                      selected = 0.05, 
+                      width = "auto"
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
+                    prettyCheckbox(
+                      inputId = ns("background_input"),
+                      label = "Background", 
+                      value = FALSE,
+                      shape = "curve", 
+                      width = "auto"
+                    )
+                  )
+                ),
+                selectInput(
+                  inputId = ns("truncation_input"),
+                  label = "Truncation",
+                  choices = c(
+                    "Benjamini & Hochberg" = "BH",
+                    "Bonferroni" = "bonferroni",
+                    "Holm (1979)" = "holm",
+                    "Hochberg (1988)" = "hochberg",
+                    "Hommel (1988)" = "hommel",
+                    "Benjamini & Yekutieli" = "BY",
+                    "None" = "none"),
+                  selected = "BH", 
+                  width = "auto"
+                )
+              )
             )
           ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("truncation_input"),
-              label = "Truncation",
-              choices = c(
-                "Benjamini & Hochberg" = "BH",
-                "Bonferroni" = "bonferroni",
-                "Holm (1979)" = "holm",
-                "Hochberg (1988)" = "hochberg",
-                "Hommel (1988)" = "hommel",
-                "Benjamini & Yekutieli" = "BY",
-                "None" = "none"),
-              selected = "BH", 
-              width = "auto"
+          accordionItem(
+            title = "Visual settings",
+            status = "gray",
+            collapsed = TRUE,
+            solidHeader = TRUE,
+            div(
+              style = "display: flex; justify-content: center; align-items: start; gap: 5rem",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                div(
+                  style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    selectInput(
+                      inputId = ns("ontology"),
+                      label = "Ontology term",
+                      choices = c("BP", "MF", "CC"),
+                      selected = "BP"
+                    )
+                  ),
+                  conditionalJS(
+                    div(
+                      style = "width: 100%; flex: 1 1 0;",
+                      uiOutput(ns("ui_direction_input"))
+                    ),
+                    condition = "input.from_statistic_input == 'univariate'",
+                    jsCall = jsCalls$show(),
+                    ns = ns
+                  ),
+                  conditionalJS(
+                    div(
+                      style = "width: 100%; flex: 1 1 0;",
+                      uiOutput(ns("ui_cluster_input"))
+                    ),
+                    condition = "input.from_statistic_input == 'multivariate'",
+                    jsCall = jsCalls$show(),
+                    ns = ns
+                  )
+                ),
+                div(
+                  style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    numericInput(
+                      inputId = ns("top_n_input"),
+                      label = "Show top n terms",
+                      value = 10,
+                      min = 1,
+                      step = 1
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    selectInput(
+                      inputId = ns("plot_value_input"),
+                      label = "Variable on X axis",
+                      choices = c("Fold change" = "fold_change", "p.value" = "pvalue", "p.adjust" = "p.adjust", "q.value" = "qvalue"),
+                      selected = "fold_change"
+                    )
+                  )
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                sliderTextInput(
+                  inputId = ns("simplify_thr"), 
+                  label = "Reduce redundancy in GO terms",
+                  choices = c("highly simplified", "2", "3", "4", "5", "6", "7", "8", "9", "not simplified"), 
+                  selected = "7",
+                  grid = TRUE,
+                  force_edges = TRUE,
+                )
+              )
             )
           ),
-          div(
-            style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
-            prettyCheckbox(
-              inputId = ns("background_input"),
-              label = "Background", 
-              value = FALSE,
-              shape = "curve", 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
+          width = 12
+        )
+      ),
+      column(
+        width = 1,
+        div(
+          style = "margin-top: 2.5px;",
+          actionBttn(
+            inputId = ns("run_analysis"),
+            label = "Start", 
+            style = "material-flat",
+            color = "success",
+            size = "md",
+            block = TRUE, 
+            width = "auto"
+          )
+        ),
+        div(
+          style = "margin-top: 22px;",
+          disabled(
             actionBttn(
-              inputId = ns("run_analysis"),
-              label = "Run analysis", 
+              inputId = ns("update"),
+              label = "Update", 
               style = "material-flat",
-              color = "primary",
+              color = "success",
               size = "md",
-              block = TRUE, 
+              block = TRUE,
               width = "auto"
             )
           )
-        ),
-        title = NULL,
-        status = "info",
-        width = 12,
-        elevation = 1
+        )
       )
     ),
     fluidRow(
@@ -104,76 +204,6 @@ ui <- function(id) {
         width = 6,
         height = 700,
         maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = ns("functional_sidebar"),
-          div(
-            style = "padding-right: 0.5rem",
-            h4("Parameters"),
-            div(
-              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
-              div(
-                style = "width: 100%; flex: 1 1 0;",
-                selectInput(
-                  inputId = ns("ontology"),
-                  label = "Term",
-                  choices = c("BP", "MF", "CC"),
-                  selected = "BP"
-                )
-              ),
-              div(
-                style = "width: 100%; flex: 1 1 0;",
-                numericInput(
-                  inputId = ns("top_n_input"),
-                  label = "Top n",
-                  value = 10,
-                  min = 1,
-                  step = 1
-                )
-              ),
-              conditionalJS(
-                div(
-                  style = "width: 100%; flex: 1 1 0;  text-align: center;",
-                  uiOutput(ns("ui_direction_input"))
-                ),
-                condition = "input.from_statistic_input == 'univariate'",
-                jsCall = jsCalls$show(),
-                ns = ns
-              ),
-              conditionalJS(
-                div(
-                  style = "width: 100%; flex: 1 1 0;  text-align: center;",
-                  uiOutput(ns("ui_cluster_input"))
-                ),
-                condition = "input.from_statistic_input == 'multivariate'",
-                jsCall = jsCalls$show(),
-                ns = ns
-              )
-            ),
-            sliderTextInput(
-              inputId = ns("simplify_thr"), 
-              label = "Reduce redundancy in GO terms",
-              choices = c("highly simplified", "2", "3", "4", "5", "6", "7", "8", "9", "not simplified"), 
-              selected = "7",
-              grid = TRUE,
-              force_edges = TRUE,
-            ),
-            selectInput(
-              inputId = ns("plot_value_input"),
-              label = "Genes from",
-              choices = c("Fold change" = "fold_change", "p.value" = "pvalue", "p.adjust" = "p.adjust", "q.value" = "qvalue"),
-              selected = "fold_change"
-            ),
-            br(),
-            actionBttn(
-              inputId = ns("update"),
-              label = "Update", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
         echarts4rOutput(ns("functional_plot"), height = "650")
       ),
       box(
@@ -252,17 +282,20 @@ ui <- function(id) {
 
 }
 
+
+
 #' @export
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    # w <- Waiter$new(html = spin_5(), color = "#adb5bd")
-    w <-
-      Waitress$new(
-        "#shiny-tab-functional_analysis_ora > div:nth-child(2) > div > div",
-        theme = "overlay",
-        infinite = TRUE
-      )
+    w <- Waiter$new(html = tagList(
+      h3("Loading can take some minutes...", style = "color:white;"),
+      br(),
+      # spin_5()
+      img(src = "https://media.giphy.com/media/y6Sl42U3xEFkk/giphy.gif", height = "200px")
+    ), color = "#adb5bd")
+    
+    w2 <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
     init("functional")
     
@@ -334,7 +367,7 @@ server <- function(id, r6) {
       
       pickerInput(
         inputId = session$ns("direction_input"),
-        label = "Contrasts",
+        label = "Contrasts direction",
         choices = tests,
         selected = sel,
         multiple = TRUE,
@@ -393,7 +426,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("Significant terms in BP", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant terms in biological process (BP)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -416,7 +449,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("Significant terms in MF", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant terms in molecular function (MF)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -439,7 +472,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("adjust", verify_fa = FALSE),
         color = "primary",
-        footer = p("Significant terms in CC", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Significant terms in cellular component (CC)", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -447,31 +480,43 @@ server <- function(id, r6) {
     
     observeEvent(input$run_analysis ,{
       
-      # w$show()
-      w$start()
+      w$show()
       
       req(input$from_statistic_input)
       req(input$test_uni_input)
       req(input$alpha_input)
       req(input$truncation_input)
-      req(input$ontology)
-      req(input$direction_input)
-      req(input$top_n_input)
-      req(input$simplify_thr)
-      req(input$plot_value_input)
       
       r6$go_ora_from_statistic <- input$from_statistic_input
       r6$go_ora_tested_condition <- input$test_uni_input
       r6$go_ora_alpha <- as.double(input$alpha_input)
       r6$go_ora_p_adj_method <- input$truncation_input
-      r6$go_ora_term <- input$ontology
-      r6$go_ora_top_n <- input$top_n_input
-      r6$go_ora_plot_value <- input$plot_value_input
+      
+      if(!is.null(input$ontology)) {
+        r6$go_ora_term <- input$ontology
+      }
+      
+      if(!is.null(input$top_n_input)) {
+        r6$go_ora_top_n <- input$top_n_input
+      }
+      
+      if(!is.null(input$plot_value_input)) {
+        r6$go_ora_plot_value <- input$plot_value_input
+      }
+      
       
       if (input$from_statistic_input == "univariate") {
-        r6$go_ora_focus <- input$direction_input
+        if(is.null(input$direction_input)) {
+          r6$go_ora_focus <- paste0(r6$primary_condition, "_up")
+        } else {
+          r6$go_ora_focus <- input$direction_input
+        }
       } else if (input$from_statistic_input == "multivariate") {
-        r6$go_ora_focus <- input$cluster_input
+        if(is.null(input$cluster_input)) {
+          r6$go_ora_focus <- "cluster_1"
+        } else {
+          r6$go_ora_focus <- input$cluster_input
+        }
       } else if (input$from_statistic_input == "nodes") {
         r6$go_ora_focus <- "nodes"
       } else {
@@ -482,22 +527,12 @@ server <- function(id, r6) {
         simp_thr <- 0.1
       } else if (input$simplify_thr == "not simplified") {
         simp_thr <- 1
+      } else if (is.null(input$simplify_thr)) {
+        simp_thr <- 0.7
       } else {
         simp_thr <- as.numeric(input$simplify_thr) / 10
       }
       r6$go_ora_simplify_thr <- simp_thr
-      
-      # ora_result <-
-      #   r_bg(
-      #     r6$go_ora,
-      #     args = list(
-      #       list_from = r6$go_ora_from_statistic,
-      #       test = r6$go_ora_tested_condition,
-      #       alpha = r6$go_ors_alpha,
-      #       p_adj_method = r6$go_ora_p_adj_method,
-      #       background = isolate(input$background_input)
-      #     )
-      #   )
       
       r6$go_ora(
         list_from = r6$go_ora_from_statistic,
@@ -507,32 +542,23 @@ server <- function(id, r6) {
         background = isolate(input$background_input)
       )
       
-      # if(!ora_result$is_alive()){
-      #   r6$go_simplify(thr = r6$go_ora_simplify_thr, type = "ora")
-      #   
-      #   r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
-      #   
-      #   trigger("functional")
-      #   
-      #   w$hide()
-      # } else {
-      #   w$show()
-      # }
-      
       r6$go_simplify(thr = r6$go_ora_simplify_thr, type = "ora")
 
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
+      
+      enable("update")
+      
+      updateAccordion(id = "advance_params", selected = 2)
 
       trigger("functional")
 
-      # w$hide()
-      w$close()
+      w$hide()
     })
     
     
     observeEvent(input$update, {
       
-      # w$show()
+      w2$show()
       
       req(input$simplify_thr)
       req(input$ontology)
@@ -574,7 +600,7 @@ server <- function(id, r6) {
       
       trigger("functional")
       
-      # w$hide()
+      w2$hide()
       
     })
     
@@ -588,9 +614,9 @@ server <- function(id, r6) {
     
     output$table <- renderReactable({
       
-      watch("functional")
-      
       req(input$run_analysis)
+      
+      watch("functional")
       
       default_selected <- r6$ora_table %>% 
         rowid_to_column() %>% 

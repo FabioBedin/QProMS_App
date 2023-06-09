@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, br, div, observeEvent, req, checkboxInput, h4, p],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox],
-  shinyWidgets[actionBttn],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, br, div, observeEvent, req, checkboxInput, h4, p, column],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
+  shinyWidgets[actionBttn, prettyCheckbox],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable]
@@ -20,59 +20,116 @@ ui <- function(id) {
       valueBoxOutput(ns("min_intensity"), width = 3)
     ),
     fluidRow(
+      column(
+        width = 11,
+        accordion(
+          id = ns("advance_params"),
+          accordionItem(
+            title = "Parameters",
+            status = "primary",
+            collapsed = TRUE,
+            solidHeader = TRUE,
+            div(
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                  selectInput(
+                    inputId = ns("valid_values_input"),
+                    label = "Valid values filters",
+                    choices = c("In at least one group" = "alog", "In each group" = "each_grp", "In toral" = "total"),
+                    selected = "alog"
+                  ),
+                  sliderInput(
+                    inputId = ns("valid_values_slider"),
+                    label = "Persentage",
+                    min = 0,
+                    max = 100,
+                    value = 75,
+                    step = 1
+                  )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                  selectInput(
+                    inputId = ns("normalization_input"),
+                    label = "Normalization",
+                    choices = c("None", "VSN"),
+                    selected = "None"
+                  )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("peptides_input"),
+                  label = "MaxQuant peptides column",
+                  choices = c("Peptides" = "peptides", "Unique peptides" = "unique", "Razor and unique peptides" = "razor"),
+                  selected = "peptides"
+                ),
+                sliderInput(
+                  inputId = ns("peptides_slider"),
+                  label = "Minimun number of peptides",
+                  min = 0,
+                  max = 10,
+                  value = 2,
+                  step = 1
+                ),
+                br(),
+                div(
+                  style = "display: flex; gap: 0.5rem; align-items: center;",
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    checkboxInput(
+                      inputId = ns("rev"),
+                      label = "Reverse",
+                      value = TRUE
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    checkboxInput(
+                      inputId = ns("cont"),
+                      label = "Contaminant",
+                      value = TRUE
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    checkboxInput(
+                      inputId = ns("oibs"),
+                      label = "Identify by site",
+                      value = TRUE
+                    )
+                  )
+                )
+              )
+            )
+          ),
+          width = 12
+        )
+      ),
+      column(
+        width = 1,
+        div(
+          style = "margin-top: 2.5px;",
+          actionBttn(
+            inputId = ns("update_parameters"),
+            label = "Update", 
+            style = "material-flat",
+            color = "success",
+            size = "md",
+            block = TRUE
+          ) 
+        )
+      )
+    ),
+    fluidRow(
       box(
         title = "Protein Counts",
         status = "primary",
         width = 3,
         height = 500,
         maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = ns("filters_sidebar"),
-          div(
-            style="padding-right: 0.5rem",
-            h3("Filters options"),
-            selectInput(
-              inputId = ns("peptides_input"),
-              label = "Select peptides type",
-              choices = c("Peptides" = "peptides", "Unique peptides" = "unique", "Razor and unique peptides" = "razor"),
-              selected = "peptides"
-            ),
-            sliderInput(
-              inputId = ns("peptides_slider"),
-              label = "Threshold",
-              min = 0,
-              max = 10,
-              value = 2,
-              step = 1
-            ),
-            br(),
-            div(
-              checkboxInput(
-                inputId = ns("rev"),
-                label = "Reverse",
-                value = TRUE
-              ),
-              checkboxInput(
-                inputId = ns("cont"),
-                label = "Contaminant",
-                value = TRUE
-              ),
-              checkboxInput(
-                inputId = ns("oibs"),
-                label = "Identify by site",
-                value = TRUE
-              )
-            ),
-            actionBttn(
-              inputId = ns("update_filters"),
-              label = "Update", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
+        # sidebar = boxSidebar(),
         echarts4rOutput(ns("protein_counts_plot"), height = "450")
       ),
       box(
@@ -81,35 +138,7 @@ ui <- function(id) {
         width = 3,
         height = 500,
         maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = ns("valid_values_sidebar"),
-          div(
-            style="padding-right: 0.5rem",
-            h3("Valid values options"),
-            selectInput(
-              inputId = ns("valid_values_input"),
-              label = "Valid values approach",
-              choices = c("At least one group" = "alog", "Each group" = "each_grp", "Toral" = "total"),
-              selected = "alog"
-            ),
-            sliderInput(
-              inputId = ns("valid_values_slider"),
-              label = "Persentage",
-              min = 0,
-              max = 100,
-              value = 75,
-              step = 1
-            ),
-            actionBttn(
-              inputId = ns("update_valid_values"),
-              label = "Update", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
+        # sidebar = boxSidebar(),
         echarts4rOutput(ns("valid_values_plot"), height = "450")
       ),
       box(
@@ -118,27 +147,7 @@ ui <- function(id) {
         width = 3,
         height = 500,
         maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = ns("normalization_sidebar"),
-          div(
-            style="padding-right: 0.5rem",
-            h3("Normalization"),
-            selectInput(
-              inputId = ns("normalization_input"),
-              label = "Normalization strategy",
-              choices = c("None", "VSN"),
-              selected = "None"
-            ),
-            actionBttn(
-              inputId = ns("update_normalization"),
-              label = "Update", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
+        # sidebar = boxSidebar(),
         echarts4rOutput(ns("distribution_plot"), height = "450")
       ),
       box(
@@ -271,49 +280,57 @@ server <- function(id, r6) {
       
     })
     
-    observeEvent(input$update_filters, {
+    # observeEvent(input$update_filters, {
+    #   
+    #   req(input$peptides_input)
+    #   req(input$peptides_slider)
+    #   
+    #   r6$pep_filter <- input$peptides_input
+    #   r6$pep_thr <- input$peptides_slider
+    #   r6$rev <- input$rev
+    #   r6$cont <- input$cont
+    #   r6$oibs <- input$oibs
+    #   
+    #   
+    #   r6$data_wrangling(
+    #     valid_val_filter = r6$valid_val_filter,
+    #     valid_val_thr = r6$valid_val_thr,
+    #     pep_filter = r6$pep_filter,
+    #     pep_thr = r6$pep_thr,
+    #     rev = r6$rev,
+    #     cont = r6$cont,
+    #     oibs = r6$oibs
+    #   )
+    #   
+    #   r6$normalization(norm_methods = r6$norm_methods)
+    #   
+    #   r6$imputation(
+    #     imp_methods = r6$imp_methods,
+    #     shift = r6$imp_shift,
+    #     scale = r6$imp_scale,
+    #     unique_visual = FALSE
+    #   )
+    #   
+    #   trigger("plot")
+    #   trigger("boxes")
+    #   
+    # })
+    
+    observeEvent(input$update_parameters ,{
       
-      req(input$peptides_input)
-      req(input$peptides_slider)
+      req(input$valid_values_input)
+      req(input$valid_values_slider)
+      req(input$normalization_input)
+
+      r6$valid_val_filter <- input$valid_values_input
+      r6$valid_val_thr <- as.numeric(input$valid_values_slider) / 100
+      r6$norm_methods <- input$normalization_input
       
       r6$pep_filter <- input$peptides_input
       r6$pep_thr <- input$peptides_slider
       r6$rev <- input$rev
       r6$cont <- input$cont
       r6$oibs <- input$oibs
-      
-      
-      r6$data_wrangling(
-        valid_val_filter = r6$valid_val_filter,
-        valid_val_thr = r6$valid_val_thr,
-        pep_filter = r6$pep_filter,
-        pep_thr = r6$pep_thr,
-        rev = r6$rev,
-        cont = r6$cont,
-        oibs = r6$oibs
-      )
-      
-      r6$normalization(norm_methods = r6$norm_methods)
-      
-      r6$imputation(
-        imp_methods = r6$imp_methods,
-        shift = r6$imp_shift,
-        scale = r6$imp_scale,
-        unique_visual = FALSE
-      )
-      
-      trigger("plot")
-      trigger("boxes")
-      
-    })
-    
-    observeEvent(input$update_valid_values ,{
-      
-      req(input$valid_values_input)
-      req(input$valid_values_slider)
-
-      r6$valid_val_filter <- input$valid_values_input
-      r6$valid_val_thr <- input$valid_values_slider / 100
 
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,
@@ -334,30 +351,32 @@ server <- function(id, r6) {
         unique_visual = FALSE
       )
       
+      updateAccordion(id = "advance_params", selected = NULL)
+      
       trigger("plot")
       trigger("boxes")
       
     })
     
-    observeEvent(input$update_normalization ,{
-      
-      req(input$normalization_input)
-      
-      r6$norm_methods <- input$normalization_input
-      
-      r6$normalization(norm_methods = r6$norm_methods)
-      
-      r6$imputation(
-        imp_methods = r6$imp_methods,
-        shift = r6$imp_shift,
-        scale = r6$imp_scale,
-        unique_visual = FALSE
-      )
-      
-      trigger("plot")
-      trigger("boxes")
-      
-    })
+    # observeEvent(input$update_normalization ,{
+    #   
+    #   req(input$normalization_input)
+    #   
+    #   r6$norm_methods <- input$normalization_input
+    #   
+    #   r6$normalization(norm_methods = r6$norm_methods)
+    #   
+    #   r6$imputation(
+    #     imp_methods = r6$imp_methods,
+    #     shift = r6$imp_shift,
+    #     scale = r6$imp_scale,
+    #     unique_visual = FALSE
+    #   )
+    #   
+    #   trigger("plot")
+    #   trigger("boxes")
+    #   
+    # })
     
     output$table <- renderReactable({
       

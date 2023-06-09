@@ -97,8 +97,8 @@ QProMS <- R6Class(
     go_ora_p_adj_method = "BH",
     go_ora_term = "BP",
     go_ora_focus = NULL,
-    go_ora_top_n = NULL,
-    go_ora_simplify_thr = 0.7,
+    go_ora_top_n = 10,
+    go_ora_simplify_thr = NULL,
     go_ora_plot_value = "fold_change",
     #######################
     # parameters for GSEA #
@@ -111,7 +111,7 @@ QProMS <- R6Class(
     go_gsea_p_adj_method = "BH",
     go_gsea_term = "BP",
     go_gsea_focus = NULL,
-    go_gsea_top_n = NULL,
+    go_gsea_top_n = 10,
     go_gsea_common_terms = FALSE,
     go_gsea_simplify_thr = 0.7,
     ##########################

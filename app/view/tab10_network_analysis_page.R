@@ -1,6 +1,6 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, div, column, br, h4, h1, p, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive, icon, reactiveVal],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, boxLabel, toast],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, boxLabel, toast, accordion, accordionItem, updateAccordion],
   shinyWidgets[actionBttn, pickerInput, prettyCheckbox, updatePrettyCheckbox],
   gargoyle[init, watch, trigger],
   shinyGizmo[conditionalJS, jsCalls],
@@ -22,74 +22,78 @@ ui <- function(id) {
       valueBoxOutput(ns("n_edges"), width = 6)
     ),
     fluidRow(
-      bs4Callout(
-        div(
-          style = "display: flex; justify-content: center; align-items: center; gap: 20px",
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            uiOutput(ns("ui_from_statistic_input"))
-          ),
-          conditionalJS(
+      column(
+        width = 11,
+        accordion(
+          id = ns("advance_params"),
+          accordionItem(
+            title = "Parameters",
+            status = "primary",
+            collapsed = FALSE,
+            solidHeader = TRUE,
             div(
-              style = "width: 100%; flex: 1 1 0;",
-              uiOutput(ns("ui_test_input"))
-            ),
-            condition = "input.from_statistic_input == 'univariate'",
-            jsCall = jsCalls$show(),
-            ns = ns
-          ),
-          conditionalJS(
-            div(
-              style = "width: 100%; flex: 1 1 0;",
-              selectInput(
-                inputId = ns("ui_direction_input"),
-                label = "Directions",
-                choices = c("Up" = "up", "Down" = "down", "Both" = "both"),
-                selected = "up", 
-                width = "auto"
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                uiOutput(ns("ui_from_statistic_input"))
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                conditionalJS(
+                  uiOutput(ns("ui_test_input")),
+                  condition = "input.from_statistic_input == 'univariate'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                ),
+                conditionalJS(
+                  selectInput(
+                    inputId = ns("ui_direction_input"),
+                    label = "Directions",
+                    choices = c("Up" = "up", "Down" = "down", "Both" = "both"),
+                    selected = "up", 
+                    width = "auto"
+                  ),
+                  condition = "input.from_statistic_input == 'univariate'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                ),
+                conditionalJS(
+                  uiOutput(ns("ui_cluster_input")),
+                  condition = "input.from_statistic_input == 'multivariate'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                pickerInput(
+                  inputId = ns("db_source"),
+                  label = "Database",
+                  choices = c("String" = "string", "Corum" = "corum"),
+                  selected = "string",
+                  multiple = TRUE,
+                  options = list(title = "None")
+                )
               )
-            ),
-            condition = "input.from_statistic_input == 'univariate'",
-            jsCall = jsCalls$show(),
-            ns = ns
-          ),
-          conditionalJS(
-            div(
-              style = "width: 100%; flex: 1 1 0;",
-              uiOutput(ns("ui_cluster_input"))
-            ),
-            condition = "input.from_statistic_input == 'multivariate'",
-            jsCall = jsCalls$show(),
-            ns = ns
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            pickerInput(
-              inputId = ns("db_source"),
-              label = "Database",
-              choices = c("String" = "string", "Corum" = "corum"),
-              selected = "string",
-              multiple = TRUE,
-              options = list(title = "None")
             )
           ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            actionBttn(
-              inputId = ns("generate_network"),
-              label = "Generate network",
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE,
-              width = "auto"
-            )
+          width = 12
+        )
+      ),
+      column(
+        width = 1,
+        div(
+          style = "margin-top: 2.5px;",
+          actionBttn(
+            inputId = ns("generate_network"),
+            label = "Start",
+            style = "material-flat",
+            color = "success",
+            size = "md",
+            block = TRUE,
+            width = "auto"
           )
-        ),
-        title = NULL,
-        status = "info",
-        width = 12,
-        elevation = 1
+        )
       )
     ),
     fluidRow(column(
@@ -371,6 +375,8 @@ server <- function(id, r6) {
       )
       
       trigger("ppi_network") 
+      
+      updateAccordion(id = "advance_params", selected = NULL)
       
       w$hide()
       

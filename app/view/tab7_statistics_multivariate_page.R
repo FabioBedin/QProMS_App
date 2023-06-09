@@ -1,6 +1,6 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, h6, observeEvent, req, reactive, uiOutput, renderUI, isolate, observe],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
   dplyr[filter, `%>%`, pull, distinct],
   iheatmapr[...],
@@ -24,52 +24,66 @@ ui <- function(id) {
       valueBoxOutput(ns("clusters"), width = 4)
     ),
     fluidRow(
-      bs4Callout(
-        div(
-          style = "display: flex; justify-content: center; align-items: center; gap: 20px",
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("alpha_input"),
-              label = "Alpha",
-              choices = c(0.05, 0.01),
-              selected = 0.05, 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("truncation_input"),
-              label = "Truncation",
-              choices = c(
-                "Benjamini & Hochberg" = "BH",
-                "Bonferroni" = "bonferroni",
-                "Holm (1979)" = "holm",
-                "Hochberg (1988)" = "hochberg",
-                "Hommel (1988)" = "hommel",
-                "Benjamini & Yekutieli" = "BY",
-                "None" = "none"),
-              selected = "BH", 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("clust_method"),
-              label = "Clustering method",
-              choices = c("Hierarchical Clustering" = "hclust", "K-means Clustering" = "kmeans"),
-              selected = "hclust", 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
+      column(
+        width = 11,
+        accordion(
+          id = ns("advance_params"),
+          accordionItem(
+            title = "Parameters",
+            status = "primary",
+            collapsed = FALSE,
+            solidHeader = TRUE,
             div(
-              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
-                style = "width: 100%; flex: 3 1 0;",
+                style = "width: 100%; flex: 1 1 0;",
+                div(
+                  style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+                  div(
+                    style = "width: 100%; flex: 3 1 0;",
+                    selectInput(
+                      inputId = ns("alpha_input"),
+                      label = "Alpha",
+                      choices = c(0.05, 0.01),
+                      selected = 0.05, 
+                      width = "auto"
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
+                    prettyCheckbox(
+                      inputId = ns("zscore_input"),
+                      label = "Z-score", 
+                      value = TRUE,
+                      shape = "curve", 
+                      width = "auto"
+                    )
+                  )
+                ),
+                selectInput(
+                  inputId = ns("truncation_input"),
+                  label = "Truncation",
+                  choices = c(
+                    "Benjamini & Hochberg" = "BH",
+                    "Bonferroni" = "bonferroni",
+                    "Holm (1979)" = "holm",
+                    "Hochberg (1988)" = "hochberg",
+                    "Hommel (1988)" = "hommel",
+                    "Benjamini & Yekutieli" = "BY",
+                    "None" = "none"),
+                  selected = "BH", 
+                  width = "auto"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("clust_method"),
+                  label = "Clustering method",
+                  choices = c("Hierarchical Clustering" = "hclust", "K-means Clustering" = "kmeans"),
+                  selected = "hclust", 
+                  width = "auto"
+                ),
                 numericInput(
                   inputId = ns("n_cluster_input"),
                   label = "N° of clusters",
@@ -79,37 +93,32 @@ ui <- function(id) {
                   width = "auto"
                 )
               ),
-              div(
-                style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
-                prettyCheckbox(
-                  inputId = ns("zscore_input"),
-                  label = "Z-score", 
-                  value = TRUE,
-                  shape = "curve", 
-                  width = "auto"
-                )
-              ),
+              # div(
+              #   style = "width: 100%; flex: 1 1 0;",
+              #   
+              # )
             )
           ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            actionBttn(
-              inputId = ns("run_statistics"),
-              label = "Run statistics", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE, 
-              width = "auto"
-            )
+          width = 12
+        )
+      ),
+      column(
+        width = 1,
+        div(
+          style = "margin-top: 2.5px;",
+          actionBttn(
+            inputId = ns("run_statistics"),
+            label = "Start", 
+            style = "material-flat",
+            color = "success",
+            size = "md",
+            block = TRUE, 
+            width = "auto"
           )
-        ),
-        title = NULL,
-        status = "info",
-        width = 12,
-        elevation = 1
+        )
       )
     ),
+    # fluidRow(),
     fluidRow(
       column(7,
         box(
@@ -316,6 +325,8 @@ server <- function(id, r6) {
       r6$anova_manual_order <- input$reorder_input
       
       r6$stat_anova(alpha = r6$anova_alpha, p_adj_method = r6$anova_p_adj_method)
+      
+      updateAccordion(id = "advance_params", selected = NULL)
       
       trigger("anova")
       trigger("profile")

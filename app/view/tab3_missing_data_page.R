@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div, observeEvent, req, h4, p, uiOutput, renderUI],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div, observeEvent, req, h4, p, uiOutput, renderUI, column],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel, bs4Callout, accordion, accordionItem, updateAccordion],
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger],
@@ -18,6 +18,69 @@ ui <- function(id) {
       valueBoxOutput(ns("total_missing_data"), width = 3),
       valueBoxOutput(ns("missing_mar"), width = 3),
       valueBoxOutput(ns("missing_mnar"), width = 3)
+    ),
+    fluidRow(
+      column(
+        width = 11,
+        accordion(
+          id = ns("advance_params"),
+          accordionItem(
+            title = "Parameters",
+            status = "primary",
+            collapsed = TRUE,
+            solidHeader = TRUE,
+            div(
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("imputation_input"),
+                  label = "imputation strategy",
+                  choices = c("Mixed" = "mixed", "Perseus" = "perseus", "None" = "none"),
+                  selected = "mixed"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                sliderInput(
+                  inputId = ns("shift_slider"),
+                  label = "Down shift",
+                  min = 1.6,
+                  max = 2,
+                  value = 1.8,
+                  step = 0.1
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                sliderInput(
+                  inputId = ns("scale_slider"),
+                  label = "Scale",
+                  min = 0.1,
+                  max = 0.5,
+                  value = 0.3,
+                  step = 0.1
+                )
+              )
+            )
+          ),
+          width = 12
+        )
+      ),
+      column(
+        width = 1,
+        div(
+          style = "margin-top: 2.5px;",
+          actionBttn(
+            inputId = ns("update"),
+            label = "Update", 
+            style = "material-flat",
+            color = "success",
+            size = "md",
+            block = TRUE
+          ) 
+        )
+      )
     ),
     fluidRow(
       box(
@@ -50,43 +113,7 @@ ui <- function(id) {
         width = 3,
         height = 500,
         maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = "imputation_sidebar",
-          div(
-            style="padding-right: 0.5rem",
-            h3("Imputation"),
-            selectInput(
-              inputId = ns("imputation_input"),
-              label = "imputation strategy",
-              choices = c("Mixed" = "mixed", "Perseus" = "perseus", "None" = "none"),
-              selected = "mixed"
-            ),
-            sliderInput(
-              inputId = ns("shift_slider"),
-              label = "Down shift",
-              min = 1.6,
-              max = 2,
-              value = 1.8,
-              step = 0.1
-            ),
-            sliderInput(
-              inputId = ns("scale_slider"),
-              label = "Scale",
-              min = 0.1,
-              max = 0.5,
-              value = 0.3,
-              step = 0.1
-            ),
-            actionBttn(
-              inputId = ns("update"),
-              label = "Update", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
+        # sidebar = boxSidebar(),
         echarts4rOutput(ns("post_imputation_plot"), height = "450")
       )
     ),
@@ -248,6 +275,8 @@ server <- function(id, r6) {
         scale = r6$imp_scale,
         unique_visual = FALSE
       )
+      
+      updateAccordion(id = "advance_params", selected = NULL)
       
       trigger("plot")
       trigger("boxes")

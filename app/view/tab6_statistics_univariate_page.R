@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler, column],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   echarts4r[echarts4rOutput, renderEcharts4r],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn],
   stringr[str_replace_all],
@@ -19,104 +19,118 @@ ui <- function(id) {
   tabItem(
     tabName = "statistics_uni",
     fluidRow(
-      valueBoxOutput(ns("tested_cond"), width = 2),
-      valueBoxOutput(ns("significant"), width = 2),
-      valueBoxOutput(ns("up_reg"), width = 2),
-      valueBoxOutput(ns("down_reg"), width = 2),
-      valueBoxOutput(ns("fdr_thr"), width = 2),
-      valueBoxOutput(ns("fc_thr"), width = 2)
+      valueBoxOutput(ns("tested_cond"), width = 3),
+      valueBoxOutput(ns("significant"), width = 3),
+      valueBoxOutput(ns("up_reg"), width = 3),
+      valueBoxOutput(ns("down_reg"), width = 3)
     ),
     fluidRow(
-      bs4Callout(
-        div(
-          style = "display: flex; justify-content: center; align-items: center; gap: 20px",
-          div(
-            style = "width: 100%; flex: 1 1 0;",
+      column(
+        width = 11,
+        accordion(
+          id = ns("advance_params"),
+          accordionItem(
+            title = "Parameters",
+            status = "primary",
+            collapsed = FALSE,
+            solidHeader = TRUE,
             div(
-              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
-                style = "width: 100%; flex: 3 1 0;",
-                selectInput(
-                  inputId = ns("test_input"),
-                  label = "Test type",
-                  choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
-                  selected = "welch", 
+                style = "width: 100%; flex: 1 1 0;",
+                div(
+                  style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+                  div(
+                    style = "width: 100%; flex: 3 1 0;",
+                    selectInput(
+                      inputId = ns("test_input"),
+                      label = "Test type",
+                      choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
+                      selected = "welch", 
+                      width = "auto"
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
+                    prettyCheckbox(
+                      inputId = ns("paider_input"),
+                      label = "Paired", 
+                      value = FALSE,
+                      shape = "curve", 
+                      width = "auto"
+                    )
+                  )
+                ),
+                numericInput(
+                  inputId = ns("fc_input"),
+                  label = "Fold change",
+                  value = 1,
+                  min = 0,
+                  step = 0.5, 
                   width = "auto"
+                ),
+                div(
+                  style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    selectInput(
+                      inputId = ns("alpha_input"),
+                      label = "Alpha",
+                      choices = c(0.05, 0.01),
+                      selected = 0.05, 
+                      width = "auto"
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0;",
+                    selectInput(
+                      inputId = ns("truncation_input"),
+                      label = "Truncation",
+                      choices = c(
+                        "Benjamini & Hochberg" = "BH",
+                        "Bonferroni" = "bonferroni",
+                        "Holm (1979)" = "holm",
+                        "Hochberg (1988)" = "hochberg",
+                        "Hommel (1988)" = "hommel",
+                        "Benjamini & Yekutieli" = "BY",
+                        "None" = "none"),
+                      selected = "BH", 
+                      width = "auto"
+                    )
+                  )
                 )
               ),
               div(
-                style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
-                prettyCheckbox(
-                  inputId = ns("paider_input"),
-                  label = "Paired", 
-                  value = FALSE,
-                  shape = "curve", 
-                  width = "auto"
-                )
+                style = "width: 100%; flex: 1 1 0;",
+                uiOutput(ns("ui_primary_input"))
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                uiOutput(ns("ui_additional_input"))
               )
             )
           ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            numericInput(
-              inputId = ns("fc_input"),
-              label = "Fold change",
-              value = 1,
-              min = 0,
-              step = 0.5, 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("alpha_input"),
-              label = "Alpha",
-              choices = c(0.05, 0.01),
-              selected = 0.05, 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            selectInput(
-              inputId = ns("truncation_input"),
-              label = "Truncation",
-              choices = c(
-                "Benjamini & Hochberg" = "BH",
-                "Bonferroni" = "bonferroni",
-                "Holm (1979)" = "holm",
-                "Hochberg (1988)" = "hochberg",
-                "Hommel (1988)" = "hommel",
-                "Benjamini & Yekutieli" = "BY",
-                "None" = "none"),
-              selected = "BH", 
-              width = "auto"
-            )
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            uiOutput(ns("ui_primary_input"))
-          ),
-          div(
-            style = "width: 100%; flex: 1 1 0;",
-            actionBttn(
-              inputId = ns("run_statistics"),
-              label = "Run statistics", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE, 
-              width = "auto"
-            )
+          width = 12
+        )
+      ),
+      column(
+        width = 1,
+        div(
+          style = "margin-top: 2.5px;",
+          actionBttn(
+            inputId = ns("run_statistics"),
+            label = "Start", 
+            style = "material-flat",
+            color = "success",
+            size = "md",
+            block = TRUE, 
+            width = "auto"
           )
-        ),
-        title = NULL,
-        status = "info",
-        width = 12,
-        elevation = 1
+        )
       )
     ),
+    # fluidRow(),
+    # fluidRow(),
     fluidRow(
       box(
         title = "Volcano plot",
@@ -126,23 +140,23 @@ ui <- function(id) {
         maximizable = TRUE,
         sidebar = boxSidebar(
           id = ns("volcano_sidebar"),
-          div(
-            style = "padding-right: 0.5rem",
-            h4("Additional contrast"),
-            div(
-              style = "width: 100%;",
-              uiOutput(ns("ui_additional_input"))
-            ),
-            br(),
-            actionBttn(
-              inputId = ns("update"),
-              label = "Update", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
+          # div(
+          #   style = "padding-right: 0.5rem",
+          #   h4("Additional contrast"),
+          #   div(
+          #     style = "width: 100%;",
+          #     uiOutput(ns("ui_additional_input"))
+          #   ),
+          #   br(),
+          #   actionBttn(
+          #     inputId = ns("update"),
+          #     label = "Update", 
+          #     style = "material-flat",
+          #     color = "primary",
+          #     size = "md",
+          #     block = TRUE
+          #   )
+          # )
         ),
         uiOutput(ns("volcano_plot_multiple"))
       ),
@@ -188,7 +202,7 @@ server <- function(id, r6) {
       
       pickerInput(
         inputId = session$ns("primary_input"),
-        label = "Primary contrast",
+        label = "Primary comparison",
         choices = test, 
         selected = r6$primary_condition,
         multiple = FALSE,
@@ -211,8 +225,9 @@ server <- function(id, r6) {
       
       pickerInput(
         inputId = session$ns("additional_input"),
-        label = "Additional contrast",
+        label = "Additional comparison",
         choices = test,
+        selected = r6$additional_condition,
         multiple = TRUE,
         options = list(
           `live-search` = TRUE, 
@@ -338,49 +353,6 @@ server <- function(id, r6) {
       
     })
     
-    output$fdr_thr <- renderValueBox({
-      
-      watch("stat")
-      
-      if(is.null(r6$stat_table)){
-        value <- "Undefinded"
-      }else{
-        value <- r6$univariate_alpha
-      }
-      
-      valueBox(
-        subtitle = NULL,
-        value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("crosshairs"),
-        color = "primary",
-        footer = p("FDR", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
-        elevation = 2
-      )
-      
-    })
-    
-    output$fc_thr <- renderValueBox({
-      
-      watch("stat")
-      
-      if(is.null(r6$stat_table)){
-        value <- "Undefinded"
-      }else{
-        value <- r6$fold_change
-      }
-      
-      valueBox(
-        subtitle = NULL,
-        value = h4(value, style = "margin-top: 0.5rem;"),
-        icon = icon("filter"),
-        color = "primary",
-        footer = p("Fold change", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
-        elevation = 2
-      )
-      
-    })
-    
-    
     observeEvent(input$run_statistics ,{
       
       req(input$test_input)
@@ -408,28 +380,30 @@ server <- function(id, r6) {
         test_type = r6$univariate_test_type
       )
       
+      updateAccordion(id = "advance_params", selected = NULL)
+      
       trigger("stat")
     })
     
-    observeEvent(input$update ,{
-      
-      req(input$run_statistics)
-      
-      r6$additional_condition <- input$additional_input
-      
-      tests <- c(r6$primary_condition, r6$additional_condition)
-      
-      r6$stat_t_test(
-        test = tests,
-        fc = r6$fold_change,
-        alpha = r6$univariate_alpha,
-        p_adj_method = r6$univariate_p_adj_method,
-        paired_test = r6$univariate_paired,
-        test_type = r6$univariate_test_type
-      )
-      
-      trigger("stat")
-    })
+    # observeEvent(input$update ,{
+    #   
+    #   req(input$run_statistics)
+    #   
+    #   r6$additional_condition <- input$additional_input
+    #   
+    #   tests <- c(r6$primary_condition, r6$additional_condition)
+    #   
+    #   r6$stat_t_test(
+    #     test = tests,
+    #     fc = r6$fold_change,
+    #     alpha = r6$univariate_alpha,
+    #     p_adj_method = r6$univariate_p_adj_method,
+    #     paired_test = r6$univariate_paired,
+    #     test_type = r6$univariate_test_type
+    #   )
+    #   
+    #   trigger("stat")
+    # })
     
     gene_selected <- reactive(getReactableState("table", "selected"))
     
