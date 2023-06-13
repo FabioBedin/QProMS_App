@@ -9,7 +9,8 @@ box::use(
   htmlwidgets[JS],
   dplyr[filter, select, pull],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
-  utils[write.csv]
+  utils[write.csv],
+  waiter[Waiter, spin_5],
 )
 
 #' @export
@@ -129,8 +130,6 @@ ui <- function(id) {
         )
       )
     ),
-    # fluidRow(),
-    # fluidRow(),
     fluidRow(
       box(
         title = "Volcano plot",
@@ -140,32 +139,78 @@ ui <- function(id) {
         maximizable = TRUE,
         sidebar = boxSidebar(
           id = ns("volcano_sidebar"),
-          # div(
-          #   style = "padding-right: 0.5rem",
-          #   h4("Additional contrast"),
-          #   div(
-          #     style = "width: 100%;",
-          #     uiOutput(ns("ui_additional_input"))
-          #   ),
-          #   br(),
-          #   actionBttn(
-          #     inputId = ns("update"),
-          #     label = "Update", 
-          #     style = "material-flat",
-          #     color = "primary",
-          #     size = "md",
-          #     block = TRUE
-          #   )
-          # )
+          div(
+            style = "padding-right: 0.5rem",
+            h4("Visual settings"),
+            br(),
+            prettyCheckbox(
+              inputId = ns("same_y_input"),
+              label = "Share same Y axis", 
+              value = TRUE,
+              shape = "curve", 
+              width = "auto"
+            ),
+            prettyCheckbox(
+              inputId = ns("same_x_input"),
+              label = "Share same X axis", 
+              value = FALSE,
+              shape = "curve", 
+              width = "auto"
+            ),
+            br(),
+            actionBttn(
+              inputId = ns("update"),
+              label = "Update",
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
         ),
         uiOutput(ns("volcano_plot_multiple"))
       ),
       box(
-        title = "Result table",
+        title = "Profile plot",
         status = "primary",
         width = 4,
         height = 700,
         maximizable = TRUE,
+        sidebar = boxSidebar(
+          id = ns("profile_sidebar"),
+          div(
+            style = "padding-right: 0.5rem",
+            h4("Visual settings"),
+            numericInput(
+              inputId = ns("grid_input"),
+              label = "Grid n° of columns",
+              value = 2,
+              min = 1,
+              step = 1, 
+              width = "auto"
+            ),
+            br(),
+            actionBttn(
+              inputId = ns("update2"),
+              label = "Update",
+              style = "material-flat",
+              color = "primary",
+              size = "md",
+              block = TRUE
+            )
+          )
+        ),
+        uiOutput(ns("profile_plot"))
+        # echarts4rOutput(ns("profile_plot"), height = "650")
+      )
+    ),
+    fluidRow(
+      box(
+        title = "Result table",
+        status = "primary",
+        width = 12,
+        maximizable = TRUE,
+        collapsible = TRUE, 
         sidebar = boxSidebar(
           id = ns("table_sidebar"),
           div(
@@ -191,6 +236,8 @@ ui <- function(id) {
 #' @export
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
+    
+    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
     init("stat")
     
@@ -355,6 +402,8 @@ server <- function(id, r6) {
     
     observeEvent(input$run_statistics ,{
       
+      w$show()
+      
       req(input$test_input)
       req(input$fc_input)
       req(input$alpha_input)
@@ -383,27 +432,23 @@ server <- function(id, r6) {
       updateAccordion(id = "advance_params", selected = NULL)
       
       trigger("stat")
+      
+      w$hide()
     })
     
-    # observeEvent(input$update ,{
-    #   
-    #   req(input$run_statistics)
-    #   
-    #   r6$additional_condition <- input$additional_input
-    #   
-    #   tests <- c(r6$primary_condition, r6$additional_condition)
-    #   
-    #   r6$stat_t_test(
-    #     test = tests,
-    #     fc = r6$fold_change,
-    #     alpha = r6$univariate_alpha,
-    #     p_adj_method = r6$univariate_p_adj_method,
-    #     paired_test = r6$univariate_paired,
-    #     test_type = r6$univariate_test_type
-    #   )
-    #   
-    #   trigger("stat")
-    # })
+    observeEvent(input$update ,{
+
+      req(input$run_statistics)
+
+      trigger("stat")
+    })
+    
+    observeEvent(input$update2 ,{
+      
+      req(input$run_statistics)
+      
+      trigger("stat")
+    })
     
     gene_selected <- reactive(getReactableState("table", "selected"))
     
@@ -418,13 +463,18 @@ server <- function(id, r6) {
       if(is.null(r6$stat_table)){
         highlights <- NULL
       }else{
-        table <- r6$print_stat_table(stat_table = r6$stat_table, test = r6$primary_condition)
+        table <- r6$print_stat_table()
         highlights <- table[gene_selected(), ] %>% 
           pull(gene_names)
       }
       
-        r6$plot_volcano(test = tests, highlights_names = highlights)
-
+      r6$plot_volcano(
+        test = tests,
+        highlights_names = highlights,
+        same_x = isolate(input$same_x_input),
+        same_y = isolate(input$same_y_input)
+      )
+      
     })
     
     output$table <- renderReactable({
@@ -433,7 +483,7 @@ server <- function(id, r6) {
       
       req(input$run_statistics)
       
-      table <- r6$print_stat_table(stat_table = r6$stat_table, test = r6$primary_condition)
+      table <- r6$print_stat_table()
       
       reactable(
         table,
@@ -445,38 +495,36 @@ server <- function(id, r6) {
         selection = "multiple",
         onClick = "select",
         defaultSelected = 1,
+        defaultColDef = colDef(align = "center", minWidth = 200),
         columns = list(
-          gene_names = colDef(align = "center", name = "Gene names"),
-          p_val = colDef(align = "center", name = "-log(p.value)"),
-          p_adj = colDef(align = "center", name = "-log(p.adj)"),
-          fold_change = colDef(
-            align = "center",
-            name = "Fold change",
-            style = JS("function(rowInfo) {
-              const value = rowInfo.values['fold_change']
-              let color
-              if (value > 0) {
-                color = '#cf4446'
-              } else if (value < 0) {
-                color = '#0d0887'
-              } else {
-                color = '#777'
-              }
-              return { color: color, fontWeight: 'bold' }
-            }")
-            ),
-          significant = colDef(
-            align = "center",
-            name = "Significant",
-            cell = function(value) {
-              if (!value)
-                "\u274c No"
-              else
-                "\u2714\ufe0f Yes"
-            }
+          gene_names = colDef(
+            name = "Gene names",
+            sticky = "left",
+            style = list(borderRight  = "1px solid #eee")
           )
         )
       )
+      
+    })
+    
+    output$profile_plot <- renderUI({
+      
+      watch("stat")
+      
+      req(input$run_statistics)
+      
+      tests <- c(r6$primary_condition, r6$additional_condition)
+      table <- r6$print_stat_table()
+      
+      if(is.null(gene_selected())){
+        return(NULL)
+      }else{
+        highlights <- table[gene_selected(), ] %>% 
+          pull(gene_names)
+        
+        r6$plot_stat_profile(tests = tests, highlights_names = highlights, grid_cols = isolate(input$grid_input))
+      }
+      
       
     })
     

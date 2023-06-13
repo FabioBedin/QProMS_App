@@ -11,7 +11,8 @@ box::use(
   dplyr,
   tidyr,
   stringr,
-  purrr[map, map2, reduce, map_dbl, pluck, list_rbind, set_names, possibly, flatten, map_chr],
+  tidyselect[where],
+  purrr[map, map2, reduce, map_dbl, pluck, list_rbind, set_names, possibly, flatten, map_chr, flatten_chr],
   reactable[reactable, colDef],
   echarts4r,
   htmlwidgets[JS],
@@ -504,38 +505,40 @@ QProMS <- R6Class(
         self$is_imp <- FALSE
       }
     },
-    print_table = function(data) {
+    print_table = function(data, df = FALSE) {
       
       table <- data %>% 
         dplyr$select(gene_names, label, intensity) %>% 
         dplyr$mutate(intensity = round(intensity, 2)) %>% 
-        tidyr$pivot_wider(gene_names, names_from = label, values_from = intensity) %>% 
-        reactable(
-          searchable = TRUE,
-          resizable = TRUE,
-          highlight = TRUE,
-          wrap = FALSE,
-          height = "auto",
-          columns = list(
-            gene_names = colDef(
-              minWidth = 200,
-              sticky = "left",
-              style = list(borderRight  = "1px solid #eee"
-                           )
+        tidyr$pivot_wider(gene_names, names_from = label, values_from = intensity)
+      
+      if (!df) {
+        table <- table %>% 
+          reactable(
+            searchable = TRUE,
+            resizable = TRUE,
+            highlight = TRUE,
+            wrap = FALSE,
+            height = "auto",
+            columns = list(
+              gene_names = colDef(
+                minWidth = 200,
+                sticky = "left",
+                style = list(borderRight  = "1px solid #eee"
+                )
               )
             )
           )
+      } 
       
       return(table)
     },
-    print_stat_table = function(stat_table, test){
+    print_stat_table = function(){
       
-      table <- stat_table %>% 
-        dplyr$select(gene_names, dplyr$starts_with(test)) %>% 
-        dplyr$rename_at(dplyr$vars(dplyr$matches(test)), ~ stringr$str_remove(., paste0(test, "_"))) %>% 
-        dplyr$arrange(-significant, -fold_change, p_val) %>% 
-        dplyr$mutate(dplyr$across(c("p_val", "p_adj"), ~ -log10(.))) %>% 
-        dplyr$mutate(dplyr$across(c("fold_change", "p_val", "p_adj"), ~ round(., 2)))
+      table <- self$stat_table %>%
+        dplyr$mutate(dplyr$across(dplyr$ends_with(c("p_val", "p_adj")), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(where(is.numeric), ~ round(., 2))) %>%
+        dplyr$arrange(-get(paste0(self$primary_condition, "_significant")), -get(paste0(self$primary_condition, "_fold_change")), get(paste0(self$primary_condition, "_p_val")))
       
       return(table)
     },
@@ -1675,7 +1678,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_correlation_scatter = function(x, y, value) {
+    plot_correlation_scatter = function(x, y, value, highlights_names) {
       
       if(self$is_imp){
         data <- self$imputed_data
@@ -1686,7 +1689,7 @@ QProMS <- R6Class(
       data_scatter <- data %>%
         dplyr$filter(label %in% c(x, y)) %>% 
         dplyr$select(gene_names, label, intensity) %>%
-        tidyr$pivot_wider(names_from = "label", values_from = "intensity") %>% 
+        tidyr$pivot_wider(id_cols = gene_names, names_from = "label", values_from = "intensity") %>% 
         dplyr$select(gene_names, x = !!x, y = !!y)
       
       min_plot <- round(min(data_scatter %>% dplyr$select(-gene_names), na.rm = TRUE) - 1, 0)
@@ -1760,9 +1763,29 @@ QProMS <- R6Class(
           echarts4r$e_toolbox_feature(feature = "saveAsImage") 
       }
       
+      if (!is.null(highlights_names)) {
+        for (name in highlights_names) {
+          highlights_name <- data_scatter %>%
+            dplyr$filter(gene_names == name) %>%
+            dplyr$select(xAxis = x,
+                         yAxis = y,
+                         value = gene_names) %>% as.list()
+          
+          p <- p %>%
+            echarts4r$e_mark_point(
+              data = highlights_name,
+              symbol = "pin",
+              symbolSize = 50,
+              silent = TRUE,
+              label = list(color = "black", fontWeight = "normal", fontSize = 16),
+              itemStyle = list(color = "yellow",  borderColor = "yellow", borderWidth = 0.2)
+            )
+        }
+      }
+      
       return(p)
     },
-    plot_multi_scatter = function(selected_cond) {
+    plot_multi_scatter = function(selected_cond, highlights_names) {
       
       if(selected_cond == "all"){
         list <- self$expdesign %>% dplyr$pull(label)
@@ -1779,7 +1802,7 @@ QProMS <- R6Class(
       all_scatter <- map2(
         .x = list2$x,
         .y = list2$y,
-        .f = ~ self$plot_correlation_scatter(x = .x, y = .y, value = NULL)
+        .f = ~ self$plot_correlation_scatter(x = .x, y = .y, value = NULL, highlights_names)
       )
       
       cols <- floor(length(all_scatter)/10)
@@ -1817,7 +1840,7 @@ QProMS <- R6Class(
       return(p)
       
     },
-    plot_volcano_single = function(test, highlights_names) {
+    plot_volcano_single = function(test, highlights_names, same_x, same_y) {
       
       alpha_cols <- viridis(n = 2 , direction = 1, end = 0.90, begin = 0.10, option = self$palette)
       
@@ -1825,6 +1848,22 @@ QProMS <- R6Class(
       
       text_color <- alpha_cols[1]
       bg_color <- alpha_cols[2]
+      
+      max_y_plot <- self$stat_table %>% 
+        dplyr$select(dplyr$ends_with("p_val")) %>%
+        dplyr$mutate(dplyr$across(.cols = dplyr$everything(), ~ -log10(.))) %>% 
+        max() %>% 
+        ceiling()
+      
+      min_x_plot <- self$stat_table %>% 
+        dplyr$select(dplyr$ends_with("fold_change")) %>%
+        min() %>%
+        floor()
+      
+      max_x_plot <- self$stat_table %>% 
+        dplyr$select(dplyr$ends_with("fold_change")) %>%
+        max() %>%
+        ceiling()
       
       table <- self$stat_table %>% 
         dplyr$select(gene_names, dplyr$starts_with(test)) %>% 
@@ -1884,7 +1923,7 @@ QProMS <- R6Class(
         echarts4r$e_toolbox() %>%
         echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataZoom")) %>%
         echarts4r$e_x_axis(
-          name = "Fold_change",
+          name = "Difference (fold change)",
           nameLocation = "center",
           nameTextStyle = list(
             fontWeight = "bold",
@@ -1893,7 +1932,7 @@ QProMS <- R6Class(
           )
         ) %>%
         echarts4r$e_y_axis(
-          name = "-log(Pvalue)",
+          name = "-log10 p-value",
           nameLocation = "center",
           nameTextStyle = list(
             fontWeight = "bold",
@@ -1927,20 +1966,85 @@ QProMS <- R6Class(
         }
       }
       
+      if (same_x) {
+        p <- p %>% 
+          echarts4r$e_x_axis(min = min_x_plot-1, max = max_x_plot+1) 
+      }
+      
+      if (same_y) {
+        p <- p %>% 
+          echarts4r$e_y_axis(min = 0, max = max_y_plot+1)
+      }
+      
       return(p)
     },
-    plot_volcano = function(test, highlights_names = NULL) {
+    plot_volcano = function(test, highlights_names = NULL, same_x = FALSE, same_y = TRUE) {
       
       volcanos <- map(
         .x = test,
         .f = ~ self$plot_volcano_single(
           test = .x,
-          highlights_names = highlights_names
+          highlights_names = highlights_names,
+          same_x = same_x,
+          same_y = same_y
         )
       )
       p <- self$e_arrange_list(volcanos)
       
       return(p)
+    },
+    plot_stat_profile_single = function(tests, gene) {
+      
+      cond <- stringr$str_split(tests, "_vs_") %>% 
+        flatten_chr() %>% 
+        unique()
+      
+      p <- self$imputed_data %>% 
+        dplyr$filter(gene_names == gene) %>% 
+        dplyr$filter(condition %in% cond) %>%
+        dplyr$group_by(condition) %>%
+        echarts4r$e_charts(renderer = "svg", dispose = TRUE, height = "600px") %>%
+        echarts4r$e_boxplot(
+          intensity,
+          colorBy = "data",
+          outliers = FALSE,
+          itemStyle = list(borderWidth = 2)
+        ) %>%
+        echarts4r$e_y_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>% 
+        echarts4r$e_x_axis(
+          axisLabel = list(
+            fontWeight = "bold",
+            fontSize = 16
+          )) %>% 
+        echarts4r$e_title(text = gene, left = "center") %>% 
+        echarts4r$e_grid(containLabel = TRUE) %>%
+        echarts4r$e_color(self$color_palette) %>%
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "restore", "dataZoom")) 
+      
+      return(p)
+      
+    },
+    plot_stat_profile = function(tests, highlights_names, grid_cols = 2) {
+      
+      stat_profile <- map(
+        .x = highlights_names,
+        .f = ~ self$plot_stat_profile_single(
+          tests = tests,
+          gene = .x
+        )
+      )
+      p <- self$e_arrange_list(stat_profile, max_cols = grid_cols)
+      
+      return(p)
+      
     },
     plot_heatmap = function(z_score, clustering_method, n_cluster, manual_order, order) {
       

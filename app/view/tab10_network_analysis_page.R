@@ -154,28 +154,19 @@ ui <- function(id) {
             ),
             h4("Subset network"),
             div(
-              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
-              div(
-                style = "width: 100%; flex: 1 1 0;",
-                prettyCheckbox(
-                  inputId = ns("keep_selected"),
-                  label = "Only selected", 
-                  value = FALSE,
-                  shape = "curve", 
-                  width = "auto"
-                )
-              ),
-              div(
-                style = "width: 100%; flex: 2 1 0;",
-                actionBttn(
-                  inputId = ns("save_selected"),
-                  label = "Save selected nodes",
-                  style = "bordered",
-                  color = "primary",
-                  size = "md"
-                  # block = TRUE
-                )
+              style = "width: 100%; flex: 1 1 0;",
+              prettyCheckbox(
+                inputId = ns("keep_selected"),
+                label = "Display network with only selected nodes",
+                value = FALSE,
+                shape = "curve",
+                width = "auto"
               )
+            ),
+            div(
+              style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+
+              
             ),
             br(),
             actionBttn(
@@ -199,6 +190,16 @@ ui <- function(id) {
                width = 12,
                height = 466,
                maximizable = TRUE,
+               div(
+                 style = "position: absolute; z-index: 999; left: 30px",
+                 actionBttn(
+                   inputId = ns("save_selected"),
+                   label = "Save selected nodes for ORA",
+                   style = "bordered",
+                   color = "primary",
+                   size = "sm"
+                 )
+               ),
                reactableOutput(ns("table"))
              )
            ),

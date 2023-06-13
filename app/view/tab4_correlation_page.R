@@ -1,10 +1,10 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate, reactive],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel],
   echarts4r[echarts4rOutput, renderEcharts4r, e_show_loading],
   shinyWidgets[actionBttn, pickerInput],
   stringr[str_to_title],
-  # waiter[Waiter, spin_5],
+  reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   dplyr[`%>%`, select, distinct, pull],
   gargoyle[init, watch, trigger],
 )
@@ -61,6 +61,17 @@ ui <- function(id) {
     ),
     fluidRow(
       box(
+        title = "Imputed Table",
+        status = "primary",
+        width = 12,
+        maximizable = TRUE,
+        collapsible = TRUE,
+        collapsed = TRUE,
+        reactableOutput(ns("table"))
+      )
+    ),
+    fluidRow(
+      box(
         title = "Multi scatter plot",
         id = ns("multi"),
         status = "primary",
@@ -100,6 +111,7 @@ server <- function(id, r6) {
         selected = NULL,
         choices = test, 
         multiple = FALSE,
+        width = 300,
         options = list(size = 5)
       )
       
@@ -175,7 +187,21 @@ server <- function(id, r6) {
         y_scatter(r6$expdesign$label[2])
       }
       
-      r6$plot_correlation_scatter(x = x_scatter(), y = y_scatter(), value = corr_value()) %>% 
+      if(r6$imp_methods == "none"){
+        data <- r6$normalized_data
+      }else{
+        data <- r6$imputed_data
+      }
+      table <- r6$print_table(data, df = TRUE)
+      highlights <- table[gene_selected(), ] %>% 
+        pull(gene_names)
+      
+      r6$plot_correlation_scatter(
+        x = x_scatter(),
+        y = y_scatter(),
+        value = corr_value(),
+        highlights_names = highlights
+      ) %>% 
         e_show_loading(text = "Loading...", color = "#35608D")
       
     })
@@ -191,32 +217,61 @@ server <- function(id, r6) {
       
     })
     
-    # output$multi_scatter <- renderUI({
-    #   
-    #   req(input$primary_input)
-    #   
-    #   w$show()
-    #   
-    #   r6$plot_multi_scatter(isolate({input$primary_input}))
-    #   
-    #   w$hide()
-    #   
-    # }) 
+    output$table <- renderReactable({
+      
+      watch("plot")
+      
+      if(r6$imp_methods == "none"){
+        data <- r6$normalized_data
+      }else{
+        data <- r6$imputed_data
+      }
+      
+      table <- r6$print_table(data, df = TRUE)
+      
+      reactable(
+        table,
+        searchable = TRUE,
+        resizable = TRUE,
+        highlight = TRUE,
+        wrap = FALSE,
+        height = "auto",
+        selection = "multiple",
+        onClick = "select",
+        defaultColDef = colDef(align = "center", minWidth = 200),
+        columns = list(
+          gene_names = colDef(
+            name = "Gene names",
+            sticky = "left",
+            style = list(borderRight  = "1px solid #eee")
+          )
+        )
+      )
+      
+    })
+    
+    gene_selected <- reactive(getReactableState("table", "selected"))
     
   
     observeEvent(input$primary_input, {
-      
-      # w$show()
       
       output$multi_scatter <- renderUI({
         
         req(input$primary_input)
         
-        r6$plot_multi_scatter(isolate({input$primary_input}))
+        if(r6$imp_methods == "none"){
+          data <- r6$normalized_data
+        }else{
+          data <- r6$imputed_data
+        }
+        table <- r6$print_table(data, df = TRUE)
+        highlights <- table[gene_selected(), ] %>% 
+          pull(gene_names)
+        
+        r6$plot_multi_scatter(isolate({input$primary_input}), highlights_names = highlights)
         
       })
       
-      # w$hide()
 
     })
     
