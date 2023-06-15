@@ -11,6 +11,7 @@ box::use(
   viridis[viridis],
   waiter[Waiter, spin_5],
   dplyr,
+  stringr,
   shinyGizmo[conditionalJS, jsCalls],
 )
 
@@ -355,7 +356,54 @@ server <- function(id, r6) {
       r6$palette <- input$palette
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      
+      input_error <- dplyr$case_when(
+        nrow(r6$raw_data) < 1 ~ "The file is empty",
+        length(dplyr$select(r6$raw_data, dplyr$starts_with(input$intensity_type))) < 1 ~ paste0("No ", input$intensity_type, " columns find"),
+        TRUE ~ ""
+      )
+      if (input_error != "") {
+        toast(
+          title = "Wrong Input file",
+          body = input_error,
+          options = list(
+            class = "bg-danger",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
+      
       if(r6$input_type == "max_quant"){
+        
+        input_error <- dplyr$case_when(
+          !"gene_names" %in% names(r6$raw_data) ~ "The Gene names column is missing",
+          !"protein_i_ds" %in% names(r6$raw_data) ~ "The Protein ID column is missing",
+          !"id" %in% names(r6$raw_data) ~ "The ID column is missing",
+          !"peptides" %in% names(r6$raw_data) ~ "The Peptides column is missing",
+          !"razor_unique_peptides" %in% names(r6$raw_data) ~ "The Razor unique peptides column is missing",
+          !"unique_peptides" %in% names(r6$raw_data) ~ "The unique_peptides column is missing",
+          !"reverse" %in% names(r6$raw_data) ~ "The Reverse column is missing",
+          !"potential_contaminant" %in% names(r6$raw_data) ~ "The Potential contaminant column is missing",
+          !"only_identified_by_site" %in% names(r6$raw_data) ~ "The Only identified by site column is missing",
+          TRUE ~ ""
+        )
+        if (input_error != "") {
+          toast(
+            title = "Incomplete data",
+            body = input_error,
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+          return() 
+        }
+        
         r6$make_expdesign(intensity_type = input$intensity_type)
         r6$pg_preprocessing()
       }else{
@@ -413,7 +461,7 @@ server <- function(id, r6) {
       
       req(input$upload_file)
       req(input$upload)
-      # aggiungere una colonna logical per rimuovere i campioni che non si vogliono più tenere
+      
       if(!is.null(r6$expdesign)){
         
         des <- r6$expdesign %>% dplyr$mutate(keep = TRUE)
@@ -432,6 +480,25 @@ server <- function(id, r6) {
       req(input$intensity_type)
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      
+      input_error <- dplyr$case_when(
+        nrow(r6$raw_data) < 1 ~ "The file is empty",
+        length(dplyr$select(r6$raw_data, dplyr$starts_with(input$intensity_type))) < 1 ~ paste0("No ", input$intensity_type, " columns find"),
+        TRUE ~ ""
+      )
+      if (input_error != "") {
+        toast(
+          title = "Wrong Input file",
+          body = input_error,
+          options = list(
+            class = "bg-danger",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
       
       if(r6$input_type == "max_quant"){
         r6$make_expdesign(intensity_type = input$intensity_type)
@@ -475,9 +542,50 @@ server <- function(id, r6) {
       req(input$upload_file)
       req(input$intensity_type)
       
+      
       des <- hot_to_r(input$expdesign_table) %>% 
         dplyr$filter(keep) %>% 
         dplyr$select(-keep)
+      
+      input_error <- dplyr$case_when(
+        nrow(des) < 1 ~ "The Experimental design is empty",
+        nrow(get_dupes(des, label)) != 0 ~ "duplicate names in label column",
+        TRUE ~ ""
+      )
+      if (input_error != "") {
+        toast(
+          title = "Experimental design incorrect",
+          body = input_error,
+          options = list(
+            class = "bg-danger",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
+      
+      input_warning <- dplyr$case_when(
+        min(dplyr$count(des, condition)$n) < 3 ~ "One or more condition group as less then 3 replicates! Statistics is discouraged",
+        min(dplyr$count(des, replicate)$n) < 2 ~ "There is only one condition",
+        min(stringr$str_length(des$condition)) < 2 ~ "Condition names should be at least 2 letters long",
+        TRUE ~ ""
+      )
+      
+      if (input_warning != "") {
+        toast(
+          title = "Warning!",
+          body = input_warning,
+          options = list(
+            class = "bg-warning",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
       
       r6$expdesign <- des
       

@@ -1,10 +1,10 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, column, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal, downloadHandler, tagList, img, h3],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion, toast],
   shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
-  dplyr[group_by, `%>%`, pull, slice_max, filter],
+  dplyr[group_by, `%>%`, pull, slice_max, filter, case_when, if_all, ends_with],
   tibble[rowid_to_column],
   shinyjs[disabled, enable],
   echarts4r[echarts4rOutput, renderEcharts4r, echarts4rProxy, e_focus_adjacency_p],
@@ -480,8 +480,6 @@ server <- function(id, r6) {
     
     observeEvent(input$run_analysis ,{
       
-      w$show()
-      
       req(input$from_statistic_input)
       req(input$test_uni_input)
       req(input$alpha_input)
@@ -506,18 +504,37 @@ server <- function(id, r6) {
       
       
       if (input$from_statistic_input == "univariate") {
+        
+        input_error <- case_when(
+          nrow(filter(
+            r6$stat_table, if_all(ends_with("significant"))
+          )) == 0 ~ "There are no significant, no functional analysis will be performed",
+          TRUE ~ ""
+        )
+        
         if(is.null(input$direction_input)) {
           r6$go_ora_focus <- paste0(r6$primary_condition, "_up")
         } else {
           r6$go_ora_focus <- input$direction_input
         }
       } else if (input$from_statistic_input == "multivariate") {
+        
+        input_error <- case_when(
+          nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no functional analysis will be performed",
+          TRUE ~ ""
+        )
+        
         if(is.null(input$cluster_input)) {
           r6$go_ora_focus <- "cluster_1"
         } else {
           r6$go_ora_focus <- input$cluster_input
         }
       } else if (input$from_statistic_input == "nodes") {
+        input_error <- case_when(
+          length(r6$selected_nodes) == 0 ~ "There are no significant, no functional analysis will be performed",
+          TRUE ~ ""
+        )
+        
         r6$go_ora_focus <- "nodes"
       } else {
         r6$go_ora_focus <- NULL ## da sistemare per external table
@@ -533,6 +550,22 @@ server <- function(id, r6) {
         simp_thr <- as.numeric(input$simplify_thr) / 10
       }
       r6$go_ora_simplify_thr <- simp_thr
+      
+      if (input_error != "") {
+        toast(
+          title = "No significant",
+          body = input_error,
+          options = list(
+            class = "bg-danger",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
+      
+      w$show()
       
       r6$go_ora(
         list_from = r6$go_ora_from_statistic,
@@ -618,43 +651,47 @@ server <- function(id, r6) {
       
       watch("functional")
       
-      default_selected <- r6$ora_table %>% 
-        rowid_to_column() %>% 
-        group_by(group) %>% 
-        slice_max(get(r6$go_ora_plot_value), n = r6$go_ora_top_n) %>% 
-        pull(rowid)
-      
-      reactable(
-        r6$ora_table,
-        searchable = TRUE,
-        resizable = TRUE,
-        wrap = FALSE,
-        highlight = TRUE,
-        defaultPageSize = 10,
-        height = "auto",
-        selection = "multiple",
-        onClick = "select",
-        defaultSelected = default_selected,
-        columns = list(
-          ONTOLOGY = colDef(align = "center", name = "Ontology"),
-          ID = colDef(
-            align = "center",
-            sticky = "left",
-            minWidth = 150,
-            style = list(borderRight  = "1px solid #eee")
-          ), 
-          group = colDef(minWidth = 250),
-          fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
-          Description = colDef(minWidth = 400),
-          geneID = colDef(minWidth = 1000),
-          GeneRatio = colDef(align = "center", name = "Gene ratio"),
-          BgRatio = colDef(align = "center", name = "Bg ratio"),
-          pvalue = colDef(align = "center", name = "-log(p.val)"),
-          p.adjust = colDef(align = "center", name = "-log(p.adj)"),
-          qvalue = colDef(align = "center", name = "-log(q.val)"),
-          Count = colDef(align = "center")
+      if (!is.null(r6$ora_table)) {
+        default_selected <- r6$ora_table %>% 
+          rowid_to_column() %>% 
+          group_by(group) %>% 
+          slice_max(get(r6$go_ora_plot_value), n = r6$go_ora_top_n) %>% 
+          pull(rowid)
+        
+        reactable(
+          r6$ora_table,
+          searchable = TRUE,
+          resizable = TRUE,
+          wrap = FALSE,
+          highlight = TRUE,
+          defaultPageSize = 10,
+          height = "auto",
+          selection = "multiple",
+          onClick = "select",
+          defaultSelected = default_selected,
+          columns = list(
+            ONTOLOGY = colDef(align = "center", name = "Ontology"),
+            ID = colDef(
+              align = "center",
+              sticky = "left",
+              minWidth = 150,
+              style = list(borderRight  = "1px solid #eee")
+            ), 
+            group = colDef(minWidth = 250),
+            fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+            Description = colDef(minWidth = 400),
+            geneID = colDef(minWidth = 1000),
+            GeneRatio = colDef(align = "center", name = "Gene ratio"),
+            BgRatio = colDef(align = "center", name = "Bg ratio"),
+            pvalue = colDef(align = "center", name = "-log(p.val)"),
+            p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+            qvalue = colDef(align = "center", name = "-log(q.val)"),
+            Count = colDef(align = "center")
+          )
         )
-      )
+        
+      }
+      
       
     })
     

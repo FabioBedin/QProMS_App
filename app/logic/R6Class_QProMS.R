@@ -510,7 +510,7 @@ QProMS <- R6Class(
       table <- data %>% 
         dplyr$select(gene_names, label, intensity) %>% 
         dplyr$mutate(intensity = round(intensity, 2)) %>% 
-        tidyr$pivot_wider(gene_names, names_from = label, values_from = intensity)
+        tidyr$pivot_wider(id_cols = gene_names, names_from = label, values_from = intensity)
       
       if (!df) {
         table <- table %>% 
@@ -920,7 +920,7 @@ QProMS <- R6Class(
         dplyr$filter(condition == cond_1 | condition == cond_2) %>%
         dplyr$group_by(gene_names, condition) %>%
         dplyr$summarise(mean = mean(intensity)) %>%
-        tidyr$pivot_wider(names_from = condition, values_from = mean) %>%
+        tidyr$pivot_wider(id_cols = gene_names, names_from = condition, values_from = mean) %>%
         dplyr$ungroup() %>%
         dplyr$mutate(fold_change = get(cond_1) - get(cond_2)) %>%
         dplyr$arrange(-fold_change) %>%
@@ -1649,7 +1649,7 @@ QProMS <- R6Class(
       
       mat <- data %>%
         dplyr$select(gene_names, label, intensity) %>%
-        tidyr$pivot_wider(names_from = label, values_from = intensity) %>%
+        tidyr$pivot_wider(id_cols = gene_names, names_from = label, values_from = intensity) %>%
         dplyr$filter(dplyr$if_all(.cols = dplyr$everything(), .fns = ~ !is.na(.x))) %>%
         column_to_rownames("gene_names") %>%
         cor(method = cor_method) %>% 
@@ -1827,7 +1827,7 @@ QProMS <- R6Class(
       p <- data %>% 
         {if(!is.null(single_condition)) dplyr$filter(., condition == single_condition) else .}%>%
         dplyr$select(gene_names, label, intensity) %>%
-        tidyr$pivot_wider(names_from = label, values_from = intensity) %>% 
+        tidyr$pivot_wider(id_cols = gene_names, names_from = label, values_from = intensity) %>% 
         dplyr$ungroup() %>% 
         ggcorrm(corr_method = cor_method) +
         utri_heatmap(alpha = 0.5) +
