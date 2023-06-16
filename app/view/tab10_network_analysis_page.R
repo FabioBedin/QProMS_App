@@ -5,7 +5,7 @@ box::use(
   gargoyle[init, watch, trigger],
   shinyGizmo[conditionalJS, jsCalls],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  dplyr[filter, `%>%`, pull, distinct],
+  dplyr[filter, `%>%`, pull, distinct, case_when, if_all, ends_with],
   waiter[Waiter, spin_5],
   tibble[rowid_to_column],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
@@ -352,18 +352,46 @@ server <- function(id, r6) {
     
     observeEvent(input$generate_network, {
       
-      w$show()
-      
       req(input$from_statistic_input)
       req(input$db_source)
       
       if (input$from_statistic_input == "univariate") {
+        
+        input_error <- case_when(
+          nrow(filter(
+            r6$stat_table, if_all(ends_with("significant"))
+          )) == 0 ~ "There are no significant, no functional analysis will be performed",
+          TRUE ~ ""
+        )
+        
         r6$network_focus <- input$test_uni_input
       } else if (input$from_statistic_input == "multivariate") {
+        
+        input_error <- case_when(
+          nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no functional analysis will be performed",
+          TRUE ~ ""
+        )
+        
         r6$network_focus <- input$clusters_input
       } else {
         r6$network_focus <- NULL # da sistemare
       }
+      
+      if (input_error != "") {
+        toast(
+          title = "No significant",
+          body = input_error,
+          options = list(
+            class = "bg-danger",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
+      
+      w$show()
       
       r6$network_from_statistic <- input$from_statistic_input
       
@@ -406,43 +434,38 @@ server <- function(id, r6) {
       
       req(input$generate_network)
       
-      nodes <- r6$print_nodes(
-        isolate_nodes = isolate(input$isolate_nodes_input),
-        score_thr = isolate(input$score_thr)
-      )
-      
-      nodes_box(nrow(nodes))
-
-      # if(is.null(input$network_plot_clicked_data$name)){
-      #   selected_rowid <- NULL
-      # } else {
-      #   selected_rowid <- nodes %>% 
-      #     rowid_to_column() %>% 
-      #     filter(gene_names == input$network_plot_clicked_data$name) %>% 
-      #     pull(rowid)
-      #   
-      #   selected_rowid <- c(selected_rowid, gene_selected())
-      # }
-      
-      reactable(
-        nodes,
-        searchable = TRUE,
-        resizable = TRUE,
-        highlight = TRUE,
-        wrap = FALSE,
-        paginateSubRows = TRUE,
-        height = "auto",
-        defaultPageSize = 7,
-        selection = "multiple",
-        # defaultSelected = selected_rowid,
-        onClick = "select",
-        columns = list(
-          gene_names = colDef(name = "Node"),
-          category = colDef(name = "Category"),
-          p_val = colDef(align = "center", name = "-log(p.value)"),
-          p_adj = colDef(align = "center", name = "-log(p.adj)")
+      if (!is.null(r6$nodes_table)) {
+        
+        nodes <- r6$print_nodes(
+          isolate_nodes = isolate(input$isolate_nodes_input),
+          score_thr = isolate(input$score_thr)
         )
-      )
+        
+        nodes_box(nrow(nodes))
+        
+        reactable(
+          nodes,
+          searchable = TRUE,
+          resizable = TRUE,
+          highlight = TRUE,
+          wrap = FALSE,
+          paginateSubRows = TRUE,
+          height = "auto",
+          defaultPageSize = 7,
+          selection = "multiple",
+          # defaultSelected = selected_rowid,
+          onClick = "select",
+          columns = list(
+            gene_names = colDef(name = "Node"),
+            category = colDef(name = "Category"),
+            p_val = colDef(align = "center", name = "-log(p.value)"),
+            p_adj = colDef(align = "center", name = "-log(p.adj)")
+          )
+        )
+        
+      }
+      
+     
       
     })
     
@@ -452,9 +475,8 @@ server <- function(id, r6) {
       
       req(input$generate_network)
       
-      if(is.null(r6$nodes_table)){
-        highlights <- NULL
-      }else{
+      if (!is.null(r6$nodes_table)) {
+        
         nodes <- r6$print_nodes(
           isolate_nodes = isolate(input$isolate_nodes_input),
           score_thr = isolate(input$score_thr)
@@ -462,28 +484,28 @@ server <- function(id, r6) {
         
         highlights <- nodes[gene_selected(), ] %>% 
           pull(gene_names)
-      }
-      
-      edges <- r6$print_edges(score_thr = isolate(input$score_thr), selected_nodes = highlights)
-      
-      edges_box(nrow(edges))
-      
-      reactable(
-        edges,
-        searchable = TRUE,
-        resizable = TRUE,
-        highlight = TRUE,
-        wrap = FALSE,
-        height = "auto",
-        defaultPageSize = 7,
-        columns = list(
-          target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
-          source = colDef(name = "Source"),
-          database = colDef(name = "Database"),
-          complex = colDef(minWidth = 300, name = "Complex"),
-          score = colDef(align = "center", name = "Score")
+        
+        edges <- r6$print_edges(score_thr = isolate(input$score_thr), selected_nodes = highlights)
+        
+        edges_box(nrow(edges))
+        
+        reactable(
+          edges,
+          searchable = TRUE,
+          resizable = TRUE,
+          highlight = TRUE,
+          wrap = FALSE,
+          height = "auto",
+          defaultPageSize = 7,
+          columns = list(
+            target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
+            source = colDef(name = "Source"),
+            database = colDef(name = "Database"),
+            complex = colDef(minWidth = 300, name = "Complex"),
+            score = colDef(align = "center", name = "Score")
+          )
         )
-      )
+      }
       
       
     })
@@ -494,9 +516,7 @@ server <- function(id, r6) {
       
       req(input$generate_network)
       
-      if(is.null(r6$nodes_table)){
-        highlights <- NULL
-      }else{
+      if (!is.null(r6$nodes_table)) {
         nodes <- r6$print_nodes(
           isolate_nodes = isolate(input$isolate_nodes_input),
           score_thr = isolate(input$score_thr)
@@ -505,25 +525,27 @@ server <- function(id, r6) {
         highlights <- nodes[gene_selected(), ] %>% 
           pull(gene_names)
         
-        # highlights <- c(highlights, input$network_plot_clicked_data$name)
+        fil <- isolate(input$keep_selected)
+        
+        if(length(highlights) == 0){
+          highlights <- NULL
+          fil <- FALSE
+        }
+        
+        r6$plot_ppi_network(
+          list_from = r6$network_from_statistic,
+          score_thr = isolate(input$score_thr),
+          isolate_nodes = isolate(input$isolate_nodes_input),
+          layout = isolate(input$layout),
+          show_names = isolate(input$names_input),
+          selected = highlights,
+          filtred = fil
+        )
+        
+        
       }
       
-      fil <- isolate(input$keep_selected)
-      
-      if(length(highlights) == 0){
-        highlights <- NULL
-        fil <- FALSE
-      }
-      
-      r6$plot_ppi_network(
-        list_from = r6$network_from_statistic,
-        score_thr = isolate(input$score_thr),
-        isolate_nodes = isolate(input$isolate_nodes_input),
-        layout = isolate(input$layout),
-        show_names = isolate(input$names_input),
-        selected = highlights,
-        filtred = fil
-      )
+     
     })
     
     
