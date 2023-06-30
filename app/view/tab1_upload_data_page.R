@@ -357,28 +357,11 @@ server <- function(id, r6) {
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
       
-      input_error <- dplyr$case_when(
-        nrow(r6$raw_data) < 1 ~ "The file is empty",
-        length(dplyr$select(r6$raw_data, dplyr$starts_with(input$intensity_type))) < 1 ~ paste0("No ", input$intensity_type, " columns find"),
-        TRUE ~ ""
-      )
-      if (input_error != "") {
-        toast(
-          title = "Wrong Input file",
-          body = input_error,
-          options = list(
-            class = "bg-danger",
-            autohide = TRUE,
-            delay = 5000,
-            icon = icon("exclamation-circle", verify_fa = FALSE)
-          )
-        )
-        return() 
-      }
-      
       if(r6$input_type == "max_quant"){
         
         input_error <- dplyr$case_when(
+          nrow(r6$raw_data) < 1 ~ "The file is empty",
+          length(dplyr$select(r6$raw_data, dplyr$starts_with(input$intensity_type))) < 1 ~ paste0("No ", input$intensity_type, " columns find"),
           !"gene_names" %in% names(r6$raw_data) ~ "The Gene names column is missing",
           !"protein_i_ds" %in% names(r6$raw_data) ~ "The Protein ID column is missing",
           !"id" %in% names(r6$raw_data) ~ "The ID column is missing",
@@ -480,25 +463,6 @@ server <- function(id, r6) {
       req(input$intensity_type)
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
-      
-      input_error <- dplyr$case_when(
-        nrow(r6$raw_data) < 1 ~ "The file is empty",
-        length(dplyr$select(r6$raw_data, dplyr$starts_with(input$intensity_type))) < 1 ~ paste0("No ", input$intensity_type, " columns find"),
-        TRUE ~ ""
-      )
-      if (input_error != "") {
-        toast(
-          title = "Wrong Input file",
-          body = input_error,
-          options = list(
-            class = "bg-danger",
-            autohide = TRUE,
-            delay = 5000,
-            icon = icon("exclamation-circle", verify_fa = FALSE)
-          )
-        )
-        return() 
-      }
       
       if(r6$input_type == "max_quant"){
         r6$make_expdesign(intensity_type = input$intensity_type)

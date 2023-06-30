@@ -41,7 +41,7 @@ ui <- function(id) {
                   ),
                   sliderInput(
                     inputId = ns("valid_values_slider"),
-                    label = "Persentage",
+                    label = "Percentage",
                     min = 0,
                     max = 100,
                     value = 75,
@@ -67,7 +67,7 @@ ui <- function(id) {
                 ),
                 sliderInput(
                   inputId = ns("peptides_slider"),
-                  label = "Minimun number of peptides",
+                  label = "Minimum number of peptides",
                   min = 0,
                   max = 10,
                   value = 2,
@@ -96,7 +96,7 @@ ui <- function(id) {
                     style = "width: 100%; flex: 1 1 0;",
                     checkboxInput(
                       inputId = ns("oibs"),
-                      label = "Identify by site",
+                      label = "Only identify by site",
                       value = TRUE
                     )
                   )
