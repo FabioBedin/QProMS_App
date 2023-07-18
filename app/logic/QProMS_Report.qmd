@@ -1,0 +1,57 @@
+---
+title: "QProMS Report"
+subtitle: "Generated on:"
+date: today
+format:
+  html:
+    self-contained: true
+    theme: flatly
+    page-layout: article
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    smooth-scroll: true
+execute:
+  echo: false
+  warning: false
+  message: false
+params: 
+  palette: "D"
+  filtered_data: "NA"
+  expdesign: "NA"
+---
+
+```{r}
+library(R6)
+library(data.table)
+library(janitor)
+library(tibble)
+library(dplyr)
+library(purrr)
+library(viridis)
+library(tidyr)
+library(stringr)
+library(echarts4r)
+library(vsn)
+library(bit64)
+library(corrmorant)
+library(reactable)
+library(iheatmapr)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(rbioapi)
+library(OmnipathR)
+library(tidyselect)
+library(here)
+
+source(file = here::here("R6Class_QProMS.R"))
+
+r6 <- QProMS$new()
+r6$filtered_data <- params$filtered_data
+r6$expdesign <- params$expdesign
+```
+
+```{r}
+r6$plot_protein_counts()
+```
+

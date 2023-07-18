@@ -1423,6 +1423,16 @@
         "vctrs"
       ]
     },
+    "here": {
+      "Package": "here",
+      "Version": "1.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "24b224366f9c2e7534d2344d10d59211",
+      "Requirements": [
+        "rprojroot"
+      ]
+    },
     "highr": {
       "Package": "highr",
       "Version": "0.9",
@@ -2090,10 +2100,10 @@
     },
     "renv": {
       "Package": "renv",
-      "Version": "0.16.0",
+      "Version": "1.0.0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "c9e8442ab69bc21c9697ecf856c1e6c7",
+      "Hash": "c321cd99d56443dbffd1c9e673c0c1a2",
       "Requirements": []
     },
     "reshape2": {

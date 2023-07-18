@@ -10,13 +10,15 @@ box::use(
   esquisse[palettePicker],
   viridis[viridis],
   waiter[Waiter, spin_5],
+  quarto[quarto_render],
   dplyr,
   stringr,
   shinyGizmo[conditionalJS, jsCalls],
 )
 
 box::use(
-  app/logic/R6Class_QProMS
+  app/logic/R6Class_QProMS,
+  app/logic
 )
 
 #' @export
@@ -658,6 +660,10 @@ server <- function(id, r6) {
       trigger("plot")
       trigger("boxes")
       
+    })
+    
+    observeEvent(input$help_me, {
+      quarto_render("C:/Users/ieo4973/Documents/QProMS_App/app/logic/QProMS_Report.qmd", execute_params = list(filtered_data = r6$filtered_data, expdesign = r6$expdesign))
     })
     
     return(reactive(input$start))
