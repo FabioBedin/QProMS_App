@@ -11,14 +11,15 @@ box::use(
   viridis[viridis],
   waiter[Waiter, spin_5],
   quarto[quarto_render],
+  here[here],
+  yaml[as.yaml],
   dplyr,
   stringr,
   shinyGizmo[conditionalJS, jsCalls],
 )
 
 box::use(
-  app/logic/R6Class_QProMS,
-  app/logic
+  app/logic/R6Class_QProMS
 )
 
 #' @export
@@ -662,8 +663,24 @@ server <- function(id, r6) {
       
     })
     
+    ## non serve caricare tutti i parametri, mi basta caricare le tabelle generate dall'analisi e usare quelle per fare tutti i grafici.
+    
     observeEvent(input$help_me, {
-      quarto_render("C:/Users/ieo4973/Documents/QProMS_App/app/logic/QProMS_Report.qmd", execute_params = list(filtered_data = r6$filtered_data, expdesign = r6$expdesign))
+      quarto_render(
+        here("app/logic/QProMS_Report.qmd"),
+        execute_params = list(
+          path = r6$path,
+          expdesign = r6$expdesign,
+          valid_val_filter = r6$valid_val_filter,
+          valid_val_thr = r6$valid_val_thr,
+          pep_filter = r6$pep_filter,
+          pep_thr = r6$pep_thr,
+          rev = stringr$str_to_lower(r6$rev),
+          cont = stringr$str_to_lower(r6$cont),
+          oibs = stringr$str_to_lower(r6$oibs),
+          imputed_data = r6$imputed_data
+        )
+      )
     })
     
     return(reactive(input$start))

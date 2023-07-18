@@ -33,6 +33,7 @@ QProMS <- R6Class(
     ####################
     # Input parameters #
     raw_data = NULL,
+    path = NULL,
     data = NULL,
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
@@ -130,6 +131,8 @@ QProMS <- R6Class(
       
       self$raw_data <- fread(input = input_path) %>%
         as_tibble(.name_repair = make_clean_names)
+      
+      self$path <- input_path
       
       self$input_type <- input_type
     },

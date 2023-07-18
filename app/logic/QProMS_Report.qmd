@@ -1,6 +1,6 @@
 ---
 title: "QProMS Report"
-subtitle: "Generated on:"
+subtitle: "Quantitative Proteomic Made Simple"
 date: today
 format:
   html:
@@ -16,42 +16,53 @@ execute:
   warning: false
   message: false
 params: 
-  palette: "D"
-  filtered_data: "NA"
-  expdesign: "NA"
+  path: ""
+  expdesign: ""
+  valid_val_filter: ""
+  valid_val_thr: ""
+  pep_filter: ""
+  pep_thr: ""
+  rev: true
+  cont: true
+  oibs: true
+  imputed_data: ""
 ---
 
 ```{r}
-library(R6)
-library(data.table)
-library(janitor)
+library(yaml)
 library(tibble)
-library(dplyr)
-library(purrr)
-library(viridis)
-library(tidyr)
-library(stringr)
-library(echarts4r)
-library(vsn)
-library(bit64)
-library(corrmorant)
-library(reactable)
-library(iheatmapr)
-library(clusterProfiler)
-library(org.Hs.eg.db)
-library(rbioapi)
-library(OmnipathR)
-library(tidyselect)
-library(here)
+box::use(
+  app/logic/R6Class_QProMS,
+)
 
-source(file = here::here("R6Class_QProMS.R"))
+r6 <- R6Class_QProMS$QProMS$new()
 
-r6 <- QProMS$new()
-r6$filtered_data <- params$filtered_data
-r6$expdesign <- params$expdesign
+r6$loading_data(input_path = params$path, input_type = "max_quant")
+
+r6$expdesign <- as_tibble(params$expdesign)
+r6$imputed_data <- as_tibble(params$imputed_data)
+
+# r6$expdesign
+
+r6$pg_preprocessing()
+
+r6$data_wrangling(
+        valid_val_filter = params$valid_val_filter,
+        valid_val_thr = params$valid_val_thr,
+        pep_filter = params$pep_filter,
+        pep_thr = params$pep_thr,
+        rev = params$rev,
+        cont = params$cont,
+        oibs = params$oibs
+      )
 ```
 # CIao
 ```{r}
 r6$plot_protein_counts()
+```
+
+# ciao 2
+```{r}
+r6$plot_pca()
 ```
 
