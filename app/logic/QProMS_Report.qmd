@@ -16,53 +16,110 @@ execute:
   warning: false
   message: false
 params: 
-  path: ""
+  color_palette: ""
+  palette: ""
   expdesign: ""
-  valid_val_filter: ""
-  valid_val_thr: ""
-  pep_filter: ""
-  pep_thr: ""
-  rev: true
-  cont: true
-  oibs: true
+  filtered_data: ""
+  normalized_data: ""
   imputed_data: ""
+  tests: ""
 ---
 
-```{r}
-library(yaml)
-library(tibble)
+```{r, loading-params-from-app}
+box::use(
+  tibble[as_tibble],
+  dplyr[mutate, `%>%`, if_else],
+)
+
 box::use(
   app/logic/R6Class_QProMS,
 )
 
 r6 <- R6Class_QProMS$QProMS$new()
 
-r6$loading_data(input_path = params$path, input_type = "max_quant")
-
+r6$palette <- params$palette
+r6$color_palette <- params$color_palette
 r6$expdesign <- as_tibble(params$expdesign)
-r6$imputed_data <- as_tibble(params$imputed_data)
+r6$filtered_data <- as_tibble(params$filtered_data) %>% 
+  mutate(intensity = as.double(intensity))
 
-# r6$expdesign
+r6$normalized_data <- as_tibble(params$normalized_data) %>% 
+  mutate(intensity = as.double(intensity))
 
-r6$pg_preprocessing()
+r6$imputed_data <- as_tibble(params$imputed_data)%>% 
+  mutate(intensity = as.double(intensity)) %>% 
+  mutate(imputed = if_else(imputed == "no", FALSE, TRUE))
 
-r6$data_wrangling(
-        valid_val_filter = params$valid_val_filter,
-        valid_val_thr = params$valid_val_thr,
-        pep_filter = params$pep_filter,
-        pep_thr = params$pep_thr,
-        rev = params$rev,
-        cont = params$cont,
-        oibs = params$oibs
-      )
 ```
-# CIao
-```{r}
+
+# Filter Data
+descrizione di cosa succede in questa pagina
+
+::: {.panel-tabset}
+## Protein Counts
+descrizione grafico 1
+```{r, protein-counts}
 r6$plot_protein_counts()
 ```
 
-# ciao 2
-```{r}
+## Upset plot
+descrizione grafico 2
+```{r, upset}
+r6$plot_protein_coverage()
+```
+
+## Intensity distribution
+descrizione grafico 3
+```{r, intensity-distribution}
+r6$plot_distribution()
+```
+
+## CV
+descrizione grafico 4
+```{r, cv}
+r6$plot_cv()
+```
+:::
+
+# Missing Data
+descrizione di cosa succede in questa pagina
+
+::: {.panel-tabset}
+## Counts
+descrizione grafico 1
+```{r, missing-data-counts}
+r6$plot_missing_data()
+```
+
+## Distribution
+descrizione grafico 2
+```{r, missing-data-distribution}
+r6$plot_missval_distribution()
+```
+
+## Before Imputation
+descrizione grafico 3
+```{r, pre-imputation}
+r6$plot_imputation(data = r6$normalized_data, imp_visualization = FALSE)
+```
+
+## After Imputation
+descrizione grafico 4
+```{r, after-imputation}
+r6$plot_imputation(data = r6$imputed_data, imp_visualization = TRUE)
+```
+:::
+ 
+# Exploratory Data Analysis
+
+::: {.panel-tabset}
+## PCA
+```{r, pca}
 r6$plot_pca()
 ```
 
+## Correlation Heatmap
+```{r}
+r6$plot_correlation_interactive()
+```
+:::

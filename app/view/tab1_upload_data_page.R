@@ -669,16 +669,13 @@ server <- function(id, r6) {
       quarto_render(
         here("app/logic/QProMS_Report.qmd"),
         execute_params = list(
-          path = r6$path,
+          palette = r6$palette,
+          color_palette = r6$color_palette,
           expdesign = r6$expdesign,
-          valid_val_filter = r6$valid_val_filter,
-          valid_val_thr = r6$valid_val_thr,
-          pep_filter = r6$pep_filter,
-          pep_thr = r6$pep_thr,
-          rev = stringr$str_to_lower(r6$rev),
-          cont = stringr$str_to_lower(r6$cont),
-          oibs = stringr$str_to_lower(r6$oibs),
-          imputed_data = r6$imputed_data
+          filtered_data = r6$filtered_data,
+          normalized_data = r6$normalized_data,
+          imputed_data = r6$imputed_data,
+          tests = c(r6$primary_condition, r6$additional_condition)
         )
       )
     })
