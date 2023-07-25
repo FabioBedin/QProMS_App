@@ -5,7 +5,7 @@ box::use(
   tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe, rowid_to_column],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median, runif],
   utils[combn],
   htmltools,
   dplyr,
@@ -445,17 +445,31 @@ QProMS <- R6Class(
         
         if(self$is_mixed){
           data_mixed <- data %>%
+            rownames_to_column() %>% 
             dplyr$group_by(gene_names, condition) %>%
             dplyr$mutate(for_mean_imp = dplyr$if_else((sum(bin_intensity) / dplyr$n()) >= 0.75, TRUE, FALSE)) %>%
-            dplyr$mutate(mean_grp = mean(intensity, na.rm = TRUE)) %>%
-            dplyr$ungroup() %>%
-            dplyr$mutate(imp_intensity = dplyr$case_when(
-              bin_intensity == 0 & for_mean_imp ~ mean_grp,
-              TRUE ~ as.numeric(intensity))) %>%
-            dplyr$mutate(intensity = imp_intensity) %>% 
-            dplyr$select(-c(for_mean_imp, mean_grp, imp_intensity))
+            dplyr$filter(for_mean_imp) %>% 
+            dplyr$mutate(random_imp = runif(
+              n = 1,
+              min = min(intensity, na.rm = TRUE),
+              max = max(intensity, na.rm = TRUE)
+            )) %>% 
+            dplyr$ungroup() %>% 
+            dplyr$select(rowname, for_mean_imp, random_imp)
           
-          data <- data_mixed
+          data_mixed_final <- data %>% 
+            rownames_to_column() %>% 
+            dplyr$left_join(data_mixed, by = "rowname") %>% 
+            dplyr$mutate(
+              imp_intensity = dplyr$case_when(
+                bin_intensity == 0 & for_mean_imp ~ random_imp,
+                TRUE ~ as.numeric(intensity)
+              )
+            ) %>%
+            dplyr$mutate(intensity = imp_intensity) %>%
+            dplyr$select(-c(rowname, for_mean_imp, random_imp, imp_intensity))
+          
+          data <- data_mixed_final
         }
         
         if(unique_visual){
@@ -1981,7 +1995,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_volcano = function(test, highlights_names = NULL, same_x = FALSE, same_y = TRUE) {
+    plot_volcano = function(test, highlights_names = NULL, same_x = FALSE, same_y = TRUE, max_cols = 3) {
       
       volcanos <- map(
         .x = test,
@@ -1992,7 +2006,7 @@ QProMS <- R6Class(
           same_y = same_y
         )
       )
-      p <- self$e_arrange_list(volcanos)
+      p <- self$e_arrange_list(volcanos, max_cols = max_cols)
       
       return(p)
     },

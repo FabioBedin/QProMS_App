@@ -675,7 +675,12 @@ server <- function(id, r6) {
           filtered_data = r6$filtered_data,
           normalized_data = r6$normalized_data,
           imputed_data = r6$imputed_data,
-          tests = c(r6$primary_condition, r6$additional_condition)
+          tests = c(r6$primary_condition, r6$additional_condition),
+          stat_table = r6$stat_table,
+          anova_table = r6$anova_table,
+          z_score = r6$z_score,
+          anova_clust_method = r6$anova_clust_method,
+          clusters_number = r6$clusters_number
         )
       )
     })

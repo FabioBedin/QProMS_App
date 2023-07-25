@@ -11,6 +11,11 @@ format:
     toc-location: left
     toc-depth: 3
     smooth-scroll: true
+    grid:
+      sidebar-width: 250px
+      body-width: 1100px
+      margin-width: 150px
+      gutter-width: 1.5rem
 execute:
   echo: false
   warning: false
@@ -18,17 +23,24 @@ execute:
 params: 
   color_palette: ""
   palette: ""
-  expdesign: ""
-  filtered_data: ""
-  normalized_data: ""
-  imputed_data: ""
+  expdesign: NULL
+  filtered_data: NULL
+  normalized_data: NULL
+  imputed_data: NULL
   tests: ""
+  stat_table: NULL
+  anova_table: NULL
+  z_score: NULL
+  anova_clust_method: NULL
+  clusters_number: NULL
 ---
 
 ```{r, loading-params-from-app}
 box::use(
   tibble[as_tibble],
-  dplyr[mutate, `%>%`, if_else],
+  yaml[yaml.load],
+  dplyr[mutate, `%>%`, if_else, across, ends_with],
+  reactable[reactable, colDef],
 )
 
 box::use(
@@ -46,10 +58,17 @@ r6$filtered_data <- as_tibble(params$filtered_data) %>%
 r6$normalized_data <- as_tibble(params$normalized_data) %>% 
   mutate(intensity = as.double(intensity))
 
-r6$imputed_data <- as_tibble(params$imputed_data)%>% 
+r6$imputed_data <- as_tibble(params$imputed_data) %>% 
   mutate(intensity = as.double(intensity)) %>% 
   mutate(imputed = if_else(imputed == "no", FALSE, TRUE))
 
+r6$primary_condition <- params$tests[1]
+
+r6$stat_table <- as_tibble(params$stat_table) %>% 
+  mutate(across(ends_with("_significant"), ~ if_else(.x == "no", FALSE, TRUE)))
+
+r6$anova_table <- as_tibble(params$anova_table) %>% 
+   mutate(significant = if_else(significant == "no", FALSE, TRUE))
 ```
 
 # Filter Data
@@ -81,6 +100,13 @@ r6$plot_cv()
 ```
 :::
 
+## Filtred data table
+
+```{r, filtred-table}
+r6$print_table(r6$normalized_data)
+```
+
+
 # Missing Data
 descrizione di cosa succede in questa pagina
 
@@ -106,9 +132,18 @@ r6$plot_imputation(data = r6$normalized_data, imp_visualization = FALSE)
 ## After Imputation
 descrizione grafico 4
 ```{r, after-imputation}
+#| eval: !expr if(!is.null(params$imputed_data)) TRUE else FALSE
 r6$plot_imputation(data = r6$imputed_data, imp_visualization = TRUE)
 ```
 :::
+
+## Imputed data table
+
+```{r, imputed-table}
+#| eval: !expr if(!is.null(params$imputed_data)) TRUE else FALSE
+r6$print_table(r6$imputed_data)
+```
+
  
 # Exploratory Data Analysis
 
@@ -119,7 +154,101 @@ r6$plot_pca()
 ```
 
 ## Correlation Heatmap
-```{r}
+```{r, correlation-heatmap}
 r6$plot_correlation_interactive()
 ```
 :::
+
+# Statistics
+
+## Univariate
+
+```{r, volcano-plot}
+#| eval: !expr if(!is.null(params$stat_table)) TRUE else FALSE
+r6$plot_volcano(test = params$tests, same_x = TRUE, same_y = TRUE, max_cols = 1)
+```
+
+
+```{r, result-stat-table}
+#| eval: !expr if(!is.null(params$stat_table)) TRUE else FALSE
+table <- r6$print_stat_table()
+      
+      reactable(
+        table,
+        searchable = TRUE,
+        resizable = TRUE,
+        highlight = TRUE,
+        wrap = FALSE,
+        height = "auto",
+        defaultColDef = colDef(align = "center", minWidth = 200),
+        columns = list(
+          gene_names = colDef(
+            name = "Gene names",
+            sticky = "left",
+            style = list(borderRight  = "1px solid #eee")
+          )
+        )
+      )
+```
+
+```{r, message-no-uni}
+#| eval: !expr if(is.null(params$stat_table)) TRUE else FALSE
+
+cat("NO univariate analysis in your data")
+```
+
+## Multivariate
+
+```{r, heatmap-multi, fig.height=10}
+#| eval: !expr if(!is.null(params$anova_table)) TRUE else FALSE
+r6$plot_heatmap(
+  z_score = yaml.load(params$z_score),
+  clustering_method = params$anova_clust_method,
+  n_cluster = params$clusters_number,
+  manual_order = FALSE,
+  order = NULL
+)
+```
+
+```{r, result-anova-table}
+table <- r6$print_anova_table()
+      
+reactable(
+  table,
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 7,
+  height = "auto",
+  columns = list(
+    gene_names = colDef(align = "center", name = "Gene names"),
+    p_val = colDef(align = "center", name = "-log(p.value)"),
+    p_adj = colDef(align = "center", name = "-log(p.adj)"),
+    cluster = colDef(align = "center", name = "Cluster"),
+    significant = colDef(
+      align = "center",
+      name = "Significant",
+      cell = function(value) {
+        if (!value)
+          "\u274c No"
+        else
+          "\u2714\ufe0f Yes"
+      }
+    )
+  )
+)
+```
+
+
+```{r, message-no-multi}
+#| eval: !expr if(is.null(params$anova_table)) TRUE else FALSE
+
+cat("NO multivariate analysis in your data")
+```
+
+
+# Network analysis
+
+
+# Functional analysis
