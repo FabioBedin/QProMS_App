@@ -122,6 +122,7 @@ QProMS <- R6Class(
     edges_table = NULL,
     name_for_edges = NULL,
     network_from_statistic = NULL,
+    network_score_thr = NULL,
     network_focus =  "cluster_1",
     selected_nodes = NULL,
     pdb_database = NULL,

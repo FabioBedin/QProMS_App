@@ -33,6 +33,16 @@ params:
   z_score: NULL
   anova_clust_method: NULL
   clusters_number: NULL
+  nodes_table: NULL
+  edges_table: NULL
+  net_stat: NULL
+  net_score: NULL
+  ora_result_bp: NULL
+  ora_result_mf: NULL
+  ora_result_cc: NULL
+  gsea_result_bp: NULL
+  gsea_result_mf: NULL
+  gsea_result_cc: NULL
 ---
 
 ```{r, loading-params-from-app}
@@ -63,12 +73,6 @@ r6$imputed_data <- as_tibble(params$imputed_data) %>%
   mutate(imputed = if_else(imputed == "no", FALSE, TRUE))
 
 r6$primary_condition <- params$tests[1]
-
-r6$stat_table <- as_tibble(params$stat_table) %>% 
-  mutate(across(ends_with("_significant"), ~ if_else(.x == "no", FALSE, TRUE)))
-
-r6$anova_table <- as_tibble(params$anova_table) %>% 
-   mutate(significant = if_else(significant == "no", FALSE, TRUE))
 ```
 
 # Filter Data
@@ -149,12 +153,12 @@ r6$print_table(r6$imputed_data)
 
 ::: {.panel-tabset}
 ## PCA
-```{r, pca}
+```{r, pca, fig.height=8}
 r6$plot_pca()
 ```
 
 ## Correlation Heatmap
-```{r, correlation-heatmap}
+```{r, correlation-heatmap, fig.height=8}
 r6$plot_correlation_interactive()
 ```
 :::
@@ -165,6 +169,10 @@ r6$plot_correlation_interactive()
 
 ```{r, volcano-plot}
 #| eval: !expr if(!is.null(params$stat_table)) TRUE else FALSE
+
+r6$stat_table <- as_tibble(params$stat_table) %>% 
+  mutate(across(ends_with("_significant"), ~ if_else(.x == "no", FALSE, TRUE)))
+
 r6$plot_volcano(test = params$tests, same_x = TRUE, same_y = TRUE, max_cols = 1)
 ```
 
@@ -173,22 +181,22 @@ r6$plot_volcano(test = params$tests, same_x = TRUE, same_y = TRUE, max_cols = 1)
 #| eval: !expr if(!is.null(params$stat_table)) TRUE else FALSE
 table <- r6$print_stat_table()
       
-      reactable(
-        table,
-        searchable = TRUE,
-        resizable = TRUE,
-        highlight = TRUE,
-        wrap = FALSE,
-        height = "auto",
-        defaultColDef = colDef(align = "center", minWidth = 200),
-        columns = list(
-          gene_names = colDef(
-            name = "Gene names",
-            sticky = "left",
-            style = list(borderRight  = "1px solid #eee")
-          )
-        )
-      )
+reactable(
+  table,
+  searchable = TRUE,
+  resizable = TRUE,
+  highlight = TRUE,
+  wrap = FALSE,
+  height = "auto",
+  defaultColDef = colDef(align = "center", minWidth = 200),
+  columns = list(
+    gene_names = colDef(
+      name = "Gene names",
+      sticky = "left",
+      style = list(borderRight  = "1px solid #eee")
+    )
+  )
+)
 ```
 
 ```{r, message-no-uni}
@@ -201,6 +209,10 @@ cat("NO univariate analysis in your data")
 
 ```{r, heatmap-multi, fig.height=10}
 #| eval: !expr if(!is.null(params$anova_table)) TRUE else FALSE
+
+r6$anova_table <- as_tibble(params$anova_table) %>% 
+   mutate(significant = if_else(significant == "no", FALSE, TRUE))
+
 r6$plot_heatmap(
   z_score = yaml.load(params$z_score),
   clustering_method = params$anova_clust_method,
@@ -211,6 +223,7 @@ r6$plot_heatmap(
 ```
 
 ```{r, result-anova-table}
+#| eval: !expr if(!is.null(params$anova_table)) TRUE else FALSE
 table <- r6$print_anova_table()
       
 reactable(
@@ -250,5 +263,365 @@ cat("NO multivariate analysis in your data")
 
 # Network analysis
 
+```{r, network, fig.height=10}
+#| eval: !expr if(!is.null(params$nodes_table)) TRUE else FALSE
+
+r6$nodes_table <- as_tibble(params$nodes_table) %>% 
+  mutate(significant = if_else(significant == "no", FALSE, TRUE))
+
+r6$edges_table <- as_tibble(params$edges_table)
+
+r6$plot_ppi_network(
+          list_from = params$net_stat,
+          score_thr = params$net_score,
+          isolate_nodes = FALSE,
+          layout = "force",
+          show_names = TRUE,
+          selected = NULL,
+          filtred = FALSE
+        )
+```
+
+```{r, message-no-net}
+#| eval: !expr if(is.null(params$nodes_table)) TRUE else FALSE
+
+cat("NO network analysis in your data")
+```
+
+
+::: {.panel-tabset}
+
+## Nodes table
+
+```{r, nodes-table}
+#| eval: !expr if(!is.null(params$nodes_table)) TRUE else FALSE
+
+nodes <- r6$print_nodes(
+  isolate_nodes = FALSE,
+  score_thr = params$net_score
+)
+
+reactable(
+  nodes,
+  searchable = TRUE,
+  resizable = TRUE,
+  highlight = TRUE,
+  wrap = FALSE,
+  paginateSubRows = TRUE,
+  height = "auto",
+  defaultPageSize = 7,
+  columns = list(
+    gene_names = colDef(name = "Node"),
+    category = colDef(name = "Category"),
+    p_val = colDef(align = "center", name = "-log(p.value)"),
+    p_adj = colDef(align = "center", name = "-log(p.adj)")
+  )
+)
+```
+
+```{r, message-no-nodes}
+#| eval: !expr if(is.null(params$nodes_table)) TRUE else FALSE
+
+cat("NO data")
+```
+
+
+## Edges table
+
+```{r, edges-table}
+#| eval: !expr if(!is.null(params$nodes_table)) TRUE else FALSE
+
+edges <- r6$print_edges(
+  score_thr = params$net_score,
+  selected_nodes = NULL
+)
+
+reactable(
+  edges,
+  searchable = TRUE,
+  resizable = TRUE,
+  highlight = TRUE,
+  wrap = FALSE,
+  height = "auto",
+  defaultPageSize = 7,
+  columns = list(
+    target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
+    source = colDef(name = "Source"),
+    database = colDef(name = "Database"),
+    complex = colDef(minWidth = 300, name = "Complex"),
+    score = colDef(align = "center", name = "Score")
+  )
+)
+```
+
+```{r, message-no-edges}
+#| eval: !expr if(is.null(params$nodes_table)) TRUE else FALSE
+
+cat("NO data")
+```
+
+:::
 
 # Functional analysis
+
+## ORA
+
+::: {.panel-tabset}
+
+### Biological Process (BP)
+
+```{r, bp}
+#| eval: !expr if(!is.null(params$ora_result_bp)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$ora_result_bp),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ), 
+    group = colDef(minWidth = 250),
+    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    Description = colDef(minWidth = 400),
+    geneID = colDef(minWidth = 1000),
+    GeneRatio = colDef(align = "center", name = "Gene ratio"),
+    BgRatio = colDef(align = "center", name = "Bg ratio"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    Count = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-bp}
+#| eval: !expr if(is.null(params$ora_result_bp)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+
+### Molecolar Function (MF)
+
+```{r, mf}
+#| eval: !expr if(!is.null(params$ora_result_mf)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$ora_result_mf),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ), 
+    group = colDef(minWidth = 250),
+    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    Description = colDef(minWidth = 400),
+    geneID = colDef(minWidth = 1000),
+    GeneRatio = colDef(align = "center", name = "Gene ratio"),
+    BgRatio = colDef(align = "center", name = "Bg ratio"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    Count = colDef(align = "center")
+  )
+)
+```
+
+
+```{r, no-mf}
+#| eval: !expr if(is.null(params$ora_result_mf)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+### Cellular Component (CC)
+
+```{r, cc}
+#| eval: !expr if(!is.null(params$ora_result_cc)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$ora_result_cc),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ), 
+    group = colDef(minWidth = 250),
+    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    Description = colDef(minWidth = 400),
+    geneID = colDef(minWidth = 1000),
+    GeneRatio = colDef(align = "center", name = "Gene ratio"),
+    BgRatio = colDef(align = "center", name = "Bg ratio"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    Count = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-cc}
+#| eval: !expr if(is.null(params$ora_result_cc)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+:::
+
+## GSEA
+
+::: {.panel-tabset}
+
+### Biological Process (BP)
+
+```{r, gbp}
+#| eval: !expr if(!is.null(params$gsea_result_bp)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$gsea_result_bp),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ),
+    group = colDef(minWidth = 250),
+    setSize = colDef(align = "center", name = "Set size"),
+    Description = colDef(minWidth = 400),
+    core_enrichment = colDef(minWidth = 1000),
+    enrichmentScore = colDef(align = "center", name = "Enrichment score"),
+    NES = colDef(align = "center", name = "NES"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    rank = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-gbp}
+#| eval: !expr if(is.null(params$gsea_result_bp)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+
+### Molecolar Function (MF)
+
+```{r, gmf}
+#| eval: !expr if(!is.null(params$gsea_result_mf)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$gsea_result_mf),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ),
+    group = colDef(minWidth = 250),
+    setSize = colDef(align = "center", name = "Set size"),
+    Description = colDef(minWidth = 400),
+    core_enrichment = colDef(minWidth = 1000),
+    enrichmentScore = colDef(align = "center", name = "Enrichment score"),
+    NES = colDef(align = "center", name = "NES"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    rank = colDef(align = "center")
+  )
+)
+```
+
+
+```{r, no-gmf}
+#| eval: !expr if(is.null(params$gsea_result_mf)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+### Cellular Component (CC)
+
+```{r, gcc}
+#| eval: !expr if(!is.null(params$gsea_result_cc)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$gsea_result_cc),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ),
+    group = colDef(minWidth = 250),
+    setSize = colDef(align = "center", name = "Set size"),
+    Description = colDef(minWidth = 400),
+    core_enrichment = colDef(minWidth = 1000),
+    enrichmentScore = colDef(align = "center", name = "Enrichment score"),
+    NES = colDef(align = "center", name = "NES"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    rank = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-gcc}
+#| eval: !expr if(is.null(params$gsea_result_cc)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+:::
