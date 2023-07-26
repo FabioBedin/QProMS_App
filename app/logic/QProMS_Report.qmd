@@ -44,7 +44,7 @@ params:
   gsea_result_mf: NULL
   gsea_result_cc: NULL
 ---
-
+This is a report summarizing the results obtained from [QProMS App](https://bioserver.ieo.it/shiny/app/qproms).
 ```{r, loading-params-from-app}
 box::use(
   tibble[as_tibble],
@@ -76,29 +76,29 @@ r6$primary_condition <- params$tests[1]
 ```
 
 # Filter Data
-descrizione di cosa succede in questa pagina
+All the graph in this sections are useful to evaluate the quality of the dataset and verify the effect of cerain types of filters.
 
 ::: {.panel-tabset}
 ## Protein Counts
-descrizione grafico 1
+Barplot representing the number of proteins for each replicate. The color-code is condition-based.
 ```{r, protein-counts}
 r6$plot_protein_counts()
 ```
 
 ## Upset plot
-descrizione grafico 2
+Number of quantified proteins across all samples.
 ```{r, upset}
 r6$plot_protein_coverage()
 ```
 
 ## Intensity distribution
-descrizione grafico 3
+The boxplot shows the distribution between the different samples. If the medians are not aligned it is necessary to consider a normalization step.
 ```{r, intensity-distribution}
 r6$plot_distribution()
 ```
 
 ## CV
-descrizione grafico 4
+The boxplot show the coefficient of variation between conditions, which is a standardized measure of dispersion of a probability distribution.
 ```{r, cv}
 r6$plot_cv()
 ```
@@ -112,29 +112,29 @@ r6$print_table(r6$normalized_data)
 
 
 # Missing Data
-descrizione di cosa succede in questa pagina
+The following plots show how the missing data are influencing the dataset. 
 
 ::: {.panel-tabset}
 ## Counts
-descrizione grafico 1
+Percentage of missing data per sample.
 ```{r, missing-data-counts}
 r6$plot_missing_data()
 ```
 
 ## Distribution
-descrizione grafico 2
+A plot finalized to show that the majority of missing data are low intensity
 ```{r, missing-data-distribution}
 r6$plot_missval_distribution()
 ```
 
 ## Before Imputation
-descrizione grafico 3
+Intesities distribution before imputation
 ```{r, pre-imputation}
 r6$plot_imputation(data = r6$normalized_data, imp_visualization = FALSE)
 ```
 
 ## After Imputation
-descrizione grafico 4
+Intesities distribution after imputation, with the possibility to check imputed data.
 ```{r, after-imputation}
 #| eval: !expr if(!is.null(params$imputed_data)) TRUE else FALSE
 r6$plot_imputation(data = r6$imputed_data, imp_visualization = TRUE)
@@ -150,15 +150,15 @@ r6$print_table(r6$imputed_data)
 
  
 # Exploratory Data Analysis
-
+Pre-statistics step for quality control.
 ::: {.panel-tabset}
 ## PCA
-```{r, pca, fig.height=8}
+```{r, pca, fig.height=10}
 r6$plot_pca()
 ```
 
 ## Correlation Heatmap
-```{r, correlation-heatmap, fig.height=8}
+```{r, correlation-heatmap, fig.height=10}
 r6$plot_correlation_interactive()
 ```
 :::
