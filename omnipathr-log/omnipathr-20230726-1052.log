@@ -1,0 +1,57 @@
+[2023-07-26 10:52:02] [INFO]    [OmnipathR] Welcome to OmnipathR!
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] Reading JSON from `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/cache.json` (encoding: UTF-8).
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 10:52:02] [INFO]    [OmnipathR] Initialized cache: `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR`.
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/db/db_def.json` (encoding: UTF-8).
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/internal/magic_bytes.json` (encoding: UTF-8).
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/internal/urls.json` (encoding: UTF-8).
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/internal/id_types.json` (encoding: UTF-8).
+[2023-07-26 10:52:02] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 10:56:15] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 10:56:15] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 10:56:15] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 10:56:15] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 10:56:15] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 11:38:43] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 11:38:43] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 11:38:43] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 11:38:43] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 11:38:43] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 11:42:34] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 11:42:34] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 11:42:34] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 11:42:34] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 11:42:34] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 11:45:21] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 11:45:21] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 11:45:21] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 11:45:21] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 11:45:21] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 11:58:22] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 11:58:22] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 11:58:22] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 11:58:22] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 11:58:22] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 11:59:28] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 11:59:28] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 11:59:28] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 11:59:28] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 11:59:28] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 12:01:22] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 12:01:22] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 12:01:22] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 12:01:22] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 12:01:22] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 12:20:37] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 12:20:37] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 12:20:37] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 12:20:37] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 12:20:37] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.
+[2023-07-26 15:09:03] [TRACE]   [OmnipathR] Reading JSON from `https://omnipathdb.org/resources` (encoding: UTF-8).
+[2023-07-26 15:09:03] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-26 15:09:03] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/a936d047aec5e3fcc61b42b75f13587cc2b40099-1.rds`.
+[2023-07-26 15:09:03] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/complexes?resources=CORUM&license=academic`
+[2023-07-26 15:09:03] [SUCCESS] [OmnipathR] Loaded 2734 protein complexes from cache.

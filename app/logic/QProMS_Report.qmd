@@ -150,7 +150,9 @@ r6$print_table(r6$imputed_data)
 
  
 # Exploratory Data Analysis
+
 Pre-statistics step for quality control.
+
 ::: {.panel-tabset}
 ## PCA
 ```{r, pca, fig.height=10}

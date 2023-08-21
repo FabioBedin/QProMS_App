@@ -1,0 +1,12 @@
+[2023-07-18 17:10:19] [INFO]    [OmnipathR] Welcome to OmnipathR!
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] Reading JSON from `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR/cache.json` (encoding: UTF-8).
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-18 17:10:19] [INFO]    [OmnipathR] Initialized cache: `C:\Users\ieo4973\AppData\Local\Cache\OmnipathR`.
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/db/db_def.json` (encoding: UTF-8).
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/internal/magic_bytes.json` (encoding: UTF-8).
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/internal/urls.json` (encoding: UTF-8).
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] JSON validation successful: TRUE
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] Reading JSON from `C:/Users/ieo4973/AppData/Local/R/cache/R/renv/cache/v5/R-4.2/x86_64-w64-mingw32/OmnipathR/3.9.3/4ed09b3cb5eade8cf5bf57fb829c9d7c/OmnipathR/internal/id_types.json` (encoding: UTF-8).
+[2023-07-18 17:10:19] [TRACE]   [OmnipathR] JSON validation successful: TRUE
