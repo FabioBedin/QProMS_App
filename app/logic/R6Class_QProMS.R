@@ -24,6 +24,7 @@ box::use(
   org.Hs.eg.db[org.Hs.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
+  openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook]
 )
 
 #' @export
@@ -2606,6 +2607,38 @@ QProMS <- R6Class(
       }
       
       return(p)
+      
+    },
+    download_excel = function(table, name, handler) {
+      
+      header_style <- createStyle(
+        fontSize = 12,
+        fontColour = "#0f0f0f",
+        fgFill = "#faf2ca",
+        halign = "center",
+        border = "TopBottomLeftRight")
+      
+      body_style <- createStyle(
+        halign = "center",
+        border = "TopBottomLeftRight")
+      
+      excel <- createWorkbook()
+      
+      addWorksheet(excel, sheetName = name, gridLines = F)
+      
+      writeDataTable(excel, sheet = name, x = table, keepNA = T, na.string = "NaN")
+      
+      n_row <- table %>% nrow() + 1
+      
+      n_col <- table %>% ncol()
+      
+      setColWidths(excel, sheet = name, cols = 1:n_col, widths = 21)
+      
+      addStyle(excel, sheet = name, style = header_style, rows = 1, cols = 1:n_col, gridExpand = T)
+      
+      addStyle(excel, sheet = name, style = body_style, rows = 2:n_row, cols = 1:n_col, gridExpand = T)
+      
+      saveWorkbook(excel, handler, overwrite = T)
       
     }
   )
