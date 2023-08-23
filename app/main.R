@@ -2,6 +2,7 @@ box::use(
   shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow, observeEvent, removeUI],
   bs4Dash[...],
   waiter[useWaiter, useWaitress, spin_5],
+  shiny.emptystate[use_empty_state],
   fresh[create_theme, bs4dash_vars, bs4dash_yiq, bs4dash_layout, bs4dash_sidebar_light, bs4dash_status, bs4dash_color, use_theme, bs4dash_button, bs_vars_button]
 )
 
@@ -133,6 +134,7 @@ ui <- function(id) {
     footer = dashboardFooter(),
     body = dashboardBody(
       useWaiter(),
+      use_empty_state(),
       useWaitress(color = "#adb5bd"),
       # use_theme(QProMS_theme),
       tabItems(

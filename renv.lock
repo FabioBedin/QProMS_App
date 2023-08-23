@@ -2762,6 +2762,20 @@
       ],
       "Hash": "4f7970a3edb0a153ac6b376785a1944a"
     },
+    "shiny.emptystate": {
+      "Package": "shiny.emptystate",
+      "Version": "0.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R6",
+        "fontawesome",
+        "htmltools",
+        "shiny",
+        "utils"
+      ],
+      "Hash": "61eedac39820b312c826606dd2edeced"
+    },
     "shinyGizmo": {
       "Package": "shinyGizmo",
       "Version": "0.4.2",
