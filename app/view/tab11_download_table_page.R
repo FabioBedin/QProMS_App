@@ -106,49 +106,6 @@ ui <- function(id) {
           )
         ),
         accordionItem(
-          title = "Functional tables",
-          status = "primary",
-          collapsed = TRUE,
-          solidHeader = FALSE,
-          div(
-            style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
-            div(
-              style = "width: 100%; flex: 1 1 0;",
-              selectInput(
-                inputId = ns("functional_table_input"),
-                label = "Table",
-                choices = c("ORA", "GSEA"),
-                selected = "ORA"
-              )
-            ),
-            div(
-              style = "width: 100%; flex: 1 1 0;",
-              selectInput(
-                inputId = ns("functional_table_extension"),
-                label = "File extension ",
-                choices = c(".xlsx", ".csv", ".tsv"),
-                selected = ".xlsx"
-              )
-            ),
-            div(
-              style = "width: 100%; flex: 1 1 0; padding-top: 1.6rem;",
-              downloadBttn(
-                outputId  = ns("download_functional_table"),
-                label = "Download", 
-                style = "material-flat",
-                color = "primary",
-                size = "md",
-                block = TRUE
-              )
-            )
-          ),
-          hr(),
-          div(
-            style = "display: flex; justify-content: center;",
-            reactableOutput(ns("functional_table"))
-          )
-        ),
-        accordionItem(
           title = "Network tables",
           status = "primary",
           collapsed = TRUE,
@@ -189,6 +146,49 @@ ui <- function(id) {
           div(
             style = "display: flex; justify-content: center;",
             reactableOutput(ns("network_table"))
+          )
+        ),
+        accordionItem(
+          title = "Functional tables",
+          status = "primary",
+          collapsed = TRUE,
+          solidHeader = FALSE,
+          div(
+            style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              selectInput(
+                inputId = ns("functional_table_input"),
+                label = "Table",
+                choices = c("ORA", "GSEA"),
+                selected = "ORA"
+              )
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              selectInput(
+                inputId = ns("functional_table_extension"),
+                label = "File extension ",
+                choices = c(".xlsx", ".csv", ".tsv"),
+                selected = ".xlsx"
+              )
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0; padding-top: 1.6rem;",
+              downloadBttn(
+                outputId  = ns("download_functional_table"),
+                label = "Download", 
+                style = "material-flat",
+                color = "primary",
+                size = "md",
+                block = TRUE
+              )
+            )
+          ),
+          hr(),
+          div(
+            style = "display: flex; justify-content: center;",
+            reactableOutput(ns("functional_table"))
           )
         ),
         width = 12
@@ -278,7 +278,7 @@ server <- function(id, r6) {
           data <- r6$print_anova_table()
         }
         
-        if(input$processed_table_extension == ".xlsx") {
+        if(input$stat_table_extension == ".xlsx") {
           r6$download_excel(
             table = data,
             name = paste0(input$stat_table_input, "_analysis"),
@@ -286,11 +286,11 @@ server <- function(id, r6) {
           )
         }
         
-        if(input$processed_table_extension == ".csv") {
+        if(input$stat_table_extension == ".csv") {
           write.csv(data, file)
         }
         
-        if(input$processed_table_extension == ".tsv") {
+        if(input$stat_table_extension == ".tsv") {
           write.table(data, file, sep = "\t", row.names = FALSE, quote = FALSE)
         }
         
@@ -299,16 +299,15 @@ server <- function(id, r6) {
     )
     
     
-    
     output$stat_table <- renderReactable({
       
-      # watch("stat")
+      watch("stat")
+      watch("anova")
       
       if(input$stat_table_input == "Univariate") {
         
         if(is.null(r6$stat_table)) {
           return()
-          # empty_state_manager$show()
         } else {
           reactable(
             r6$print_stat_table(),
@@ -354,6 +353,94 @@ server <- function(id, r6) {
                     "\u2714\ufe0f Yes"
                 }
               )
+            )
+          )
+        }
+        
+      }
+      
+    })
+    
+    ## network
+    
+    output$download_network_table <- downloadHandler(
+      filename = function() {
+        paste0(input$network_table_input, "_table_", Sys.Date(), input$network_table_extension)
+      },
+      content = function(file) {
+        
+        if(input$network_table_input == "Nodes") {
+          data <- r6$print_nodes(isolate_nodes = FALSE, score_thr = 0)
+        }
+        
+        if(input$network_table_input == "Edges") {
+          data <- r6$print_edges(score_thr = 0, selected_nodes = NULL)
+        }
+        
+        if(input$network_table_extension == ".xlsx") {
+          r6$download_excel(
+            table = data,
+            name = paste0(input$network_table_input, "_analysis"),
+            handler = file
+          )
+        }
+        
+        if(input$network_table_extension == ".csv") {
+          write.csv(data, file)
+        }
+        
+        if(input$network_table_extension == ".tsv") {
+          write.table(data, file, sep = "\t", row.names = FALSE, quote = FALSE)
+        }
+        
+        
+      }
+    )
+    
+    
+    output$network_table <- renderReactable({
+      
+      watch("ppi_network")
+      
+      if(input$network_table_input == "Nodes") {
+        
+        if(is.null(r6$nodes_table)) {
+          return()
+        } else {
+          reactable(
+            r6$print_nodes(isolate_nodes = FALSE, score_thr = 0),
+            searchable = TRUE,
+            resizable = TRUE,
+            highlight = TRUE,
+            wrap = FALSE,
+            paginateSubRows = TRUE,
+            height = "auto",
+            columns = list(
+              gene_names = colDef(name = "Node"),
+              category = colDef(name = "Category"),
+              p_val = colDef(align = "center", name = "-log(p.value)"),
+              p_adj = colDef(align = "center", name = "-log(p.adj)")
+            )
+          )
+        }
+      } else {
+        
+        if(is.null(r6$edges_table)) {
+          return()
+        } else {
+          reactable(
+            r6$print_edges(score_thr = 0, selected_nodes = NULL),
+            searchable = TRUE,
+            resizable = TRUE,
+            highlight = TRUE,
+            wrap = FALSE,
+            height = "auto",
+            columns = list(
+              target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
+              source = colDef(name = "Source"),
+              database = colDef(name = "Database"),
+              complex = colDef(minWidth = 300, name = "Complex"),
+              score = colDef(align = "center", name = "Score")
             )
           )
         }
