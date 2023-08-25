@@ -22,7 +22,7 @@ ui <- function(id) {
         accordionItem(
           title = "Processed tables",
           status = "primary",
-          collapsed = FALSE,
+          collapsed = TRUE,
           solidHeader = FALSE,
           div(
             style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
@@ -58,7 +58,7 @@ ui <- function(id) {
           ),
           hr(),
           div(
-            style = "display: flex; justify-content: center;",
+            style = "padding: 1rem",
             reactableOutput(ns("processed_table"))
           )
         ),
@@ -144,7 +144,7 @@ ui <- function(id) {
           ),
           hr(),
           div(
-            style = "display: flex; justify-content: center;",
+            style = "padding: 1rem",
             reactableOutput(ns("network_table"))
           )
         ),
@@ -187,7 +187,7 @@ ui <- function(id) {
           ),
           hr(),
           div(
-            style = "display: flex; justify-content: center;",
+            style = "padding: 1rem",
             reactableOutput(ns("functional_table"))
           )
         ),
@@ -441,6 +441,119 @@ server <- function(id, r6) {
               database = colDef(name = "Database"),
               complex = colDef(minWidth = 300, name = "Complex"),
               score = colDef(align = "center", name = "Score")
+            )
+          )
+        }
+        
+      }
+      
+    })
+    
+    ## functional
+    
+    output$download_functional_table <- downloadHandler(
+      filename = function() {
+        paste0(input$functional_table_input, "_table_", Sys.Date(), input$functional_table_extension)
+      },
+      content = function(file) {
+        
+        if(input$functional_table_input == "ORA") {
+          data <- r6$ora_table_all_download
+        }
+        
+        if(input$functional_table_input == "GSEA") {
+          data <- r6$gsea_table_all_download
+        }
+        
+        if(input$functional_table_extension == ".xlsx") {
+          r6$download_excel(
+            table = data,
+            name = paste0(input$functional_table_input, "_analysis"),
+            handler = file
+          )
+        }
+        
+        if(input$functional_table_extension == ".csv") {
+          write.csv(data, file)
+        }
+        
+        if(input$functional_table_extension == ".tsv") {
+          write.table(data, file, sep = "\t", row.names = FALSE, quote = FALSE)
+        }
+        
+        
+      }
+    )
+    
+    
+    output$functional_table <- renderReactable({
+      
+      watch("ppi_network")
+      
+      if(input$functional_table_input == "ORA") {
+        
+        if(is.null(r6$ora_table_all_download)) {
+          return()
+        } else {
+          reactable(
+            r6$ora_table_all_download,
+            searchable = TRUE,
+            resizable = TRUE,
+            highlight = TRUE,
+            wrap = FALSE,
+            paginateSubRows = TRUE,
+            height = "auto",
+            columns = list(
+              ONTOLOGY = colDef(align = "center", name = "Ontology"),
+              ID = colDef(
+                align = "center",
+                sticky = "left",
+                minWidth = 150,
+                style = list(borderRight  = "1px solid #eee")
+              ), 
+              group = colDef(minWidth = 250),
+              fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+              Description = colDef(minWidth = 400),
+              geneID = colDef(minWidth = 1000),
+              GeneRatio = colDef(align = "center", name = "Gene ratio"),
+              BgRatio = colDef(align = "center", name = "Bg ratio"),
+              pvalue = colDef(align = "center", name = "-log(p.val)"),
+              p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+              qvalue = colDef(align = "center", name = "-log(q.val)"),
+              Count = colDef(align = "center")
+            )
+          )
+        }
+      } else {
+        
+        if(is.null(r6$gsea_table_all_download)) {
+          return()
+        } else {
+          reactable(
+            r6$gsea_table_all_download,
+            searchable = TRUE,
+            resizable = TRUE,
+            wrap = FALSE,
+            highlight = TRUE,
+            height = "auto",
+            columns = list(
+              ONTOLOGY = colDef(align = "center", name = "Ontology"),
+              ID = colDef(
+                align = "center",
+                sticky = "left",
+                minWidth = 150,
+                style = list(borderRight  = "1px solid #eee")
+              ),
+              group = colDef(minWidth = 250),
+              setSize = colDef(align = "center", name = "Set size"),
+              Description = colDef(minWidth = 400),
+              core_enrichment = colDef(minWidth = 1000),
+              enrichmentScore = colDef(align = "center", name = "Enrichment score"),
+              NES = colDef(align = "center", name = "NES"),
+              pvalue = colDef(align = "center", name = "-log(p.val)"),
+              p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+              qvalue = colDef(align = "center", name = "-log(q.val)"),
+              rank = colDef(align = "center")
             )
           )
         }

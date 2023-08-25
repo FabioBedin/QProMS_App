@@ -93,6 +93,7 @@ QProMS <- R6Class(
     ora_result_list = NULL,
     ora_result_list_simplified = NULL,
     ora_table = NULL,
+    ora_table_all_download = NULL,
     ora_table_counts = NULL,
     go_ora_from_statistic = NULL,
     go_ora_tested_condition = NULL,
@@ -108,6 +109,7 @@ QProMS <- R6Class(
     gsea_result_list = NULL,
     gsea_result_list_simplified = NULL,
     gsea_table = NULL,
+    gsea_table_all_download = NULL,
     gsea_table_counts = NULL,
     go_gsea_tested_condition = NULL,
     go_gsea_alpha = 0.05,
@@ -539,9 +541,10 @@ QProMS <- R6Class(
             highlight = TRUE,
             wrap = FALSE,
             height = "auto",
+            defaultColDef = colDef(align = "center", minWidth = 200),
             columns = list(
               gene_names = colDef(
-                minWidth = 200,
+                name = "Gene names",
                 sticky = "left",
                 style = list(borderRight  = "1px solid #eee"
                 )
@@ -577,6 +580,17 @@ QProMS <- R6Class(
         list_rbind(names_to = "group") %>% 
         as_tibble()
       
+      self$ora_table_all_download <- ora_table_all %>% 
+        tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
+        tidyr$separate(BgRatio, into = c("c", "d"), sep = "/", remove = FALSE) %>%
+        dplyr$mutate(fold_change = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
+        dplyr$select(-c(a,b,c,d)) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
+        dplyr$relocate(ID) %>% 
+        dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
+        dplyr$relocate(Count, .after = fold_change) 
+      
       self$ora_table_counts <- ora_table_all %>% 
         dplyr$group_by(ONTOLOGY) %>% 
         dplyr$summarise(count = dplyr$n())
@@ -608,6 +622,16 @@ QProMS <- R6Class(
       gsea_table_all <- map(self$gsea_result_list_simplified, ~ pluck(.x, "result")) %>%
         list_rbind(names_to = "group") %>%
         as_tibble() 
+      
+      self$gsea_table_all_download <- gsea_table_all %>% 
+        dplyr$select(-leading_edge) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(c(
+          "pvalue", "p.adjust", "qvalue", "NES", "enrichmentScore"
+        ), ~ round(., 2))) %>%
+        dplyr$relocate(ID) %>%
+        dplyr$arrange(-pvalue) 
+        
       
       self$gsea_table_counts <- gsea_table_all %>% 
         dplyr$group_by(ONTOLOGY) %>% 

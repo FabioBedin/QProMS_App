@@ -1,6 +1,12 @@
 box::use(
-  shiny[moduleServer, NS],
-  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, toast],
+  shiny[moduleServer, NS, fluidRow, div, downloadHandler],
+  bs4Dash[tabItem, accordion, accordionItem, toast],
+  shinyGizmo[pickCheckboxInput],
+  shinyWidgets[downloadBttn],
+  esquisse[palettePicker],
+  viridis[viridis],
+  quarto[quarto_render],
+  here[here],
 )
 
 #' @export
@@ -8,12 +14,200 @@ ui <- function(id) {
   ns <- NS(id)
   tabItem(
     tabName = "report",
+    fluidRow(
+      width = 11,
+      accordion(
+        id = ns("downloads_params"),
+        accordionItem(
+          title = "Layout settings",
+          status = "primary",
+          collapsed = FALSE,
+          solidHeader = FALSE,
+          div(
+            style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              pickCheckboxInput(
+                inputId = ns("report_settings"),
+                label = "Define report layout",
+                choices = list(
+                  "Quality control" = c("Protein counts   |", "Upset plot   |", "Intensity Distribution   |", "CV   "),
+                  "Missing data" = c("Counts   |", "Distribution   |", "Effect of Imputation   "),
+                  "Exploratory Data Analysis" = c("PCA   |", "Correlation heatmap   "),
+                  "Statistics" = c("Univariate   |", "Multivariate   "),
+                  "Network analysis" = "Network results   ",
+                  "Functional analysis" = c("ORA   |", "GSEA   ")
+                ),
+                selected = list(
+                  "Quality control" = c("Protein counts   |", "Upset plot   |", "Intensity Distribution   |", "CV   "),
+                  "Missing data" = c("Counts   |", "Distribution   |", "Effect of Imputation   "),
+                  "Exploratory Data Analysis" = c("PCA   |", "Correlation heatmap   "),
+                  "Statistics" = c("Univariate   |", "Multivariate   "),
+                  "Network analysis" = "Network results   ",
+                  "Functional analysis" = c("ORA   |", "GSEA   ")
+                ),
+                options = list(`selected-text-format` = "count > 2")
+              )
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              palettePicker(
+                inputId = ns("palette"),
+                label = "Palettes:",
+                choices = list(
+                  "A" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "A"
+                  ),
+                  "B" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "B"
+                  ),
+                  "C" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "C"
+                  ),
+                  "D" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "D"
+                  ),
+                  "E" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "E"
+                  ),
+                  "F" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "F"
+                  ),
+                  "G" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "G"
+                  ),
+                  "H" = viridis(
+                    n = 6,
+                    direction = -1,
+                    end = 0.90,
+                    begin = 0.10,
+                    option = "H"
+                  )
+                ),
+                selected = "D"
+              ),
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0; padding-top: 1.6rem;",
+              downloadBttn(
+                outputId  = ns("download_report"),
+                label = "Download",
+                style = "material-flat",
+                color = "primary",
+                size = "md",
+                block = TRUE
+              )
+            )
+          )
+        ),
+        width = 12
+      )
+    )
   )
 }
 
 #' @export
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
+    
+    
+    output$download_report <- downloadHandler(
+      filename = function() {
+        paste0("QProMS_report_", Sys.Date(), ".html")
+      },
+      content = function(file) {
+        
+        if(!is.null(r6$ora_table)) {
+          r6$print_ora_table(ontology = "BP", groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
+          ora_bp <- r6$ora_table
+          
+          r6$print_ora_table(ontology = "MF", groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
+          ora_mf <- r6$ora_table
+          
+          r6$print_ora_table(ontology = "CC", groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
+          ora_cc <- r6$ora_table
+        } else {
+          ora_bp <- NULL
+          ora_mf <- NULL
+          ora_cc <- NULL
+          
+        }
+        
+        if(!is.null(r6$gsea_table)) {
+          r6$print_gsea_table(ontology = "BP", groups = r6$go_gsea_focus, only_common = FALSE)
+          gsea_bp <- r6$gsea_table
+          
+          r6$print_gsea_table(ontology = "MF", groups = r6$go_gsea_focus, only_common = FALSE)
+          gsea_mf <- r6$gsea_table
+          
+          r6$print_gsea_table(ontology = "CC", groups = r6$go_gsea_focus, only_common = FALSE)
+          gsea_cc <- r6$gsea_table
+        } else {
+          gsea_bp <- NULL
+          gsea_mf <- NULL
+          gsea_cc <- NULL
+        }
+        
+        
+        quarto_render(
+          here("app/logic/QProMS_Report.qmd"),
+          execute_params = list(
+            palette = r6$palette,
+            color_palette = r6$color_palette,
+            expdesign = r6$expdesign,
+            filtered_data = r6$filtered_data,
+            normalized_data = r6$normalized_data,
+            imputed_data = r6$imputed_data,
+            tests = c(r6$primary_condition, r6$additional_condition),
+            stat_table = r6$stat_table,
+            anova_table = r6$anova_table,
+            z_score = r6$z_score,
+            anova_clust_method = r6$anova_clust_method,
+            clusters_number = r6$clusters_number,
+            nodes_table = r6$nodes_table,
+            edges_table = r6$edges_table,
+            net_stat = r6$network_from_statistic,
+            net_score = r6$network_score_thr,
+            ora_result_bp = ora_bp,
+            ora_result_mf = ora_mf,
+            ora_result_cc = ora_cc,
+            gsea_result_bp = gsea_bp,
+            gsea_result_mf = gsea_mf,
+            gsea_result_cc = gsea_cc
+          )
+        )
+        
+        
+      }
+    )
     
 
   })
