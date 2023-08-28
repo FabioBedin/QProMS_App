@@ -21,7 +21,6 @@ execute:
   warning: false
   message: false
 params: 
-  color_palette: ""
   palette: ""
   expdesign: NULL
   filtered_data: NULL
@@ -43,6 +42,20 @@ params:
   gsea_result_bp: NULL
   gsea_result_mf: NULL
   gsea_result_cc: NULL
+  par_protein_counts: NULL
+  par_upset_plot: NULL
+  par_intensity_dist: NULL
+  par_cv: NULL
+  par_md_counts: NULL
+  par_md_distribution: NULL
+  par_imputation: NULL
+  par_pca: NULL
+  par_correlation: NULL
+  par_univariate: NULL
+  par_multivariate: NULL
+  par_network: NULL
+  par_ora: NULL
+  par_gsea: NULL
 ---
 This is a report summarizing the results obtained from [QProMS App](https://bioserver.ieo.it/shiny/app/qproms).
 ```{r, loading-params-from-app}
@@ -60,8 +73,11 @@ box::use(
 r6 <- R6Class_QProMS$QProMS$new()
 
 r6$palette <- params$palette
-r6$color_palette <- params$color_palette
+# r6$color_palette <- params$color_palette
 r6$expdesign <- as_tibble(params$expdesign)
+
+r6$define_colors()
+
 r6$filtered_data <- as_tibble(params$filtered_data) %>% 
   mutate(intensity = as.double(intensity))
 
@@ -75,33 +91,50 @@ r6$imputed_data <- as_tibble(params$imputed_data) %>%
 r6$primary_condition <- params$tests[1]
 ```
 
+`r if (params$par_protein_counts == "no" & params$par_upset_plot == "no" & params$par_intensity_dist == "no" & params$par_cv == "no") "::: {.content-hidden}"`
+
 # Filter Data
 All the graph in this sections are useful to evaluate the quality of the dataset and verify the effect of cerain types of filters.
 
 ::: {.panel-tabset}
+
+`r if (params$par_protein_counts == "no") "::: {.content-hidden}"`
 ## Protein Counts
 Barplot representing the number of proteins for each replicate. The color-code is condition-based.
+
 ```{r, protein-counts}
 r6$plot_protein_counts()
 ```
 
+`r if (params$par_protein_counts == "no") ":::"`
+
+`r if (params$par_upset_plot == "no") "::: {.content-hidden}"`
 ## Upset plot
 Number of quantified proteins across all samples.
 ```{r, upset}
 r6$plot_protein_coverage()
 ```
 
+`r if (params$par_upset_plot == "no") ":::"`
+
+`r if (params$par_intensity_dist == "no") "::: {.content-hidden}"`
 ## Intensity distribution
 The boxplot shows the distribution between the different samples. If the medians are not aligned it is necessary to consider a normalization step.
 ```{r, intensity-distribution}
 r6$plot_distribution()
 ```
 
+`r if (params$par_intensity_dist == "no") ":::"`
+
+`r if (params$par_cv == "no") "::: {.content-hidden}"`
 ## CV
 The boxplot show the coefficient of variation between conditions, which is a standardized measure of dispersion of a probability distribution.
 ```{r, cv}
 r6$plot_cv()
 ```
+
+`r if (params$par_cv == "no") ":::"`
+
 :::
 
 ## Filtred data table
@@ -110,23 +143,34 @@ r6$plot_cv()
 r6$print_table(r6$normalized_data)
 ```
 
+`r if (params$par_protein_counts == "no" & params$par_upset_plot == "no" & params$par_intensity_dist == "no" & params$par_cv == "no") ":::"`
+
+`r if (params$par_md_counts == "no" & params$par_md_distribution == "no" & params$par_imputation == "no") "::: {.content-hidden}"`
 
 # Missing Data
 The following plots show how the missing data are influencing the dataset. 
 
 ::: {.panel-tabset}
+
+`r if (params$par_md_counts == "no") "::: {.content-hidden}"`
 ## Counts
 Percentage of missing data per sample.
 ```{r, missing-data-counts}
 r6$plot_missing_data()
 ```
 
+`r if (params$par_md_counts == "no") ":::"`
+
+`r if (params$par_md_distribution == "no") "::: {.content-hidden}"`
 ## Distribution
 A plot finalized to show that the majority of missing data are low intensity
 ```{r, missing-data-distribution}
 r6$plot_missval_distribution()
 ```
 
+`r if (params$par_md_distribution == "no") ":::"`
+
+`r if (params$par_imputation == "no") "::: {.content-hidden}"`
 ## Before Imputation
 Intesities distribution before imputation
 ```{r, pre-imputation}
@@ -139,6 +183,9 @@ Intesities distribution after imputation, with the possibility to check imputed 
 #| eval: !expr if(!is.null(params$imputed_data)) TRUE else FALSE
 r6$plot_imputation(data = r6$imputed_data, imp_visualization = TRUE)
 ```
+
+`r if (params$par_imputation == "no") ":::"`
+
 :::
 
 ## Imputed data table
@@ -148,24 +195,41 @@ r6$plot_imputation(data = r6$imputed_data, imp_visualization = TRUE)
 r6$print_table(r6$imputed_data)
 ```
 
+`r if (params$par_md_counts == "no" & params$par_md_distribution == "no" & params$par_imputation == "no") ":::"`
+
+`r if (params$par_pca == "no" & params$par_correlation == "no") "::: {.content-hidden}"`
  
 # Exploratory Data Analysis
 
 Pre-statistics step for quality control.
 
 ::: {.panel-tabset}
+
+`r if (params$par_pca == "no") "::: {.content-hidden}"`
 ## PCA
 ```{r, pca, fig.height=10}
 r6$plot_pca()
 ```
 
+`r if (params$par_pca == "no") ":::"`
+
+`r if (params$par_correlation == "no") "::: {.content-hidden}"`
 ## Correlation Heatmap
 ```{r, correlation-heatmap, fig.height=10}
 r6$plot_correlation_interactive()
 ```
+
+`r if (params$par_correlation == "no") ":::"`
+
 :::
 
+`r if (params$par_pca == "no" & params$par_correlation == "no") ":::"`
+
+`r if (params$par_univariate == "no" & params$par_multivariate == "no") "::: {.content-hidden}"`
+
 # Statistics
+
+`r if (params$par_univariate == "no") "::: {.content-hidden}"`
 
 ## Univariate
 
@@ -206,6 +270,10 @@ reactable(
 
 cat("NO univariate analysis in your data")
 ```
+
+`r if (params$par_univariate == "no") ":::"`
+
+`r if (params$par_multivariate == "no") "::: {.content-hidden}"`
 
 ## Multivariate
 
@@ -262,6 +330,11 @@ reactable(
 cat("NO multivariate analysis in your data")
 ```
 
+`r if (params$par_multivariate == "no") ":::"`
+
+`r if (params$par_univariate == "no" & params$par_multivariate == "no") ":::"`
+
+`r if (params$par_network == "no") "::: {.content-hidden}"`
 
 # Network analysis
 
@@ -364,7 +437,13 @@ cat("NO data")
 
 :::
 
+`r if (params$par_network == "no") ":::"`
+
+`r if (params$par_ora == "no" & params$par_gsea == "no") "::: {.content-hidden}"`
+
 # Functional analysis
+
+`r if (params$par_ora == "no") "::: {.content-hidden}"`
 
 ## ORA
 
@@ -497,6 +576,10 @@ cat("NO enriched results")
 
 :::
 
+`r if (params$par_ora == "no") ":::"`
+
+`r if (params$par_gsea == "no") "::: {.content-hidden}"`
+
 ## GSEA
 
 ::: {.panel-tabset}
@@ -627,3 +710,7 @@ cat("NO enriched results")
 ```
 
 :::
+
+`r if (params$par_gsea == "no") ":::"`
+
+`r if (params$par_ora == "no" & params$par_gsea == "no") ":::"`

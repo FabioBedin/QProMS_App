@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, downloadHandler],
+  shiny[moduleServer, NS, fluidRow, div, downloadHandler, isolate],
   bs4Dash[tabItem, accordion, accordionItem, toast],
   shinyGizmo[pickCheckboxInput],
   shinyWidgets[downloadBttn],
@@ -31,20 +31,20 @@ ui <- function(id) {
                 inputId = ns("report_settings"),
                 label = "Define report layout",
                 choices = list(
-                  "Quality control" = c("Protein counts   |", "Upset plot   |", "Intensity Distribution   |", "CV   "),
-                  "Missing data" = c("Counts   |", "Distribution   |", "Effect of Imputation   "),
-                  "Exploratory Data Analysis" = c("PCA   |", "Correlation heatmap   "),
-                  "Statistics" = c("Univariate   |", "Multivariate   "),
-                  "Network analysis" = "Network results   ",
-                  "Functional analysis" = c("ORA   |", "GSEA   ")
+                  "Quality control" = c("Protein counts", "Upset plot", "Intensity Distribution", "CV"),
+                  "Missing data" = c("Counts", "Distribution", "Effect of Imputation"),
+                  "Exploratory Data Analysis" = c("PCA", "Correlation heatmap"),
+                  "Statistics" = c("Univariate", "Multivariate"),
+                  "Network analysis" = "Network results",
+                  "Functional analysis" = c("ORA", "GSEA")
                 ),
                 selected = list(
-                  "Quality control" = c("Protein counts   |", "Upset plot   |", "Intensity Distribution   |", "CV   "),
-                  "Missing data" = c("Counts   |", "Distribution   |", "Effect of Imputation   "),
-                  "Exploratory Data Analysis" = c("PCA   |", "Correlation heatmap   "),
-                  "Statistics" = c("Univariate   |", "Multivariate   "),
-                  "Network analysis" = "Network results   ",
-                  "Functional analysis" = c("ORA   |", "GSEA   ")
+                  "Quality control" = c("Protein counts", "Upset plot", "Intensity Distribution", "CV"),
+                  "Missing data" = c("Counts", "Distribution", "Effect of Imputation"),
+                  "Exploratory Data Analysis" = c("PCA", "Correlation heatmap"),
+                  "Statistics" = c("Univariate", "Multivariate"),
+                  "Network analysis" = "Network results",
+                  "Functional analysis" = c("ORA", "GSEA")
                 ),
                 options = list(`selected-text-format` = "count > 2")
               )
@@ -176,12 +176,64 @@ server <- function(id, r6) {
           gsea_cc <- NULL
         }
         
+        param_list <- isolate(input$report_settings)
+        
+        param_protein_counts = FALSE
+        param_upset_plot = FALSE
+        param_intensity_dist = FALSE
+        param_cv = FALSE
+        param_md_counts = FALSE
+        param_md_distribution = FALSE
+        param_imputation = FALSE
+        param_pca = FALSE
+        param_correlation = FALSE
+        param_univariate = FALSE
+        param_multivariate = FALSE
+        param_network = FALSE
+        param_ora = FALSE
+        param_gsea = FALSE
+        
+        for(n in 1:length(param_list)) {
+          for(m in 1:length(param_list[[n]])) {
+            switch(
+              param_list[[n]][m],
+              "Protein counts" = (param_protein_counts = TRUE),
+              "Upset plot" = (param_upset_plot = TRUE),
+              "Intensity Distribution" = (param_intensity_dist = TRUE),
+              "CV" = (param_cv = TRUE),
+              "Counts" = (param_md_counts = TRUE),
+              "Distribution" = (param_md_distribution = TRUE),
+              "Effect of Imputation" = (param_imputation = TRUE),
+              "PCA" = (param_pca = TRUE),
+              "Correlation heatmap" = (param_correlation = TRUE),
+              "Univariate" = (param_univariate = TRUE),
+              "Multivariate" = (param_multivariate = TRUE),
+              "Network results" = (param_network = TRUE),
+              "ORA" = (param_ora = TRUE),
+              "GSEA" = (param_gsea = TRUE)
+            )
+          }
+        }
+        
         
         quarto_render(
           here("app/logic/QProMS_Report.qmd"),
           execute_params = list(
-            palette = r6$palette,
-            color_palette = r6$color_palette,
+            par_protein_counts = param_protein_counts,
+            par_upset_plot = param_upset_plot,
+            par_intensity_dist = param_intensity_dist,
+            par_cv = param_cv,
+            par_md_counts = param_md_counts,
+            par_md_distribution = param_md_distribution,
+            par_imputation = param_imputation,
+            par_pca = param_pca,
+            par_correlation = param_correlation,
+            par_univariate = param_univariate,
+            par_multivariate = param_multivariate,
+            par_network = param_network,
+            par_ora = param_ora,
+            par_gsea = param_gsea, 
+            palette = isolate(input$palette),
             expdesign = r6$expdesign,
             filtered_data = r6$filtered_data,
             normalized_data = r6$normalized_data,
@@ -204,6 +256,8 @@ server <- function(id, r6) {
             gsea_result_cc = gsea_cc
           )
         )
+        
+        file.copy(here("app/logic/QProMS_Report.html"), file)
         
         
       }
