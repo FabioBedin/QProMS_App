@@ -7,6 +7,7 @@ box::use(
   viridis[viridis],
   quarto[quarto_render],
   here[here],
+  yaml[write_yaml],
 )
 
 #' @export
@@ -120,6 +121,34 @@ ui <- function(id) {
               downloadBttn(
                 outputId  = ns("download_report"),
                 label = "Download",
+                style = "material-flat",
+                color = "primary",
+                size = "md",
+                block = TRUE
+              )
+            )
+          )
+        ),
+        accordionItem(
+          title = "Save parameters",
+          status = "primary",
+          collapsed = TRUE,
+          solidHeader = FALSE,
+          div(
+            style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0; padding-top: 1.6rem;",
+              downloadBttn(
+                outputId  = ns("save_params"),
+                label = "Download", 
                 style = "material-flat",
                 color = "primary",
                 size = "md",
@@ -259,6 +288,32 @@ server <- function(id, r6) {
         
         file.copy(here("app/logic/QProMS_Report.html"), file)
         
+        
+      }
+    )
+    
+    output$save_params <- downloadHandler(
+      filename = function() {
+        paste0("QProMS_parameters", ".yaml")
+      },
+      content = function(file) {
+        
+        parameters_list <- list(
+          expdesign = r6$expdesign,
+          valid_val_filter = r6$valid_val_filter,
+          valid_val_thr = r6$valid_val_thr,
+          norm_methods = r6$norm_methods,
+          pep_filter = r6$pep_filter,
+          pep_thr = r6$pep_thr,
+          rev = r6$rev,
+          cont = r6$cont,
+          oibs = r6$oibs,
+          imp_methods = r6$imp_methods,
+          imp_shift = r6$imp_shift,
+          imp_scale = r6$imp_scale
+        )
+        
+        write_yaml(x = parameters_list, file = file)
         
       }
     )

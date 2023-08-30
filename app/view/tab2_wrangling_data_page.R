@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, br, div, observeEvent, req, checkboxInput, h4, p, column],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateSliderInput, sliderInput, br, div, observeEvent, observe, req, checkboxInput, h4, p, column, reactive],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
-  shinyWidgets[actionBttn, prettyCheckbox],
+  shinyWidgets[actionBttn, prettyCheckbox, updatePrettyCheckbox],
   echarts4r[echarts4rOutput, renderEcharts4r],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable]
@@ -280,41 +280,20 @@ server <- function(id, r6) {
       
     })
     
-    # observeEvent(input$update_filters, {
-    #   
-    #   req(input$peptides_input)
-    #   req(input$peptides_slider)
-    #   
-    #   r6$pep_filter <- input$peptides_input
-    #   r6$pep_thr <- input$peptides_slider
-    #   r6$rev <- input$rev
-    #   r6$cont <- input$cont
-    #   r6$oibs <- input$oibs
-    #   
-    #   
-    #   r6$data_wrangling(
-    #     valid_val_filter = r6$valid_val_filter,
-    #     valid_val_thr = r6$valid_val_thr,
-    #     pep_filter = r6$pep_filter,
-    #     pep_thr = r6$pep_thr,
-    #     rev = r6$rev,
-    #     cont = r6$cont,
-    #     oibs = r6$oibs
-    #   )
-    #   
-    #   r6$normalization(norm_methods = r6$norm_methods)
-    #   
-    #   r6$imputation(
-    #     imp_methods = r6$imp_methods,
-    #     shift = r6$imp_shift,
-    #     scale = r6$imp_scale,
-    #     unique_visual = FALSE
-    #   )
-    #   
-    #   trigger("plot")
-    #   trigger("boxes")
-    #   
-    # })
+    observe({
+      
+      watch("params")
+      
+      updateSelectInput(inputId = "valid_values_input", selected = r6$valid_val_filter)
+      updateSliderInput(inputId = "valid_values_slider", value = r6$valid_val_thr*100)
+      updateSelectInput(inputId = "normalization_input", selected = r6$norm_methods)
+      updateSelectInput(inputId = "peptides_input", selected = r6$pep_filter)
+      updateSliderInput(inputId = "peptides_slider", value = r6$pep_thr)
+      updatePrettyCheckbox(inputId = "rev", value = r6$rev)
+      updatePrettyCheckbox(inputId = "cont", value = r6$cont)
+      updatePrettyCheckbox(inputId = "oibs", value = r6$oib)
+
+    })
     
     observeEvent(input$update_parameters ,{
       
@@ -358,26 +337,7 @@ server <- function(id, r6) {
       
     })
     
-    # observeEvent(input$update_normalization ,{
-    #   
-    #   req(input$normalization_input)
-    #   
-    #   r6$norm_methods <- input$normalization_input
-    #   
-    #   r6$normalization(norm_methods = r6$norm_methods)
-    #   
-    #   r6$imputation(
-    #     imp_methods = r6$imp_methods,
-    #     shift = r6$imp_shift,
-    #     scale = r6$imp_scale,
-    #     unique_visual = FALSE
-    #   )
-    #   
-    #   trigger("plot")
-    #   trigger("boxes")
-    #   
-    # })
-    
+  
     output$table <- renderReactable({
       
       watch("plot")

@@ -49,6 +49,14 @@ ui <- function(id) {
           placeholder = "proteinGroups.txt",
           accept = ".txt"
         ),
+        fileInput(
+          inputId = ns("upload_params"),
+          label = NULL,
+          multiple = FALSE,
+          width = "100%",
+          placeholder = "QProMS_parameters.yaml",
+          accept = ".yaml"
+        ),
         selectInput(
           inputId = ns("source_type"),
           label = "Table source",
@@ -254,7 +262,7 @@ server <- function(id, r6) {
     
     w <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
-    init("make_expdesign", "boxes")
+    init("make_expdesign", "boxes", "params")
     
     output$n_proteins <- renderValueBox({
       
@@ -360,6 +368,10 @@ server <- function(id, r6) {
       
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
       
+      if(!is.null(input$upload_params)) {
+        r6$loading_patameters(input_path = input$upload_params$datapath)
+      }
+      
       if(r6$input_type == "max_quant"){
         
         input_error <- dplyr$case_when(
@@ -390,7 +402,9 @@ server <- function(id, r6) {
           return() 
         }
         
-        r6$make_expdesign(intensity_type = input$intensity_type)
+        if(!r6$parameters_loaded) {
+          r6$make_expdesign(intensity_type = input$intensity_type)
+        }
         r6$pg_preprocessing()
       }else{
         id_col <- make_clean_names(input$genes_col)
@@ -411,7 +425,9 @@ server <- function(id, r6) {
         
         if(check_id > 0 & check_int > 0){
           if(check_unique == 0){
-            r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
+            if(!r6$parameters_loaded) {
+              r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
+            }
             r6$pg_preprocessing()
           }else{
             toast(
@@ -468,7 +484,9 @@ server <- function(id, r6) {
       r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
       
       if(r6$input_type == "max_quant"){
-        r6$make_expdesign(intensity_type = input$intensity_type)
+        if(!r6$parameters_loaded) {
+          r6$make_expdesign(intensity_type = input$intensity_type)
+        }
         r6$pg_preprocessing()
       }else{
         id_col <- make_clean_names(input$genes_col)
@@ -483,7 +501,9 @@ server <- function(id, r6) {
           ncol()
         
         if(check_id > 0 & check_int > 0){
-          r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
+          if(!r6$parameters_loaded) {
+            r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
+          }
           r6$pg_preprocessing()
         }else{
           toast(
@@ -660,6 +680,10 @@ server <- function(id, r6) {
       
       trigger("plot")
       trigger("boxes")
+      
+      if(r6$parameters_loaded) {
+        trigger("params")
+      }
       
     })
     

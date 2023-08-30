@@ -24,7 +24,8 @@ box::use(
   org.Hs.eg.db[org.Hs.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
-  openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook]
+  openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook],
+  yaml[write_yaml, read_yaml]
 )
 
 #' @export
@@ -34,6 +35,7 @@ QProMS <- R6Class(
     ####################
     # Input parameters #
     raw_data = NULL,
+    parameters_loaded = FALSE,
     path = NULL,
     data = NULL,
     input_type = "max_quant",
@@ -139,6 +141,29 @@ QProMS <- R6Class(
       self$path <- input_path
       
       self$input_type <- input_type
+    },
+    loading_patameters = function(input_path) {
+      
+      parameters_list <- read_yaml(file = input_path)
+      
+      self$expdesign <- as_tibble(parameters_list$expdesign)
+      
+      ## for wrangling data page
+      self$valid_val_filter <- parameters_list$valid_val_filter
+      self$valid_val_thr <- parameters_list$valid_val_thr
+      self$norm_methods <- parameters_list$norm_methods
+      self$pep_filter <- parameters_list$pep_filter
+      self$pep_thr <- parameters_list$pep_thr
+      self$rev <- parameters_list$rev
+      self$cont <- parameters_list$cont
+      self$oibs <- parameters_list$oibs
+      ## for missing data page
+      self$imp_methods <- parameters_list$imp_methods
+      self$imp_shift <- parameters_list$imp_shift
+      self$imp_scale <- parameters_list$imp_scale
+      
+      self$parameters_loaded <- TRUE
+      
     },
     define_colors = function() {
       n_of_color <- max(self$expdesign %>% dplyr$distinct(condition) %>% nrow())
