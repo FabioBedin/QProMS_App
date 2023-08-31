@@ -161,6 +161,18 @@ QProMS <- R6Class(
       self$imp_methods <- parameters_list$imp_methods
       self$imp_shift <- parameters_list$imp_shift
       self$imp_scale <- parameters_list$imp_scale
+      ## for univariate page
+      self$univariate_test_type <- parameters_list$univariate_test_type
+      self$univariate_paired <- parameters_list$univariate_paired
+      self$fold_change <- parameters_list$fold_change
+      self$univariate_alpha <- parameters_list$univariate_alpha
+      self$univariate_p_adj_method <- parameters_list$univariate_p_adj_method
+      ## for multivariate page
+      self$anova_alpha <- parameters_list$anova_alpha
+      self$z_score <- parameters_list$z_score
+      self$anova_p_adj_method <- parameters_list$anova_p_adj_method
+      self$anova_clust_method <- parameters_list$anova_clust_method
+      self$clusters_number <- parameters_list$clusters_number
       
       self$parameters_loaded <- TRUE
       

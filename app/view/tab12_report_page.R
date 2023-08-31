@@ -8,6 +8,7 @@ box::use(
   quarto[quarto_render],
   here[here],
   yaml[write_yaml],
+  waiter[Waiter, spin_5, withWaiter],
 )
 
 #' @export
@@ -167,12 +168,15 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
+    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
     output$download_report <- downloadHandler(
       filename = function() {
         paste0("QProMS_report_", Sys.Date(), ".html")
       },
       content = function(file) {
+        
+        w$show()
         
         if(!is.null(r6$ora_table)) {
           r6$print_ora_table(ontology = "BP", groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
@@ -288,6 +292,7 @@ server <- function(id, r6) {
         
         file.copy(here("app/logic/QProMS_Report.html"), file)
         
+        w$hide()
         
       }
     )
@@ -310,7 +315,17 @@ server <- function(id, r6) {
           oibs = r6$oibs,
           imp_methods = r6$imp_methods,
           imp_shift = r6$imp_shift,
-          imp_scale = r6$imp_scale
+          imp_scale = r6$imp_scale,
+          univariate_test_type = r6$univariate_test_type,
+          univariate_paired = r6$univariate_paired,
+          fold_change = r6$fold_change,
+          univariate_alpha = r6$univariate_alpha,
+          univariate_p_adj_method = r6$univariate_p_adj_method,
+          anova_alpha = r6$anova_alpha,
+          z_score = r6$z_score,
+          anova_p_adj_method = r6$anova_p_adj_method,
+          anova_clust_method = r6$anova_clust_method,
+          clusters_number = r6$clusters_number
         )
         
         write_yaml(x = parameters_list, file = file)

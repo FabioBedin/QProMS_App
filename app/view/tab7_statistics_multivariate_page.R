@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, br, numericInput, h5, h6, observeEvent, req, reactive, uiOutput, renderUI, isolate, observe],
+  shiny[moduleServer, NS, fluidRow, div, column, icon, h3, h4, p, selectInput, updateSelectInput, updateNumericInput, br, numericInput, h5, h6, observeEvent, req, reactive, uiOutput, renderUI, isolate, observe],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, updatePrettyCheckbox],
   dplyr[filter, `%>%`, pull, distinct],
   iheatmapr[...],
   gargoyle[init, watch, trigger],
@@ -92,11 +92,7 @@ ui <- function(id) {
                   step = 1, 
                   width = "auto"
                 )
-              ),
-              # div(
-              #   style = "width: 100%; flex: 1 1 0;",
-              #   
-              # )
+              )
             )
           ),
           width = 12
@@ -118,7 +114,6 @@ ui <- function(id) {
         )
       )
     ),
-    # fluidRow(),
     fluidRow(
       column(7,
         box(
@@ -305,6 +300,18 @@ server <- function(id, r6) {
         footer = p("N° of clusters", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
+      
+    })
+    
+    observe({
+      
+      watch("params")
+      
+      updateSelectInput(inputId = "alpha_input", selected = r6$anova_alpha)
+      updatePrettyCheckbox(inputId = "zscore_input", value = r6$z_score)
+      updateSelectInput(inputId = "truncation_input", selected = r6$anova_p_adj_method)
+      updateSelectInput(inputId = "clust_method", selected = r6$anova_clust_method)
+      updateNumericInput(inputId = "n_cluster_input", value = r6$clusters_number)
       
     })
     

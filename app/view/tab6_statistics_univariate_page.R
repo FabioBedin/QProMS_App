@@ -1,8 +1,8 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler, column],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateNumericInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler, column, observe],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn, updatePrettyCheckbox],
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
   magrittr[`%>%`],
@@ -397,6 +397,18 @@ server <- function(id, r6) {
         footer = p("Down-regulated in primary condition", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
+      
+    })
+    
+    observe({
+      
+      watch("params")
+      
+      updateSelectInput(inputId = "test_input", selected = r6$univariate_test_type)
+      updatePrettyCheckbox(inputId = "paider_input", value = r6$univariate_paired)
+      updateNumericInput(inputId = "fc_input", value = r6$fold_change)
+      updateSelectInput(inputId = "alpha_input", selected = r6$univariate_alpha)
+      updateSelectInput(inputId = "truncation_input", selected = r6$univariate_p_adj_method)
       
     })
     
