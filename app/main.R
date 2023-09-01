@@ -130,7 +130,7 @@ ui <- function(id) {
         menuItemOutput(ns("report"))
       )
     ),
-    controlbar = dashboardControlbar(),
+    controlbar = NULL,
     footer = dashboardFooter(),
     body = dashboardBody(
       useWaiter(),
