@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p, reactive, textInput],
-  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, toast],
-  shinyWidgets[actionBttn],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p, reactive, textInput, column],
+  bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, toast, accordion, accordionItem, updateAccordion],
+  shinyWidgets[actionBttn, prettyCheckbox],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
   magrittr[`%>%`],
   janitor[make_clean_names, get_dupes],
@@ -35,190 +35,194 @@ ui <- function(id) {
       valueBoxOutput(ns("n_replicate"), width = 3)
     ),
     fluidRow(
-      box(
-        title = "Upload data",
-        status = "primary",
-        width = 3,
-        height = 700,
-        br(),
-        fileInput(
-          inputId = ns("upload_file"),
-          label = NULL,
-          multiple = FALSE,
-          width = "100%",
-          placeholder = "proteinGroups.txt",
-          accept = ".txt"
-        ),
-        fileInput(
-          inputId = ns("upload_params"),
-          label = NULL,
-          multiple = FALSE,
-          width = "100%",
-          placeholder = "QProMS_parameters.yaml",
-          accept = ".yaml"
-        ),
-        selectInput(
-          inputId = ns("source_type"),
-          label = "Table source",
-          choices = c("MaxQuant" = "max_quant", "External table" = "external"),
-          selected = "max_quant"
-        ),
-        conditionalJS(
-          div(
-            textInput(
-              inputId = ns("intensity_type2"),
-              label = "Write intensity regex",
-              value = ""
-            ),
-            textInput(
-              inputId = ns("genes_col"),
-              label = "Specify ID column",
-              value = ""
+      column(
+        width = 10,
+        accordion(
+          id = ns("upload_files"),
+          accordionItem(
+            title = "Upload data",
+            status = "primary",
+            collapsed = FALSE,
+            solidHeader = FALSE,
+            div(
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                fileInput(
+                  inputId = ns("upload_file"),
+                  label = "Input table",
+                  multiple = FALSE,
+                  width = "100%",
+                  placeholder = "proteinGroups.txt",
+                  accept = ".txt"
+                ),
+                prettyCheckbox(
+                  inputId = ns("use_params"),
+                  label = "Load parameters", 
+                  value = FALSE,
+                  shape = "curve", 
+                  width = "auto"
+                ),
+                conditionalJS(
+                  fileInput(
+                    inputId = ns("upload_params"),
+                    label = NULL,
+                    multiple = FALSE,
+                    width = "100%",
+                    placeholder = "QProMS_parameters.yaml",
+                    accept = ".yaml"
+                  ),
+                  condition = "input.use_params",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("source_type"),
+                  label = "Table source",
+                  choices = c("MaxQuant" = "max_quant", "External table" = "external"),
+                  selected = "max_quant"
+                ),
+                conditionalJS(
+                  div(
+                    textInput(
+                      inputId = ns("intensity_type2"),
+                      label = "Write intensity regex",
+                      value = ""
+                    ),
+                    textInput(
+                      inputId = ns("genes_col"),
+                      label = "Specify ID column",
+                      value = ""
+                    )
+                  ),
+                  condition = "input.source_type == 'external'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                ),
+                conditionalJS(
+                  selectInput(
+                    inputId = ns("intensity_type"),
+                    label = "Select Intensity type",
+                    choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
+                    selected = "lfq_intensity_"
+                  ),
+                  condition = "input.source_type != 'external'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("organism"),
+                  label = "Organism",
+                  choices = c("Homo Sapiens", "Mus Musculus"),
+                  selected = "Homo Sapiens"
+                ),
+                palettePicker(
+                  inputId = ns("palette"),
+                  label = "Palettes:",
+                  choices = list(
+                    "A" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "A"
+                    ),
+                    "B" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "B"
+                    ),
+                    "C" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "C"
+                    ),
+                    "D" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "D"
+                    ),
+                    "E" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "E"
+                    ),
+                    "F" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "F"
+                    ),
+                    "G" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "G"
+                    ),
+                    "H" = viridis(
+                      n = 6,
+                      direction = -1,
+                      end = 0.90,
+                      begin = 0.10,
+                      option = "H"
+                    )
+                  ),
+                  selected = "D"
+                )
+              )
             )
           ),
-          condition = "input.source_type == 'external'",
-          jsCall = jsCalls$show(),
-          ns = ns
-        ),
-        conditionalJS(
-          selectInput(
-            inputId = ns("intensity_type"),
-            label = "Select Intensity type",
-            choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
-            selected = "lfq_intensity_"
-          ),
-          condition = "input.source_type != 'external'",
-          jsCall = jsCalls$show(),
-          ns = ns
-        ),
-        selectInput(
-          inputId = ns("organism"),
-          label = "Organism",
-          choices = c("Homo Sapiens", "Mus Musculus"),
-          selected = "Homo Sapiens"
-        ),
-        palettePicker(
-          inputId = ns("palette"),
-          label = "Palettes:",
-          choices = list(
-            "A" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "A"
-            ),
-            "B" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "B"
-            ),
-            "C" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "C"
-            ),
-            "D" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "D"
-            ),
-            "E" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "E"
-            ),
-            "F" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "F"
-            ),
-            "G" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "G"
-            ),
-            "H" = viridis(
-              n = 6,
-              direction = -1,
-              end = 0.90,
-              begin = 0.10,
-              option = "H"
+          accordionItem(
+            title = "Experimental Design",
+            status = "primary",
+            collapsed = TRUE,
+            solidHeader = FALSE,
+            div(
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+              div(
+                style = "width: 100%; flex: 1 1 0; padding: 0.5rem",
+                rHandsontableOutput(ns("expdesign_table"))
+              )
             )
           ),
-          selected = "D"
-        ),
-        br(),
+          width = 12
+        )
+      ),
+      column(
+        width = 2,
         div(
-          style = "display: flex; justify-content: center; gap: 20px",
-          div(
-            style = "width: 100%;",
+          style = "width: 100%; margin-top: 2.5px;",
+          disabled(
             actionBttn(
-              inputId = ns("help_me"),
-              label = "Help me!", 
+              inputId = ns("upload"),
+              label = "Upload", 
               style = "material-flat",
-              color = "default",
+              color = "primary",
               size = "md",
               block = TRUE
             )
-          ),
-          div(
-            style = "width: 100%;",
-            disabled(
-              actionBttn(
-                inputId = ns("upload"),
-                label = "Upload", 
-                style = "material-flat",
-                color = "primary",
-                size = "md",
-                block = TRUE
-              )
-            )
           )
         ),
-        footer = div(
-          style = "display: flex; justify-content: center; gap: 20px; height: 40px",
+        div(
+          style = "display: flex; justify-content: center; gap: 1rem; align-items: start;",
           div(
-            style = "width: 100%;",
-            conditionalJS(
-              ui = actionBttn(
-                inputId = ns("start"),
-                label = "Start", 
-                style = "material-flat",
-                color = "success",
-                size = "md",
-                block = TRUE
-              ),
-              condition = "input.confirm > 0",
-              jsCall = jsCalls$show(),
-              ns = ns
-            )
-          )
-        )
-      ),
-      box(
-        title = "Experimental Design",
-        status = "primary",
-        width = 9,
-        height = 700,
-        maximizable = TRUE,
-        rHandsontableOutput(ns("expdesign_table")),
-        footer = div(
-          style = "display: flex; justify-content: end; gap: 20px; height: 40px",
-          div(
-            style = "width: 150px;",
+            style = "width: 100%; flex: 1 1 0; margin-top: 22px;",
             conditionalJS(
               ui = actionBttn(
                 inputId = ns("reset"),
@@ -234,7 +238,7 @@ ui <- function(id) {
             )
           ),
           div(
-            style = "width: 150px;",
+            style = "width: 100%; flex: 1 1 0; margin-top: 22px;",
             conditionalJS(
               ui = actionBttn(
                 inputId = ns("confirm"),
@@ -249,10 +253,27 @@ ui <- function(id) {
               ns = ns
             )
           )
+        ),
+        div(
+          style = "width: 100%; margin-top: 22px;",
+          conditionalJS(
+            ui = actionBttn(
+              inputId = ns("start"),
+              label = "Start", 
+              style = "material-flat",
+              color = "success",
+              size = "md",
+              block = TRUE
+            ),
+            condition = "input.confirm > 0",
+            jsCall = jsCalls$show(),
+            ns = ns
+          )
         )
       )
     )
   )
+  
 
 }
 
@@ -454,6 +475,8 @@ server <- function(id, r6) {
           )
         }
       }
+      
+      updateAccordion(id = "upload_files", selected = 2)
       
     })
     
