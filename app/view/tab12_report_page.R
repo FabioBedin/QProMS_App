@@ -287,13 +287,15 @@ server <- function(id, r6) {
             gsea_result_bp = gsea_bp,
             gsea_result_mf = gsea_mf,
             gsea_result_cc = gsea_cc
-          )
+          ),
+          quiet = TRUE
         )
         
         file.copy(here("app/logic/QProMS_Report.html"), file)
         
         w$hide()
         
+        file.remove(here("app/logic/QProMS_Report.html"))
       }
     )
     

@@ -536,7 +536,7 @@ server <- function(id, r6) {
       
       input_error <- dplyr$case_when(
         nrow(des) < 1 ~ "The Experimental design is empty",
-        nrow(get_dupes(des, label)) != 0 ~ "duplicate names in label column",
+        !isTRUE(all(duplicated(des$label) == FALSE)) ~ "duplicate names in label column",
         TRUE ~ ""
       )
       if (input_error != "") {
