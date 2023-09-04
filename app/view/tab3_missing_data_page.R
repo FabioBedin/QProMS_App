@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, div, observeEvent, req, h4, p, uiOutput, renderUI, column],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, sliderInput, updateSelectInput, updateSliderInput, div, observeEvent, observe, req, h4, p, uiOutput, renderUI, column],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel, bs4Callout, accordion, accordionItem, updateAccordion],
   shinyWidgets[actionBttn],
   echarts4r[echarts4rOutput, renderEcharts4r],
@@ -256,6 +256,17 @@ server <- function(id, r6) {
       }
       
       r6$plot_imputation(data = data, imp_visualization = imp) 
+      
+    })
+    
+    observe({
+      
+      watch("params")
+      
+      updateSelectInput(inputId = "imputation_input", selected = r6$imp_methods)
+      updateSliderInput(inputId = "shift_slider", value = r6$imp_shift)
+      updateSliderInput(inputId = "scale_slider", value = r6$imp_scale)
+      
       
     })
     

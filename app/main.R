@@ -2,6 +2,7 @@ box::use(
   shiny[bootstrapPage, moduleServer, NS, renderText, tags, textOutput, icon, fluidRow, observeEvent, removeUI],
   bs4Dash[...],
   waiter[useWaiter, useWaitress, spin_5],
+  shiny.emptystate[use_empty_state],
   fresh[create_theme, bs4dash_vars, bs4dash_yiq, bs4dash_layout, bs4dash_sidebar_light, bs4dash_status, bs4dash_color, use_theme, bs4dash_button, bs_vars_button]
 )
 
@@ -16,6 +17,8 @@ box::use(
   app/view/tab8_functional_analysis_ora_page,
   app/view/tab9_functional_analysis_gsea_page,
   app/view/tab10_network_analysis_page,
+  app/view/tab11_download_table_page,
+  app/view/tab12_report_page,
 )
 
 box::use(
@@ -68,7 +71,7 @@ box::use(
 ui <- function(id) {
   ns <- NS(id)
   dashboardPage(
-    title = "QProMS beta",
+    title = "QProMS",
     fullscreen = TRUE,
     preloader = list(html = spin_5(), color = "#adb5bd"),
     header = dashboardHeader(
@@ -81,8 +84,6 @@ ui <- function(id) {
     ),
     sidebar = dashboardSidebar(
       tags$br(),
-      # sidebarHeader("Workflow"),
-      # tags$br(),
       sidebarMenu(
         id = ns("sidebarMenu"),
         menuItem(
@@ -90,6 +91,16 @@ ui <- function(id) {
           tabName = "upload_data",
           icon = icon("upload")
         ),
+        tags$div(id = 'analysis', "Analysis", style = "
+             letter-spacing: 3.2px;
+             line-height: 42px;
+             text-transform: uppercase;
+             text-align: center;
+             margin: 10px 0px;
+             background-color: #ffffff1a;
+             border-radius: 0.25rem;
+             color: #fff;"),
+        # bs4SidebarHeader("Workflow"),
         menuItemOutput(ns("wrangling_data_blocked")),
         menuItemOutput(ns("wrangling_data")),
         menuItemOutput(ns("missing_data_blocked")),
@@ -103,13 +114,27 @@ ui <- function(id) {
         menuItemOutput(ns("network_analysis_blocked")),
         menuItemOutput(ns("network_analysis")),
         menuItemOutput(ns("function_analysis_blocked")),
-        menuItemOutput(ns("function_analysis"))
+        menuItemOutput(ns("function_analysis")),
+        tags$div(id = 'tools', "Save results", style = "
+             letter-spacing: 3.2px;
+             line-height: 42px;
+             text-transform: uppercase;
+             text-align: center;
+             margin: 10px 0px;
+             background-color: #ffffff1a;
+             border-radius: 0.25rem;
+             color: #fff;"),
+        menuItemOutput(ns("download_table_blocked")),
+        menuItemOutput(ns("download_table")),
+        menuItemOutput(ns("report_blocked")),
+        menuItemOutput(ns("report"))
       )
     ),
-    controlbar = dashboardControlbar(),
+    controlbar = NULL,
     footer = dashboardFooter(),
     body = dashboardBody(
       useWaiter(),
+      use_empty_state(),
       useWaitress(color = "#adb5bd"),
       # use_theme(QProMS_theme),
       tabItems(
@@ -122,7 +147,9 @@ ui <- function(id) {
         tab7_statistics_multivariate_page$ui(ns("tab7_statistics_multivariate_page")),
         tab8_functional_analysis_ora_page$ui(ns("tab8_functional_analysis_ora_page")),
         tab9_functional_analysis_gsea_page$ui(ns("tab9_functional_analysis_gsea_page")),
-        tab10_network_analysis_page$ui(ns("tab10_network_analysis_page"))
+        tab10_network_analysis_page$ui(ns("tab10_network_analysis_page")),
+        tab11_download_table_page$ui(ns("tab11_download_table_page")),
+        tab12_report_page$ui(ns("tab12_report_page"))
       )
     )
   )
@@ -142,6 +169,8 @@ server <- function(id) {
     output$statistics_blocked <- renderMenu({ menuItem("Statistics", icon = icon("lock"), tabName = "") })
     output$function_analysis_blocked <- renderMenu({ menuItem("Functional Analysis", icon = icon("lock"), tabName = "") })
     output$network_analysis_blocked <- renderMenu({ menuItem("Network Analysis", icon = icon("lock"), tabName = "") })
+    output$download_table_blocked <- renderMenu({ menuItem("Download Tables", icon = icon("lock"), tabName = "") })
+    output$report_blocked <- renderMenu({ menuItem("Generate Report", icon = icon("lock"), tabName = "") })
     
     unlock_pages <- tab1_upload_data_page$server("tab1_upload_data_page", r6 = object)
     tab2_wrangling_data_page$server("tab2_wrangling_data_page", r6 = object)
@@ -153,6 +182,8 @@ server <- function(id) {
     tab8_functional_analysis_ora_page$server("tab8_functional_analysis_ora_page", r6 = object)
     tab9_functional_analysis_gsea_page$server("tab9_functional_analysis_gsea_page", r6 = object)
     tab10_network_analysis_page$server("tab10_network_analysis_page", r6 = object)
+    tab11_download_table_page$server("tab11_download_table_page", r6 = object)
+    tab12_report_page$server("tab12_report_page", r6 = object)
     
     
     observeEvent(unlock_pages(), {
@@ -208,6 +239,12 @@ server <- function(id) {
       
       output$network_analysis <- renderMenu({ menuItem("Network Analysis", icon = icon("code-fork"), tabName = "network") })
       removeUI(selector = "#app-network_analysis_blocked")
+      
+      output$download_table <- renderMenu({ menuItem("Download Tables", icon = icon("download"), tabName = "download") })
+      removeUI(selector = "#app-download_table_blocked")
+      
+      output$report <- renderMenu({ menuItem("Generate Report", icon = icon("file"), tabName = "report") })
+      removeUI(selector = "#app-report_blocked")
       
     })
     

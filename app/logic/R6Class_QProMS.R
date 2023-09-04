@@ -5,7 +5,7 @@ box::use(
   tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe, rowid_to_column],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median, runif],
   utils[combn],
   htmltools,
   dplyr,
@@ -24,6 +24,8 @@ box::use(
   org.Hs.eg.db[org.Hs.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
+  openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook],
+  yaml[write_yaml, read_yaml]
 )
 
 #' @export
@@ -33,6 +35,8 @@ QProMS <- R6Class(
     ####################
     # Input parameters #
     raw_data = NULL,
+    parameters_loaded = FALSE,
+    path = NULL,
     data = NULL,
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
@@ -91,6 +95,7 @@ QProMS <- R6Class(
     ora_result_list = NULL,
     ora_result_list_simplified = NULL,
     ora_table = NULL,
+    ora_table_all_download = NULL,
     ora_table_counts = NULL,
     go_ora_from_statistic = NULL,
     go_ora_tested_condition = NULL,
@@ -106,6 +111,7 @@ QProMS <- R6Class(
     gsea_result_list = NULL,
     gsea_result_list_simplified = NULL,
     gsea_table = NULL,
+    gsea_table_all_download = NULL,
     gsea_table_counts = NULL,
     go_gsea_tested_condition = NULL,
     go_gsea_alpha = 0.05,
@@ -121,6 +127,7 @@ QProMS <- R6Class(
     edges_table = NULL,
     name_for_edges = NULL,
     network_from_statistic = NULL,
+    network_score_thr = NULL,
     network_focus =  "cluster_1",
     selected_nodes = NULL,
     pdb_database = NULL,
@@ -131,7 +138,44 @@ QProMS <- R6Class(
       self$raw_data <- fread(input = input_path) %>%
         as_tibble(.name_repair = make_clean_names)
       
+      self$path <- input_path
+      
       self$input_type <- input_type
+    },
+    loading_patameters = function(input_path) {
+      
+      parameters_list <- read_yaml(file = input_path)
+      
+      self$expdesign <- as_tibble(parameters_list$expdesign)
+      
+      ## for wrangling data page
+      self$valid_val_filter <- parameters_list$valid_val_filter
+      self$valid_val_thr <- parameters_list$valid_val_thr
+      self$norm_methods <- parameters_list$norm_methods
+      self$pep_filter <- parameters_list$pep_filter
+      self$pep_thr <- parameters_list$pep_thr
+      self$rev <- parameters_list$rev
+      self$cont <- parameters_list$cont
+      self$oibs <- parameters_list$oibs
+      ## for missing data page
+      self$imp_methods <- parameters_list$imp_methods
+      self$imp_shift <- parameters_list$imp_shift
+      self$imp_scale <- parameters_list$imp_scale
+      ## for univariate page
+      self$univariate_test_type <- parameters_list$univariate_test_type
+      self$univariate_paired <- parameters_list$univariate_paired
+      self$fold_change <- parameters_list$fold_change
+      self$univariate_alpha <- parameters_list$univariate_alpha
+      self$univariate_p_adj_method <- parameters_list$univariate_p_adj_method
+      ## for multivariate page
+      self$anova_alpha <- parameters_list$anova_alpha
+      self$z_score <- parameters_list$z_score
+      self$anova_p_adj_method <- parameters_list$anova_p_adj_method
+      self$anova_clust_method <- parameters_list$anova_clust_method
+      self$clusters_number <- parameters_list$clusters_number
+      
+      self$parameters_loaded <- TRUE
+      
     },
     define_colors = function() {
       n_of_color <- max(self$expdesign %>% dplyr$distinct(condition) %>% nrow())
@@ -442,17 +486,31 @@ QProMS <- R6Class(
         
         if(self$is_mixed){
           data_mixed <- data %>%
+            rownames_to_column() %>% 
             dplyr$group_by(gene_names, condition) %>%
             dplyr$mutate(for_mean_imp = dplyr$if_else((sum(bin_intensity) / dplyr$n()) >= 0.75, TRUE, FALSE)) %>%
-            dplyr$mutate(mean_grp = mean(intensity, na.rm = TRUE)) %>%
-            dplyr$ungroup() %>%
-            dplyr$mutate(imp_intensity = dplyr$case_when(
-              bin_intensity == 0 & for_mean_imp ~ mean_grp,
-              TRUE ~ as.numeric(intensity))) %>%
-            dplyr$mutate(intensity = imp_intensity) %>% 
-            dplyr$select(-c(for_mean_imp, mean_grp, imp_intensity))
+            dplyr$filter(for_mean_imp) %>% 
+            dplyr$mutate(random_imp = runif(
+              n = 1,
+              min = min(intensity, na.rm = TRUE),
+              max = max(intensity, na.rm = TRUE)
+            )) %>% 
+            dplyr$ungroup() %>% 
+            dplyr$select(rowname, for_mean_imp, random_imp)
           
-          data <- data_mixed
+          data_mixed_final <- data %>% 
+            rownames_to_column() %>% 
+            dplyr$left_join(data_mixed, by = "rowname") %>% 
+            dplyr$mutate(
+              imp_intensity = dplyr$case_when(
+                bin_intensity == 0 & for_mean_imp ~ random_imp,
+                TRUE ~ as.numeric(intensity)
+              )
+            ) %>%
+            dplyr$mutate(intensity = imp_intensity) %>%
+            dplyr$select(-c(rowname, for_mean_imp, random_imp, imp_intensity))
+          
+          data <- data_mixed_final
         }
         
         if(unique_visual){
@@ -520,9 +578,10 @@ QProMS <- R6Class(
             highlight = TRUE,
             wrap = FALSE,
             height = "auto",
+            defaultColDef = colDef(align = "center", minWidth = 200),
             columns = list(
               gene_names = colDef(
-                minWidth = 200,
+                name = "Gene names",
                 sticky = "left",
                 style = list(borderRight  = "1px solid #eee"
                 )
@@ -558,6 +617,17 @@ QProMS <- R6Class(
         list_rbind(names_to = "group") %>% 
         as_tibble()
       
+      self$ora_table_all_download <- ora_table_all %>% 
+        tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
+        tidyr$separate(BgRatio, into = c("c", "d"), sep = "/", remove = FALSE) %>%
+        dplyr$mutate(fold_change = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
+        dplyr$select(-c(a,b,c,d)) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
+        dplyr$relocate(ID) %>% 
+        dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
+        dplyr$relocate(Count, .after = fold_change) 
+      
       self$ora_table_counts <- ora_table_all %>% 
         dplyr$group_by(ONTOLOGY) %>% 
         dplyr$summarise(count = dplyr$n())
@@ -589,6 +659,16 @@ QProMS <- R6Class(
       gsea_table_all <- map(self$gsea_result_list_simplified, ~ pluck(.x, "result")) %>%
         list_rbind(names_to = "group") %>%
         as_tibble() 
+      
+      self$gsea_table_all_download <- gsea_table_all %>% 
+        dplyr$select(-leading_edge) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
+        dplyr$mutate(dplyr$across(c(
+          "pvalue", "p.adjust", "qvalue", "NES", "enrichmentScore"
+        ), ~ round(., 2))) %>%
+        dplyr$relocate(ID) %>%
+        dplyr$arrange(-pvalue) 
+        
       
       self$gsea_table_counts <- gsea_table_all %>% 
         dplyr$group_by(ONTOLOGY) %>% 
@@ -1978,7 +2058,7 @@ QProMS <- R6Class(
       
       return(p)
     },
-    plot_volcano = function(test, highlights_names = NULL, same_x = FALSE, same_y = TRUE) {
+    plot_volcano = function(test, highlights_names = NULL, same_x = FALSE, same_y = TRUE, max_cols = 3) {
       
       volcanos <- map(
         .x = test,
@@ -1989,7 +2069,7 @@ QProMS <- R6Class(
           same_y = same_y
         )
       )
-      p <- self$e_arrange_list(volcanos)
+      p <- self$e_arrange_list(volcanos, max_cols = max_cols)
       
       return(p)
     },
@@ -2588,6 +2668,38 @@ QProMS <- R6Class(
       }
       
       return(p)
+      
+    },
+    download_excel = function(table, name, handler) {
+      
+      header_style <- createStyle(
+        fontSize = 12,
+        fontColour = "#0f0f0f",
+        fgFill = "#faf2ca",
+        halign = "center",
+        border = "TopBottomLeftRight")
+      
+      body_style <- createStyle(
+        halign = "center",
+        border = "TopBottomLeftRight")
+      
+      excel <- createWorkbook()
+      
+      addWorksheet(excel, sheetName = name, gridLines = F)
+      
+      writeDataTable(excel, sheet = name, x = table, keepNA = T, na.string = "NaN")
+      
+      n_row <- table %>% nrow() + 1
+      
+      n_col <- table %>% ncol()
+      
+      setColWidths(excel, sheet = name, cols = 1:n_col, widths = 21)
+      
+      addStyle(excel, sheet = name, style = header_style, rows = 1, cols = 1:n_col, gridExpand = T)
+      
+      addStyle(excel, sheet = name, style = body_style, rows = 2:n_row, cols = 1:n_col, gridExpand = T)
+      
+      saveWorkbook(excel, handler, overwrite = T)
       
     }
   )

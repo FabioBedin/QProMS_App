@@ -516,10 +516,12 @@ server <- function(id, r6) {
       
       req(input$generate_network)
       
+      r6$network_score_thr <- isolate(input$score_thr)
+      
       if (!is.null(r6$nodes_table)) {
         nodes <- r6$print_nodes(
           isolate_nodes = isolate(input$isolate_nodes_input),
-          score_thr = isolate(input$score_thr)
+          score_thr = r6$network_score_thr
         )
         
         highlights <- nodes[gene_selected(), ] %>% 
@@ -534,7 +536,7 @@ server <- function(id, r6) {
         
         r6$plot_ppi_network(
           list_from = r6$network_from_statistic,
-          score_thr = isolate(input$score_thr),
+          score_thr = r6$network_score_thr,
           isolate_nodes = isolate(input$isolate_nodes_input),
           layout = isolate(input$layout),
           show_names = isolate(input$names_input),

@@ -1,0 +1,716 @@
+---
+title: "QProMS Report"
+subtitle: "Quantitative Proteomic Made Simple"
+date: today
+format:
+  html:
+    self-contained: true
+    theme: flatly
+    page-layout: article
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    smooth-scroll: true
+    grid:
+      sidebar-width: 250px
+      body-width: 1100px
+      margin-width: 150px
+      gutter-width: 1.5rem
+execute:
+  echo: false
+  warning: false
+  message: false
+params: 
+  palette: ""
+  expdesign: NULL
+  filtered_data: NULL
+  normalized_data: NULL
+  imputed_data: NULL
+  tests: ""
+  stat_table: NULL
+  anova_table: NULL
+  z_score: NULL
+  anova_clust_method: NULL
+  clusters_number: NULL
+  nodes_table: NULL
+  edges_table: NULL
+  net_stat: NULL
+  net_score: NULL
+  ora_result_bp: NULL
+  ora_result_mf: NULL
+  ora_result_cc: NULL
+  gsea_result_bp: NULL
+  gsea_result_mf: NULL
+  gsea_result_cc: NULL
+  par_protein_counts: NULL
+  par_upset_plot: NULL
+  par_intensity_dist: NULL
+  par_cv: NULL
+  par_md_counts: NULL
+  par_md_distribution: NULL
+  par_imputation: NULL
+  par_pca: NULL
+  par_correlation: NULL
+  par_univariate: NULL
+  par_multivariate: NULL
+  par_network: NULL
+  par_ora: NULL
+  par_gsea: NULL
+---
+This is a report summarizing the results obtained from [QProMS App](https://bioserver.ieo.it/shiny/app/qproms).
+```{r, loading-params-from-app}
+box::use(
+  tibble[as_tibble],
+  yaml[yaml.load],
+  dplyr[mutate, `%>%`, if_else, across, ends_with],
+  reactable[reactable, colDef],
+)
+
+box::use(
+  app/logic/R6Class_QProMS,
+)
+
+r6 <- R6Class_QProMS$QProMS$new()
+
+r6$palette <- params$palette
+# r6$color_palette <- params$color_palette
+r6$expdesign <- as_tibble(params$expdesign)
+
+r6$define_colors()
+
+r6$filtered_data <- as_tibble(params$filtered_data) %>% 
+  mutate(intensity = as.double(intensity))
+
+r6$normalized_data <- as_tibble(params$normalized_data) %>% 
+  mutate(intensity = as.double(intensity))
+
+r6$imputed_data <- as_tibble(params$imputed_data) %>% 
+  mutate(intensity = as.double(intensity)) %>% 
+  mutate(imputed = if_else(imputed == "no", FALSE, TRUE))
+
+r6$primary_condition <- params$tests[1]
+```
+
+`r if (params$par_protein_counts == "no" & params$par_upset_plot == "no" & params$par_intensity_dist == "no" & params$par_cv == "no") "::: {.content-hidden}"`
+
+# Filter Data
+All the graph in this sections are useful to evaluate the quality of the dataset and verify the effect of cerain types of filters.
+
+::: {.panel-tabset}
+
+`r if (params$par_protein_counts == "no") "::: {.content-hidden}"`
+## Protein Counts
+Barplot representing the number of proteins for each replicate. The color-code is condition-based.
+
+```{r, protein-counts}
+r6$plot_protein_counts()
+```
+
+`r if (params$par_protein_counts == "no") ":::"`
+
+`r if (params$par_upset_plot == "no") "::: {.content-hidden}"`
+## Upset plot
+Number of quantified proteins across all samples.
+```{r, upset}
+r6$plot_protein_coverage()
+```
+
+`r if (params$par_upset_plot == "no") ":::"`
+
+`r if (params$par_intensity_dist == "no") "::: {.content-hidden}"`
+## Intensity distribution
+The boxplot shows the distribution between the different samples. If the medians are not aligned it is necessary to consider a normalization step.
+```{r, intensity-distribution}
+r6$plot_distribution()
+```
+
+`r if (params$par_intensity_dist == "no") ":::"`
+
+`r if (params$par_cv == "no") "::: {.content-hidden}"`
+## CV
+The boxplot show the coefficient of variation between conditions, which is a standardized measure of dispersion of a probability distribution.
+```{r, cv}
+r6$plot_cv()
+```
+
+`r if (params$par_cv == "no") ":::"`
+
+:::
+
+## Filtred data table
+
+```{r, filtred-table}
+r6$print_table(r6$normalized_data)
+```
+
+`r if (params$par_protein_counts == "no" & params$par_upset_plot == "no" & params$par_intensity_dist == "no" & params$par_cv == "no") ":::"`
+
+`r if (params$par_md_counts == "no" & params$par_md_distribution == "no" & params$par_imputation == "no") "::: {.content-hidden}"`
+
+# Missing Data
+The following plots show how the missing data are influencing the dataset. 
+
+::: {.panel-tabset}
+
+`r if (params$par_md_counts == "no") "::: {.content-hidden}"`
+## Counts
+Percentage of missing data per sample.
+```{r, missing-data-counts}
+r6$plot_missing_data()
+```
+
+`r if (params$par_md_counts == "no") ":::"`
+
+`r if (params$par_md_distribution == "no") "::: {.content-hidden}"`
+## Distribution
+A plot finalized to show that the majority of missing data are low intensity
+```{r, missing-data-distribution}
+r6$plot_missval_distribution()
+```
+
+`r if (params$par_md_distribution == "no") ":::"`
+
+`r if (params$par_imputation == "no") "::: {.content-hidden}"`
+## Before Imputation
+Intesities distribution before imputation
+```{r, pre-imputation}
+r6$plot_imputation(data = r6$normalized_data, imp_visualization = FALSE)
+```
+
+## After Imputation
+Intesities distribution after imputation, with the possibility to check imputed data.
+```{r, after-imputation}
+#| eval: !expr if(!is.null(params$imputed_data)) TRUE else FALSE
+r6$plot_imputation(data = r6$imputed_data, imp_visualization = TRUE)
+```
+
+`r if (params$par_imputation == "no") ":::"`
+
+:::
+
+## Imputed data table
+
+```{r, imputed-table}
+#| eval: !expr if(!is.null(params$imputed_data)) TRUE else FALSE
+r6$print_table(r6$imputed_data)
+```
+
+`r if (params$par_md_counts == "no" & params$par_md_distribution == "no" & params$par_imputation == "no") ":::"`
+
+`r if (params$par_pca == "no" & params$par_correlation == "no") "::: {.content-hidden}"`
+ 
+# Exploratory Data Analysis
+
+Pre-statistics step for quality control.
+
+::: {.panel-tabset}
+
+`r if (params$par_pca == "no") "::: {.content-hidden}"`
+## PCA
+```{r, pca, fig.height=10}
+r6$plot_pca()
+```
+
+`r if (params$par_pca == "no") ":::"`
+
+`r if (params$par_correlation == "no") "::: {.content-hidden}"`
+## Correlation Heatmap
+```{r, correlation-heatmap, fig.height=10}
+r6$plot_correlation_interactive()
+```
+
+`r if (params$par_correlation == "no") ":::"`
+
+:::
+
+`r if (params$par_pca == "no" & params$par_correlation == "no") ":::"`
+
+`r if (params$par_univariate == "no" & params$par_multivariate == "no") "::: {.content-hidden}"`
+
+# Statistics
+
+`r if (params$par_univariate == "no") "::: {.content-hidden}"`
+
+## Univariate
+
+```{r, volcano-plot}
+#| eval: !expr if(!is.null(params$stat_table)) TRUE else FALSE
+
+r6$stat_table <- as_tibble(params$stat_table) %>% 
+  mutate(across(ends_with("_significant"), ~ if_else(.x == "no", FALSE, TRUE)))
+
+r6$plot_volcano(test = params$tests, same_x = TRUE, same_y = TRUE, max_cols = 1)
+```
+
+
+```{r, result-stat-table}
+#| eval: !expr if(!is.null(params$stat_table)) TRUE else FALSE
+table <- r6$print_stat_table()
+      
+reactable(
+  table,
+  searchable = TRUE,
+  resizable = TRUE,
+  highlight = TRUE,
+  wrap = FALSE,
+  height = "auto",
+  defaultColDef = colDef(align = "center", minWidth = 200),
+  columns = list(
+    gene_names = colDef(
+      name = "Gene names",
+      sticky = "left",
+      style = list(borderRight  = "1px solid #eee")
+    )
+  )
+)
+```
+
+```{r, message-no-uni}
+#| eval: !expr if(is.null(params$stat_table)) TRUE else FALSE
+
+cat("NO univariate analysis in your data")
+```
+
+`r if (params$par_univariate == "no") ":::"`
+
+`r if (params$par_multivariate == "no") "::: {.content-hidden}"`
+
+## Multivariate
+
+```{r, heatmap-multi, fig.height=10}
+#| eval: !expr if(!is.null(params$anova_table)) TRUE else FALSE
+
+r6$anova_table <- as_tibble(params$anova_table) %>% 
+   mutate(significant = if_else(significant == "no", FALSE, TRUE))
+
+r6$plot_heatmap(
+  z_score = yaml.load(params$z_score),
+  clustering_method = params$anova_clust_method,
+  n_cluster = params$clusters_number,
+  manual_order = FALSE,
+  order = NULL
+)
+```
+
+```{r, result-anova-table}
+#| eval: !expr if(!is.null(params$anova_table)) TRUE else FALSE
+table <- r6$print_anova_table()
+      
+reactable(
+  table,
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 7,
+  height = "auto",
+  columns = list(
+    gene_names = colDef(align = "center", name = "Gene names"),
+    p_val = colDef(align = "center", name = "-log(p.value)"),
+    p_adj = colDef(align = "center", name = "-log(p.adj)"),
+    cluster = colDef(align = "center", name = "Cluster"),
+    significant = colDef(
+      align = "center",
+      name = "Significant",
+      cell = function(value) {
+        if (!value)
+          "\u274c No"
+        else
+          "\u2714\ufe0f Yes"
+      }
+    )
+  )
+)
+```
+
+
+```{r, message-no-multi}
+#| eval: !expr if(is.null(params$anova_table)) TRUE else FALSE
+
+cat("NO multivariate analysis in your data")
+```
+
+`r if (params$par_multivariate == "no") ":::"`
+
+`r if (params$par_univariate == "no" & params$par_multivariate == "no") ":::"`
+
+`r if (params$par_network == "no") "::: {.content-hidden}"`
+
+# Network analysis
+
+```{r, network, fig.height=10}
+#| eval: !expr if(!is.null(params$nodes_table)) TRUE else FALSE
+
+r6$nodes_table <- as_tibble(params$nodes_table) %>% 
+  mutate(significant = if_else(significant == "no", FALSE, TRUE))
+
+r6$edges_table <- as_tibble(params$edges_table)
+
+r6$plot_ppi_network(
+          list_from = params$net_stat,
+          score_thr = params$net_score,
+          isolate_nodes = FALSE,
+          layout = "force",
+          show_names = TRUE,
+          selected = NULL,
+          filtred = FALSE
+        )
+```
+
+```{r, message-no-net}
+#| eval: !expr if(is.null(params$nodes_table)) TRUE else FALSE
+
+cat("NO network analysis in your data")
+```
+
+
+::: {.panel-tabset}
+
+## Nodes table
+
+```{r, nodes-table}
+#| eval: !expr if(!is.null(params$nodes_table)) TRUE else FALSE
+
+nodes <- r6$print_nodes(
+  isolate_nodes = FALSE,
+  score_thr = params$net_score
+)
+
+reactable(
+  nodes,
+  searchable = TRUE,
+  resizable = TRUE,
+  highlight = TRUE,
+  wrap = FALSE,
+  paginateSubRows = TRUE,
+  height = "auto",
+  defaultPageSize = 7,
+  columns = list(
+    gene_names = colDef(name = "Node"),
+    category = colDef(name = "Category"),
+    p_val = colDef(align = "center", name = "-log(p.value)"),
+    p_adj = colDef(align = "center", name = "-log(p.adj)")
+  )
+)
+```
+
+```{r, message-no-nodes}
+#| eval: !expr if(is.null(params$nodes_table)) TRUE else FALSE
+
+cat("NO data")
+```
+
+
+## Edges table
+
+```{r, edges-table}
+#| eval: !expr if(!is.null(params$nodes_table)) TRUE else FALSE
+
+edges <- r6$print_edges(
+  score_thr = params$net_score,
+  selected_nodes = NULL
+)
+
+reactable(
+  edges,
+  searchable = TRUE,
+  resizable = TRUE,
+  highlight = TRUE,
+  wrap = FALSE,
+  height = "auto",
+  defaultPageSize = 7,
+  columns = list(
+    target = colDef(aggregate = "unique", minWidth = 100, name = "Target"),
+    source = colDef(name = "Source"),
+    database = colDef(name = "Database"),
+    complex = colDef(minWidth = 300, name = "Complex"),
+    score = colDef(align = "center", name = "Score")
+  )
+)
+```
+
+```{r, message-no-edges}
+#| eval: !expr if(is.null(params$nodes_table)) TRUE else FALSE
+
+cat("NO data")
+```
+
+:::
+
+`r if (params$par_network == "no") ":::"`
+
+`r if (params$par_ora == "no" & params$par_gsea == "no") "::: {.content-hidden}"`
+
+# Functional analysis
+
+`r if (params$par_ora == "no") "::: {.content-hidden}"`
+
+## ORA
+
+::: {.panel-tabset}
+
+### Biological Process (BP)
+
+```{r, bp}
+#| eval: !expr if(!is.null(params$ora_result_bp)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$ora_result_bp),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ), 
+    group = colDef(minWidth = 250),
+    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    Description = colDef(minWidth = 400),
+    geneID = colDef(minWidth = 1000),
+    GeneRatio = colDef(align = "center", name = "Gene ratio"),
+    BgRatio = colDef(align = "center", name = "Bg ratio"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    Count = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-bp}
+#| eval: !expr if(is.null(params$ora_result_bp)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+
+### Molecolar Function (MF)
+
+```{r, mf}
+#| eval: !expr if(!is.null(params$ora_result_mf)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$ora_result_mf),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ), 
+    group = colDef(minWidth = 250),
+    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    Description = colDef(minWidth = 400),
+    geneID = colDef(minWidth = 1000),
+    GeneRatio = colDef(align = "center", name = "Gene ratio"),
+    BgRatio = colDef(align = "center", name = "Bg ratio"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    Count = colDef(align = "center")
+  )
+)
+```
+
+
+```{r, no-mf}
+#| eval: !expr if(is.null(params$ora_result_mf)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+### Cellular Component (CC)
+
+```{r, cc}
+#| eval: !expr if(!is.null(params$ora_result_cc)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$ora_result_cc),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ), 
+    group = colDef(minWidth = 250),
+    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    Description = colDef(minWidth = 400),
+    geneID = colDef(minWidth = 1000),
+    GeneRatio = colDef(align = "center", name = "Gene ratio"),
+    BgRatio = colDef(align = "center", name = "Bg ratio"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    Count = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-cc}
+#| eval: !expr if(is.null(params$ora_result_cc)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+:::
+
+`r if (params$par_ora == "no") ":::"`
+
+`r if (params$par_gsea == "no") "::: {.content-hidden}"`
+
+## GSEA
+
+::: {.panel-tabset}
+
+### Biological Process (BP)
+
+```{r, gbp}
+#| eval: !expr if(!is.null(params$gsea_result_bp)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$gsea_result_bp),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ),
+    group = colDef(minWidth = 250),
+    setSize = colDef(align = "center", name = "Set size"),
+    Description = colDef(minWidth = 400),
+    core_enrichment = colDef(minWidth = 1000),
+    enrichmentScore = colDef(align = "center", name = "Enrichment score"),
+    NES = colDef(align = "center", name = "NES"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    rank = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-gbp}
+#| eval: !expr if(is.null(params$gsea_result_bp)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+
+### Molecolar Function (MF)
+
+```{r, gmf}
+#| eval: !expr if(!is.null(params$gsea_result_mf)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$gsea_result_mf),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ),
+    group = colDef(minWidth = 250),
+    setSize = colDef(align = "center", name = "Set size"),
+    Description = colDef(minWidth = 400),
+    core_enrichment = colDef(minWidth = 1000),
+    enrichmentScore = colDef(align = "center", name = "Enrichment score"),
+    NES = colDef(align = "center", name = "NES"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    rank = colDef(align = "center")
+  )
+)
+```
+
+
+```{r, no-gmf}
+#| eval: !expr if(is.null(params$gsea_result_mf)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+### Cellular Component (CC)
+
+```{r, gcc}
+#| eval: !expr if(!is.null(params$gsea_result_cc)) TRUE else FALSE
+
+reactable(
+  as_tibble(params$gsea_result_cc),
+  searchable = TRUE,
+  resizable = TRUE,
+  wrap = FALSE,
+  highlight = TRUE,
+  defaultPageSize = 10,
+  height = "auto",
+  columns = list(
+    ONTOLOGY = colDef(align = "center", name = "Ontology"),
+    ID = colDef(
+      align = "center",
+      sticky = "left",
+      minWidth = 150,
+      style = list(borderRight  = "1px solid #eee")
+    ),
+    group = colDef(minWidth = 250),
+    setSize = colDef(align = "center", name = "Set size"),
+    Description = colDef(minWidth = 400),
+    core_enrichment = colDef(minWidth = 1000),
+    enrichmentScore = colDef(align = "center", name = "Enrichment score"),
+    NES = colDef(align = "center", name = "NES"),
+    pvalue = colDef(align = "center", name = "-log(p.val)"),
+    p.adjust = colDef(align = "center", name = "-log(p.adj)"),
+    qvalue = colDef(align = "center", name = "-log(q.val)"),
+    rank = colDef(align = "center")
+  )
+)
+```
+
+```{r, no-gcc}
+#| eval: !expr if(is.null(params$gsea_result_cc)) TRUE else FALSE
+
+cat("NO enriched results")
+```
+
+:::
+
+`r if (params$par_gsea == "no") ":::"`
+
+`r if (params$par_ora == "no" & params$par_gsea == "no") ":::"`
