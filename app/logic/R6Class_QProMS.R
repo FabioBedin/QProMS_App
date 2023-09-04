@@ -230,6 +230,23 @@ QProMS <- R6Class(
       
       return(value)
     },
+    dia_nn_colnames_adjust = function() {
+      
+      vector_list <- self$raw_data %>% 
+        dplyr$select(-genes) %>% 
+        colnames() %>% 
+        stringr$str_split(pattern = "_")
+      
+      # Step 1: Find common elements
+      common_elements <- vector_list %>%
+        reduce(intersect)
+      
+      # Step 2: Remove common elements from each vector
+      modified_list <- vector_list %>%
+        map_chr(~ paste(.[!. %in% common_elements], collapse = "_"))
+      
+      colnames(self$raw_data) <- c("gene_names", modified_list)
+    },
     make_expdesign = function(intensity_type = "lfq_intensity_", genes_column = NULL) {
       ## qui mettere tutti gli if in base all'intensity type
       
@@ -250,23 +267,59 @@ QProMS <- R6Class(
           dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>%
           dplyr$mutate(replicate = stringr$str_remove(label, ".*_"))
         
-      }else{
+      }
+      
+      if(self$input_type == "dia_nn"){
+        
+        self$dia_nn_colnames_adjust()
+        
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ dplyr$na_if(.,-Inf)))
+        
+        self$expdesign <- data %>%
+          tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
+          dplyr$distinct(key) %>%
+          dplyr$mutate(label = "") %>% 
+          dplyr$mutate(condition = "") %>%
+          dplyr$mutate(replicate = "")
+        
+      }
+      
+      if(self$input_type == "fragpipe"){
+        
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ dplyr$na_if(.,-Inf)))
+        
+        self$expdesign <- data %>%
+          dplyr$select(protein_id, dplyr$ends_with(intensity_type)) %>%
+          {if(intensity_type == "_intensity")dplyr$select(., !dplyr$contains("max_lfq")) else .} %>%
+          tidyr$pivot_longer(!protein_id, names_to = "key", values_to = "intensity") %>%
+          dplyr$distinct(key) %>% 
+          dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>% 
+          dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>% 
+          dplyr$mutate(replicate = stringr$str_remove(label, ".*_")) 
+        
+      }
+      
+      if(self$input_type == "external") {
         if (is.null(genes_column)) {
           stop("Error! Provide a valid column for gene names.")
-        } else{
-          data <- self$raw_data %>% 
-            dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ log2(.))) %>%
-            dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
-            dplyr$rename(gene_names := !!genes_column)
-          
-          self$expdesign <- data %>%
-            dplyr$select(gene_names, dplyr$matches(intensity_type)) %>%
-            tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
-            dplyr$distinct(key) %>%
-            dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>%
-            dplyr$mutate(condition = "") %>%
-            dplyr$mutate(replicate = "")
-        }
+        } 
+        
+        data <- self$raw_data %>%
+          dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ dplyr$na_if(., -Inf))) %>%
+          dplyr$rename(gene_names := !!genes_column)
+        
+        self$expdesign <- data %>%
+          dplyr$select(gene_names, dplyr$matches(intensity_type)) %>%
+          tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
+          dplyr$distinct(key) %>%
+          dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>%
+          dplyr$mutate(condition = "") %>%
+          dplyr$mutate(replicate = "")
       }
       
     },
@@ -360,7 +413,63 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
-      }else{
+      }
+      
+      if(self$input_type == "dia_nn"){
+        
+        data_standardized <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ dplyr$na_if(.,-Inf))) %>% 
+          tidyr$pivot_longer(
+            !gene_names,
+            names_to = "key",
+            values_to = "raw_intensity"
+          ) %>%
+          dplyr$inner_join(., expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$select(-key)
+        
+        self$data <- data_standardized
+        
+      }
+      
+      if(self$input_type == "fragpipe"){
+        
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$ends_with(self$intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$ends_with(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+          dplyr$mutate(id = 1:dplyr$n())
+        
+        data_standardized <- data %>%
+          dplyr$select(protein_id, gene, id) %>%
+          dplyr$rename(unique_gene_names = gene) %>%
+          get_dupes(unique_gene_names) %>%
+          dplyr$mutate(unique_gene_names = dplyr$case_when(
+            unique_gene_names != "" ~ paste0(unique_gene_names,
+                                             "__",
+                                             protein_id),
+            TRUE ~ protein_id
+          )) %>%
+          dplyr$select(unique_gene_names, id) %>%
+          dplyr$right_join(data, by = "id") %>%
+          dplyr$mutate(gene = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
+                                                TRUE ~ gene)) %>%
+          dplyr$select(-unique_gene_names) %>%
+          dplyr$mutate(gene = dplyr$if_else(gene == "",
+                                              protein_id,
+                                              gene)) %>%
+          ### da fare il filtroper i contaminant
+          dplyr$select(gene, dplyr$all_of(expdesign$key)) %>% 
+          tidyr$pivot_longer(!gene, names_to = "key", values_to = "raw_intensity") %>% 
+          dplyr$inner_join(expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$rename(gene_names = gene) %>% 
+          dplyr$select(-key)
+        
+        self$data <- data_standardized
+      }
+      
+      if(self$input_type == "external"){
         data_standardized <- self$raw_data %>% 
           dplyr$mutate(dplyr$across(dplyr$matches(self$intensity_type), ~ log2(.))) %>%
           dplyr$mutate(dplyr$across(dplyr$matches(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
