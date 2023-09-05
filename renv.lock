@@ -2107,6 +2107,17 @@
       ],
       "Hash": "e22193c47c891d1a011dade7f262cc65"
     },
+    "org.Mm.eg.db": {
+      "Package": "org.Mm.eg.db",
+      "Version": "3.16.0",
+      "Source": "Bioconductor",
+      "Requirements": [
+        "AnnotationDbi",
+        "R",
+        "methods"
+      ],
+      "Hash": "f03f94839b1db9ef14042e62135f0bb5"
+    },
     "packrat": {
       "Package": "packrat",
       "Version": "0.9.1",

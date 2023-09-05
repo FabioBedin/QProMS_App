@@ -22,10 +22,15 @@ box::use(
   iheatmapr[...],
   clusterProfiler[enrichGO, filter, simplify, gseGO],
   org.Hs.eg.db[org.Hs.eg.db],
+  org.Mm.eg.db[org.Mm.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
   openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook],
   yaml[write_yaml, read_yaml]
+)
+
+box::use(
+  app/static/contaminant
 )
 
 #' @export
@@ -458,7 +463,7 @@ QProMS <- R6Class(
           dplyr$mutate(gene = dplyr$if_else(gene == "",
                                               protein_id,
                                               gene)) %>%
-          ### da fare il filtroper i contaminant
+          dplyr$filter(!entry_name %in% contaminant$contaminant_list) %>% 
           dplyr$select(gene, dplyr$all_of(expdesign$key)) %>% 
           tidyr$pivot_longer(!gene, names_to = "key", values_to = "raw_intensity") %>% 
           dplyr$inner_join(expdesign, by = "key") %>%
@@ -1018,6 +1023,12 @@ QProMS <- R6Class(
     },
     go_ora = function(list_from, test, alpha, p_adj_method, background) {
       
+      if(self$organism == "human"){
+        orgdb <- org.Hs.eg.db
+      } else {
+        orgdb <- org.Mm.eg.db
+      }
+      
       if (list_from == "univariate") {
         groupped_data <-
           map(
@@ -1066,7 +1077,7 @@ QProMS <- R6Class(
         .f = possibly(
           ~ enrichGO(
             gene          = .x,
-            OrgDb         = org.Hs.eg.db,
+            OrgDb         = orgdb,
             keyType       = 'SYMBOL',
             ont           = "ALL",
             pAdjustMethod = p_adj_method,
@@ -1124,6 +1135,12 @@ QProMS <- R6Class(
     },
     go_gsea = function(test, alpha, p_adj_method) {
       
+      if(self$organism == "human"){
+        orgdb <- org.Hs.eg.db
+      } else {
+        orgdb <- org.Mm.eg.db
+      }
+      
       list_of_gesa_vector <- map(
         .x = test,
         .f = ~ self$go_gsea_rank_vector(test = .x)
@@ -1138,7 +1155,7 @@ QProMS <- R6Class(
         .f = possibly(
           ~ gseGO(
             geneList     = .x,
-            OrgDb        = org.Hs.eg.db,
+            OrgDb        = orgdb,
             ont          = "ALL",
             keyType      = 'SYMBOL',
             pAdjustMethod = p_adj_method,
@@ -1220,11 +1237,17 @@ QProMS <- R6Class(
       edges_string_table <- NULL
       edges_corum_table <- NULL
       
+      if(self$organism == "human"){
+        tax_id <- 9606
+      } else {
+        tax_id <- 10090
+      }
+      
       if("string" %in% source) {
         
         edges_string_table <-
           self$name_for_edges %>%
-          rba_string_interactions_network(species = 9606, verbose = FALSE) %>%
+          rba_string_interactions_network(species = tax_id, verbose = FALSE) %>%
           dplyr$filter(escore != 0, dscore != 0) %>%
           tidyr$unite("stringId", stringId_A:stringId_B, remove = TRUE) %>%
           dplyr$distinct(stringId, .keep_all = TRUE) %>%

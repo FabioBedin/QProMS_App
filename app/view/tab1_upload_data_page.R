@@ -119,8 +119,8 @@ ui <- function(id) {
                 selectInput(
                   inputId = ns("organism"),
                   label = "Organism",
-                  choices = c("Homo Sapiens", "Mus Musculus"),
-                  selected = "Homo Sapiens"
+                  choices = c("Homo Sapiens" = "human", "Mus Musculus" = "mouse"),
+                  selected = "human"
                 ),
                 palettePicker(
                   inputId = ns("palette"),
@@ -698,6 +698,9 @@ server <- function(id, r6) {
       req(input$intensity_type)
       req(input$expdesign_table)
       req(input$confirm)
+      req(input$organism)
+      
+      r6$organism <- input$organism
       
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,

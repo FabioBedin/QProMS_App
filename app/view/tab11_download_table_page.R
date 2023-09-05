@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, downloadHandler, selectInput, hr, icon, observeEvent, h1],
+  shiny[moduleServer, NS, fluidRow, div, downloadHandler, selectInput, hr, icon, observeEvent, h1, uiOutput, renderUI],
   bs4Dash[tabItem, toast, accordion, accordionItem, updateAccordion],
-  shinyWidgets[downloadBttn],
+  shinyWidgets[downloadBttn, pickerInput],
   reactable[reactableOutput, renderReactable, reactable, colDef],
   utils[write.csv, write.table],
   dplyr,
@@ -77,6 +77,10 @@ ui <- function(id) {
                 choices = c("Univariate", "Multivariate"),
                 selected = "Univariate"
               )
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              uiOutput(ns("add_column"))
             ),
             div(
               style = "width: 100%; flex: 1 1 0;",
@@ -207,6 +211,25 @@ server <- function(id, r6) {
     #     "This is example empty state content"
     #   )
     # )
+    
+    output$add_column <- renderUI({
+      
+      test <- colnames(r6$raw_data)
+      
+      pickerInput(
+        inputId = session$ns("extra_cols"),
+        label = "Add extra columns",
+        choices = test,
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE, 
+          title = "None",
+          `selected-text-format` = "count > 2",
+          size = 5)
+      )
+      
+      
+    })
     
     output$download_processed_table <- downloadHandler(
       filename = function() {
