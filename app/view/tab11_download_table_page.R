@@ -1,10 +1,10 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, downloadHandler, selectInput, hr, icon, observeEvent, h1],
+  shiny[moduleServer, NS, fluidRow, div, downloadHandler, selectInput, hr, icon, observeEvent, h1, uiOutput, renderUI, isolate],
   bs4Dash[tabItem, toast, accordion, accordionItem, updateAccordion],
-  shinyWidgets[downloadBttn],
+  shinyWidgets[downloadBttn, pickerInput],
   reactable[reactableOutput, renderReactable, reactable, colDef],
   utils[write.csv, write.table],
-  dplyr,
+  dplyr[`%>%`, select, left_join],
   shiny.emptystate[use_empty_state, EmptyStateManager],
   gargoyle[watch],
 )
@@ -77,6 +77,10 @@ ui <- function(id) {
                 choices = c("Univariate", "Multivariate"),
                 selected = "Univariate"
               )
+            ),
+            div(
+              style = "width: 100%; flex: 1 1 0;",
+              uiOutput(ns("add_column"))
             ),
             div(
               style = "width: 100%; flex: 1 1 0;",
@@ -208,6 +212,26 @@ server <- function(id, r6) {
     #   )
     # )
     
+    output$add_column <- renderUI({
+      
+      test <- colnames(r6$raw_data_unique)
+      
+      pickerInput(
+        inputId = session$ns("extra_cols"),
+        label = "Add extra columns",
+        choices = test,
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE, 
+          title = "None",
+          `selected-text-format` = "count > 2",
+          size = 5)
+      )
+      
+      
+    })
+    
+    
     output$download_processed_table <- downloadHandler(
       filename = function() {
         paste0(input$processed_table_input, "_table_", Sys.Date(), input$processed_table_extension)
@@ -271,12 +295,17 @@ server <- function(id, r6) {
       content = function(file) {
         
         if(input$stat_table_input == "Univariate") {
-          data <- r6$print_stat_table()
+          data0 <- r6$print_stat_table()
         }
         
         if(input$stat_table_input == "Multivariate") {
-          data <- r6$print_anova_table()
+          data0 <- r6$print_anova_table()
         }
+        
+        extra_clos_data <- r6$raw_data_unique %>% 
+          select(gene_names, isolate(input$extra_cols))
+        
+        data <- left_join(data0, extra_clos_data, by = "gene_names")
         
         if(input$stat_table_extension == ".xlsx") {
           r6$download_excel(

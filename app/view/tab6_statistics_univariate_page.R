@@ -2,7 +2,7 @@ box::use(
   shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateNumericInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler, column, observe],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn, updatePrettyCheckbox],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn, updatePrettyCheckbox, updatePickerInput],
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
   magrittr[`%>%`],
@@ -409,6 +409,8 @@ server <- function(id, r6) {
       updateNumericInput(inputId = "fc_input", value = r6$fold_change)
       updateSelectInput(inputId = "alpha_input", selected = r6$univariate_alpha)
       updateSelectInput(inputId = "truncation_input", selected = r6$univariate_p_adj_method)
+      updatePickerInput(session = session, inputId = "primary_input", selected = r6$primary_condition)
+      updatePickerInput(session = session, inputId = "additional_input", selected = r6$additional_condition)
       
     })
     

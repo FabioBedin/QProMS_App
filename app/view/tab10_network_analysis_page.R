@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, column, br, h4, h1, p, observeEvent, uiOutput, renderUI, selectInput, req, isolate, sliderInput, reactive, icon, reactiveVal],
+  shiny[moduleServer, NS, fluidRow, div, column, br, h4, h1, p, observeEvent, observe, uiOutput, renderUI, selectInput, updateSelectInput, updateSliderInput, req, isolate, sliderInput, reactive, icon, reactiveVal],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, boxLabel, toast, accordion, accordionItem, updateAccordion],
-  shinyWidgets[actionBttn, pickerInput, prettyCheckbox, updatePrettyCheckbox],
+  shinyWidgets[actionBttn, pickerInput, prettyCheckbox, updatePrettyCheckbox, updatePickerInput],
   gargoyle[init, watch, trigger],
   shinyGizmo[conditionalJS, jsCalls],
   echarts4r[echarts4rOutput, renderEcharts4r],
@@ -35,12 +35,25 @@ ui <- function(id) {
               style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                uiOutput(ns("ui_from_statistic_input"))
+                selectInput(
+                  inputId = ns("from_statistic_input"),
+                  label = "Genes from",
+                  choices = c("Univariate" = "univariate", "Multivariate" = "multivariate"),
+                  selected = "univariate", 
+                  width = "auto"
+                )
               ),
               div(
                 style = "width: 100%; flex: 1 1 0;",
                 conditionalJS(
-                  uiOutput(ns("ui_test_input")),
+                  # uiOutput(ns("ui_test_input")),
+                  selectInput(
+                    inputId = ns("test_uni_input"),
+                    label = "Contrasts",
+                    choices = NULL,
+                    selected = NULL, 
+                    width = "auto"
+                  ),
                   condition = "input.from_statistic_input == 'univariate'",
                   jsCall = jsCalls$show(),
                   ns = ns
@@ -58,7 +71,19 @@ ui <- function(id) {
                   ns = ns
                 ),
                 conditionalJS(
-                  uiOutput(ns("ui_cluster_input")),
+                  # uiOutput(ns("ui_cluster_input")),
+                  pickerInput(
+                    inputId = ns("clusters_input"),
+                    label = "Clusters",
+                    choices = NULL,
+                    selected = NULL,
+                    multiple = TRUE,
+                    options = list(
+                      `live-search` = TRUE,
+                      title = "None",
+                      `selected-text-format` = "count > 2",
+                      size = 5)
+                  ),
                   condition = "input.from_statistic_input == 'multivariate'",
                   jsCall = jsCalls$show(),
                   ns = ns
@@ -228,85 +253,35 @@ server <- function(id, r6) {
     
     init("ppi_network")
     
-    output$ui_from_statistic_input <- renderUI({
+    observe({
       
-      watch("ppi_network")
       watch("stat")
-      watch("anova")
       
-      if(is.null(r6$stat_table) & is.null(r6$anova_table)) {
-        scelte <- c("External table" = "external")
-        sel <- "external"
-      } else if (!is.null(r6$stat_table) & is.null(r6$anova_table)) {
-        scelte <- c("Univariate" = "univariate", "External table" = "external")
-        sel <- input$from_statistic_input
-      } else if (is.null(r6$stat_table) & !is.null(r6$anova_table)) {
-        scelte <- c("Multivariate" = "multivariate", "External table" = "external")
-        sel <- input$from_statistic_input
-      } else {
-        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "External table" = "external")
-        sel <- input$from_statistic_input
-      }
-      
-      selectInput(
-        inputId = session$ns("from_statistic_input"),
-        label = "Genes from",
-        choices = scelte,
-        selected = sel, 
-        width = "auto"
+      updateSelectInput(
+        inputId = "test_uni_input",
+        selected = r6$primary_condition,
+        choices = c(r6$primary_condition, r6$additional_condition)
       )
       
     })
     
-    output$ui_test_input <- renderUI({
+    observe({
       
-      watch("ppi_network")
-      watch("stat")
-      
-      tests <- c(r6$primary_condition, r6$additional_condition)
-      
-      selectInput(
-        inputId = session$ns("test_uni_input"),
-        label = "Contrasts",
-        choices = tests,
-        selected = r6$primary_condition, 
-        width = "auto"
-      )
-      
-    })
-    
-    output$ui_cluster_input <- renderUI({
-      
-      watch("ppi_network")
       watch("anova")
       
-      if (is.null(r6$anova_table)) {
-        cluster_names <- NULL
-        sel <- NULL
-      } else {
+      if (!is.null(r6$anova_table)) {
         cluster_names <- r6$anova_table %>% 
           filter(significant) %>% 
           distinct(cluster) %>% 
           pull(cluster)
-        if(r6$network_focus[1] %in% cluster_names){
-          sel <- r6$network_focus
-        } else {
-          sel <- "cluster_1"
-        }
+        
+        updatePickerInput(
+          session = session,
+          inputId = "clusters_input",
+          selected = cluster_names[1],
+          choices = cluster_names
+        )
       }
-      
-      pickerInput(
-        inputId = session$ns("clusters_input"),
-        label = "Clusters",
-        choices = cluster_names,
-        selected = sel,
-        multiple = TRUE,
-        options = list(
-          `live-search` = TRUE,
-          title = "None",
-          `selected-text-format` = "count > 2",
-          size = 5)
-      )
       
     })
     
@@ -350,31 +325,54 @@ server <- function(id, r6) {
       )
     })
     
+    observe({
+      
+      watch("params")
+      
+      updatePickerInput(session = session, inputId = "db_source", selected = r6$pdb_database)
+      updateSliderInput(inputId = "score_thr", value = r6$network_score_thr)
+      
+    })
+    
     observeEvent(input$generate_network, {
       
       req(input$from_statistic_input)
       req(input$db_source)
       
-      if (input$from_statistic_input == "univariate") {
+      r6$network_from_statistic <- input$from_statistic_input
+      r6$pdb_database <- input$db_source
+      r6$network_uni_direction <- input$ui_direction_input
+      
+      if (r6$network_from_statistic == "univariate") {
         
-        input_error <- case_when(
-          nrow(filter(
-            r6$stat_table, if_all(ends_with("significant"))
-          )) == 0 ~ "There are no significant, no functional analysis will be performed",
-          TRUE ~ ""
-        )
+        if(is.null(r6$stat_table)) {
+          input_error <- "You need to perform Univariate statistics in order to run this analysis."
+        } else {
+          input_error <- case_when(
+            nrow(filter(
+              r6$stat_table, if_all(ends_with("significant"))
+            )) == 0 ~ "There are no significant, no network analysis will be performed",
+            TRUE ~ ""
+          )
+        }
         
-        r6$network_focus <- input$test_uni_input
-      } else if (input$from_statistic_input == "multivariate") {
+        r6$network_focus_uni <- input$test_uni_input
+        focus_net <- r6$network_focus_uni
         
-        input_error <- case_when(
-          nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no functional analysis will be performed",
-          TRUE ~ ""
-        )
-        
-        r6$network_focus <- input$clusters_input
       } else {
-        r6$network_focus <- NULL # da sistemare
+        
+        if(is.null(r6$anova_table)) {
+          input_error <- "You need to perform Multivariate statistics in order to run this analysis."
+        } else {
+          input_error <- case_when(
+            nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no network analysis will be performed",
+            TRUE ~ ""
+          )
+        }
+        
+        r6$network_focus_multi <- input$clusters_input
+        focus_net <- r6$network_focus_multi
+          
       }
       
       if (input_error != "") {
@@ -393,15 +391,8 @@ server <- function(id, r6) {
       
       w$show()
       
-      r6$network_from_statistic <- input$from_statistic_input
-      
-      r6$make_nodes(list_from = r6$network_from_statistic, focus = r6$network_focus, direction = input$ui_direction_input)
-      r6$make_edges(source = input$db_source)
-      
-      updatePrettyCheckbox(
-        inputId = session$ns("keep_selected"),
-        value = FALSE
-      )
+      r6$make_nodes(list_from = r6$network_from_statistic, focus = focus_net, direction = r6$network_uni_direction)
+      r6$make_edges(source = r6$pdb_database)
       
       trigger("ppi_network") 
       
@@ -411,13 +402,21 @@ server <- function(id, r6) {
       
     })
     
+    observe({
+      
+      watch("ppi_network")
+      
+      updatePrettyCheckbox(
+        session = session,
+        inputId = "keep_selected",
+        value = FALSE
+      )
+      
+    })
+    
     observeEvent(input$update, {
       
       req(input$generate_network)
-      
-      # if (input$keep_selected) {
-      #   
-      # }
       
       trigger("ppi_network")
       
@@ -436,9 +435,11 @@ server <- function(id, r6) {
       
       if (!is.null(r6$nodes_table)) {
         
+        r6$network_score_thr <- isolate(input$score_thr)
+        
         nodes <- r6$print_nodes(
           isolate_nodes = isolate(input$isolate_nodes_input),
-          score_thr = isolate(input$score_thr)
+          score_thr = r6$network_score_thr
         )
         
         nodes_box(nrow(nodes))
@@ -477,15 +478,17 @@ server <- function(id, r6) {
       
       if (!is.null(r6$nodes_table)) {
         
+        r6$network_score_thr <- isolate(input$score_thr)
+        
         nodes <- r6$print_nodes(
           isolate_nodes = isolate(input$isolate_nodes_input),
-          score_thr = isolate(input$score_thr)
+          score_thr = r6$network_score_thr
         )
         
         highlights <- nodes[gene_selected(), ] %>% 
           pull(gene_names)
         
-        edges <- r6$print_edges(score_thr = isolate(input$score_thr), selected_nodes = highlights)
+        edges <- r6$print_edges(score_thr = r6$network_score_thr, selected_nodes = highlights)
         
         edges_box(nrow(edges))
         
@@ -543,11 +546,7 @@ server <- function(id, r6) {
           selected = highlights,
           filtred = fil
         )
-        
-        
       }
-      
-     
     })
     
     
@@ -559,7 +558,7 @@ server <- function(id, r6) {
       
       nodes <- r6$print_nodes(
         isolate_nodes = isolate(input$isolate_nodes_input),
-        score_thr = isolate(input$score_thr)
+        score_thr = r6$network_score_thr
       )
       
       r6$selected_nodes <- nodes[gene_selected(), ] %>% 

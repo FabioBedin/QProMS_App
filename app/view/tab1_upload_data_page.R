@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, reactiveValues, h4, p, reactive, textInput, column],
+  shiny[moduleServer, NS, fluidRow, icon, fileInput, div, br, observeEvent, req, selectInput, updateSelectInput, reactiveValues, h4, p, reactive, textInput, column],
   bs4Dash[tabItem, infoBox, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, toast, accordion, accordionItem, updateAccordion],
   shinyWidgets[actionBttn, prettyCheckbox],
   rhandsontable[rHandsontableOutput, renderRHandsontable, rhandsontable, hot_cols, hot_col, hot_to_r],
@@ -53,8 +53,8 @@ ui <- function(id) {
                   label = "Input table",
                   multiple = FALSE,
                   width = "100%",
-                  placeholder = "proteinGroups.txt",
-                  accept = ".txt"
+                  placeholder = "Input_table",
+                  accept = c(".txt", ".tsv")
                 ),
                 prettyCheckbox(
                   inputId = ns("use_params"),
@@ -82,7 +82,7 @@ ui <- function(id) {
                 selectInput(
                   inputId = ns("source_type"),
                   label = "Table source",
-                  choices = c("MaxQuant" = "max_quant", "External table" = "external"),
+                  choices = c("MaxQuant" = "max_quant", "DIA-NN" = "dia_nn", "FragPipe" = "fragpipe", "External table" = "external"),
                   selected = "max_quant"
                 ),
                 conditionalJS(
@@ -106,10 +106,10 @@ ui <- function(id) {
                   selectInput(
                     inputId = ns("intensity_type"),
                     label = "Select Intensity type",
-                    choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "ibaq_intensity_"),
+                    choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_"),
                     selected = "lfq_intensity_"
                   ),
-                  condition = "input.source_type != 'external'",
+                  condition = "input.source_type == 'max_quant' | input.source_type == 'fragpipe'",
                   jsCall = jsCalls$show(),
                   ns = ns
                 )
@@ -119,8 +119,8 @@ ui <- function(id) {
                 selectInput(
                   inputId = ns("organism"),
                   label = "Organism",
-                  choices = c("Homo Sapiens", "Mus Musculus"),
-                  selected = "Homo Sapiens"
+                  choices = c("Homo Sapiens" = "human", "Mus Musculus" = "mouse"),
+                  selected = "human"
                 ),
                 palettePicker(
                   inputId = ns("palette"),
@@ -377,6 +377,26 @@ server <- function(id, r6) {
       
     })
     
+    observeEvent(input$source_type, {
+      
+      if (input$source_type == "fragpipe") {
+        updateSelectInput(
+          inputId = "intensity_type",
+          choices = c("MAX LFQ Intensity" = "_max_lfq_intensity", "Intensity" = "_intensity"),
+          selected = "_max_lfq_intensity"
+        )
+      }
+      
+      if (input$source_type == "max_quant") {
+        updateSelectInput(
+          inputId = "intensity_type",
+          choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_"),
+          selected = "lfq_intensity_"
+        )
+      }
+      
+    })
+    
     
     observeEvent(input$upload, {
       
@@ -387,10 +407,28 @@ server <- function(id, r6) {
       
       r6$palette <- input$palette
       
-      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type, input_name = input$upload_file$name)
       
       if(!is.null(input$upload_params)) {
         r6$loading_patameters(input_path = input$upload_params$datapath)
+        
+        input_error <- dplyr$case_when(
+          input$upload_file$name != r6$input_file_name ~ "the file name is different form the one saved in parameters file",
+          TRUE ~ ""
+        )
+        if (input_error != "") {
+          toast(
+            title = "Imput table have different name",
+            body = input_error,
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+          return() 
+        }
       }
       
       if(r6$input_type == "max_quant"){
@@ -426,8 +464,62 @@ server <- function(id, r6) {
         if(!r6$parameters_loaded) {
           r6$make_expdesign(intensity_type = input$intensity_type)
         }
-        r6$pg_preprocessing()
-      }else{
+      }
+      
+      if(r6$input_type == "dia_nn") {
+        
+        input_error <- dplyr$case_when(
+          nrow(r6$raw_data) < 1 ~ "The file is empty",
+          !"genes" %in% names(r6$raw_data) ~ "The Genes column is missing",
+          TRUE ~ ""
+        )
+        if (input_error != "") {
+          toast(
+            title = "Incomplete data",
+            body = input_error,
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+          return() 
+        }
+        
+        if(!r6$parameters_loaded) {
+          r6$make_expdesign(intensity_type = NULL)
+        }
+      }
+      
+      if(r6$input_type == "fragpipe") {
+        
+        input_error <- dplyr$case_when(
+          nrow(r6$raw_data) < 1 ~ "The file is empty",
+          !"gene" %in% names(r6$raw_data) ~ "The Genes column is missing",
+          !"protein_id" %in% names(r6$raw_data) ~ "The Protein ID column is missing",
+          TRUE ~ ""
+        )
+        if (input_error != "") {
+          toast(
+            title = "Incomplete data",
+            body = input_error,
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+          return() 
+        }
+        
+        if(!r6$parameters_loaded) {
+          r6$make_expdesign(intensity_type = input$intensity_type)
+        }
+      }
+      
+      if(r6$input_type == "external"){
         id_col <- make_clean_names(input$genes_col)
         intensity_regex <- make_clean_names(input$intensity_type2)
         
@@ -449,7 +541,6 @@ server <- function(id, r6) {
             if(!r6$parameters_loaded) {
               r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
             }
-            r6$pg_preprocessing()
           }else{
             toast(
               title = "Wrong Inputs",
@@ -504,14 +595,15 @@ server <- function(id, r6) {
       req(input$upload_file)
       req(input$intensity_type)
       
-      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type, input_name = input$upload_file$name)
       
-      if(r6$input_type == "max_quant"){
+      if(r6$input_type != "external"){
         if(!r6$parameters_loaded) {
           r6$make_expdesign(intensity_type = input$intensity_type)
         }
-        r6$pg_preprocessing()
-      }else{
+      }
+      
+      if(r6$input_type == "external"){
         id_col <- make_clean_names(input$genes_col)
         intensity_regex <- make_clean_names(input$intensity_type2)
         
@@ -527,7 +619,6 @@ server <- function(id, r6) {
           if(!r6$parameters_loaded) {
             r6$make_expdesign(intensity_type = intensity_regex, genes_column = id_col)
           }
-          r6$pg_preprocessing()
         }else{
           toast(
             title = "Wrong Inputs",
@@ -625,6 +716,9 @@ server <- function(id, r6) {
       req(input$intensity_type)
       req(input$expdesign_table)
       req(input$confirm)
+      req(input$organism)
+      
+      r6$organism <- input$organism
       
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,

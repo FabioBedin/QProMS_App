@@ -22,10 +22,15 @@ box::use(
   iheatmapr[...],
   clusterProfiler[enrichGO, filter, simplify, gseGO],
   org.Hs.eg.db[org.Hs.eg.db],
+  org.Mm.eg.db[org.Mm.eg.db],
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
   openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook],
   yaml[write_yaml, read_yaml]
+)
+
+box::use(
+  app/static/contaminant
 )
 
 #' @export
@@ -35,13 +40,15 @@ QProMS <- R6Class(
     ####################
     # Input parameters #
     raw_data = NULL,
+    raw_data_unique = NULL,
     parameters_loaded = FALSE,
+    input_file_name = NULL,
     path = NULL,
     data = NULL,
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
     external_genes_column = NULL,
-    organism = NULL, #questo potrebbe essere tolto visto usiamo solo humans
+    organism = NULL, 
     expdesign = NULL,
     palette = "D",
     color_palette = NULL,
@@ -128,12 +135,14 @@ QProMS <- R6Class(
     name_for_edges = NULL,
     network_from_statistic = NULL,
     network_score_thr = NULL,
-    network_focus =  "cluster_1",
+    network_focus_uni = NULL,
+    network_focus_multi = NULL,
+    network_uni_direction = NULL,
     selected_nodes = NULL,
     pdb_database = NULL,
     ###########
     # Methods #
-    loading_data = function(input_path, input_type) {
+    loading_data = function(input_path, input_type, input_name) {
       
       self$raw_data <- fread(input = input_path) %>%
         as_tibble(.name_repair = make_clean_names)
@@ -141,13 +150,15 @@ QProMS <- R6Class(
       self$path <- input_path
       
       self$input_type <- input_type
+      
+      self$input_file_name <- input_name
     },
     loading_patameters = function(input_path) {
       
       parameters_list <- read_yaml(file = input_path)
       
       self$expdesign <- as_tibble(parameters_list$expdesign)
-      
+      self$input_file_name <- parameters_list$input_file_name
       ## for wrangling data page
       self$valid_val_filter <- parameters_list$valid_val_filter
       self$valid_val_thr <- parameters_list$valid_val_thr
@@ -167,12 +178,17 @@ QProMS <- R6Class(
       self$fold_change <- parameters_list$fold_change
       self$univariate_alpha <- parameters_list$univariate_alpha
       self$univariate_p_adj_method <- parameters_list$univariate_p_adj_method
+      self$primary_condition <- parameters_list$primary_condition
+      self$additional_condition <- parameters_list$additional_condition
       ## for multivariate page
       self$anova_alpha <- parameters_list$anova_alpha
       self$z_score <- parameters_list$z_score
       self$anova_p_adj_method <- parameters_list$anova_p_adj_method
       self$anova_clust_method <- parameters_list$anova_clust_method
       self$clusters_number <- parameters_list$clusters_number
+      ## for network page
+      self$pdb_database <- parameters_list$pdb_database
+      self$network_score_thr <- parameters_list$network_score_thr
       
       self$parameters_loaded <- TRUE
       
@@ -230,6 +246,23 @@ QProMS <- R6Class(
       
       return(value)
     },
+    dia_nn_colnames_adjust = function() {
+      
+      vector_list <- self$raw_data %>% 
+        dplyr$select(-genes) %>% 
+        colnames() %>% 
+        stringr$str_split(pattern = "_")
+      
+      # Step 1: Find common elements
+      common_elements <- vector_list %>%
+        reduce(intersect)
+      
+      # Step 2: Remove common elements from each vector
+      modified_list <- vector_list %>%
+        map_chr(~ paste(.[!. %in% common_elements], collapse = "_"))
+      
+      colnames(self$raw_data) <- c("gene_names", modified_list)
+    },
     make_expdesign = function(intensity_type = "lfq_intensity_", genes_column = NULL) {
       ## qui mettere tutti gli if in base all'intensity type
       
@@ -250,23 +283,59 @@ QProMS <- R6Class(
           dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>%
           dplyr$mutate(replicate = stringr$str_remove(label, ".*_"))
         
-      }else{
+      }
+      
+      if(self$input_type == "dia_nn"){
+        
+        self$dia_nn_colnames_adjust()
+        
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ dplyr$na_if(.,-Inf)))
+        
+        self$expdesign <- data %>%
+          tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
+          dplyr$distinct(key) %>%
+          dplyr$mutate(label = "") %>% 
+          dplyr$mutate(condition = "") %>%
+          dplyr$mutate(replicate = "")
+        
+      }
+      
+      if(self$input_type == "fragpipe"){
+        
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ dplyr$na_if(.,-Inf)))
+        
+        self$expdesign <- data %>%
+          dplyr$select(protein_id, dplyr$ends_with(intensity_type)) %>%
+          {if(intensity_type == "_intensity")dplyr$select(., !dplyr$contains("max_lfq")) else .} %>%
+          tidyr$pivot_longer(!protein_id, names_to = "key", values_to = "intensity") %>%
+          dplyr$distinct(key) %>% 
+          dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>% 
+          dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>% 
+          dplyr$mutate(replicate = stringr$str_remove(label, ".*_")) 
+        
+      }
+      
+      if(self$input_type == "external") {
         if (is.null(genes_column)) {
           stop("Error! Provide a valid column for gene names.")
-        } else{
-          data <- self$raw_data %>% 
-            dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ log2(.))) %>%
-            dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
-            dplyr$rename(gene_names := !!genes_column)
-          
-          self$expdesign <- data %>%
-            dplyr$select(gene_names, dplyr$matches(intensity_type)) %>%
-            tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
-            dplyr$distinct(key) %>%
-            dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>%
-            dplyr$mutate(condition = "") %>%
-            dplyr$mutate(replicate = "")
-        }
+        } 
+        
+        data <- self$raw_data %>%
+          dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$matches(intensity_type), ~ dplyr$na_if(., -Inf))) %>%
+          dplyr$rename(gene_names := !!genes_column)
+        
+        self$expdesign <- data %>%
+          dplyr$select(gene_names, dplyr$matches(intensity_type)) %>%
+          tidyr$pivot_longer(!gene_names, names_to = "key", values_to = "intensity") %>%
+          dplyr$distinct(key) %>%
+          dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>%
+          dplyr$mutate(condition = "") %>%
+          dplyr$mutate(replicate = "")
       }
       
     },
@@ -283,16 +352,6 @@ QProMS <- R6Class(
       self$all_test_combination <- tests
     },
     pg_preprocessing = function() {
-      ########################################################################
-      #### This function prepare the proteing groups in the QProMS format ####
-      #### and remove duplicates.                                         ####
-      ########################################################################
-      
-      ### this firts part remove duplicate and missing gene names
-      ### in proteinGroups.txt input
-      
-      ## Indentify all duplicate gene names 
-      ## and add after __ the protein iD
       
       expdesign <- self$expdesign
       
@@ -305,7 +364,7 @@ QProMS <- R6Class(
           dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ log2(.))) %>%
           dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ dplyr$na_if(.,-Inf)))
         
-        data_standardized <- data %>%
+        unique_id_data <- data %>%
           dplyr$select(protein_i_ds, gene_names, id) %>%
           dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>%
           ## every protein gorups now have only 1 gene name associated to it
@@ -333,7 +392,9 @@ QProMS <- R6Class(
             stringr$str_extract(protein_i_ds, "[^;]*"),
             gene_names
           )) %>%
-          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>% 
+          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) 
+          
+          data_standardized <- unique_id_data %>% 
           dplyr$select(
             gene_names,
             dplyr$all_of(expdesign$key),
@@ -360,7 +421,68 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
-      }else{
+        self$raw_data_unique <- unique_id_data
+      }
+      
+      if(self$input_type == "dia_nn"){
+        
+        data_standardized <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(where(is.numeric), ~ dplyr$na_if(.,-Inf))) %>% 
+          tidyr$pivot_longer(
+            !gene_names,
+            names_to = "key",
+            values_to = "raw_intensity"
+          ) %>%
+          dplyr$inner_join(., expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$select(-key)
+        
+        self$data <- data_standardized
+        self$raw_data_unique <- self$raw_data
+        
+      }
+      
+      if(self$input_type == "fragpipe"){
+        
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$ends_with(self$intensity_type), ~ log2(.))) %>%
+          dplyr$mutate(dplyr$across(dplyr$ends_with(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+          dplyr$mutate(id = 1:dplyr$n())
+        
+        unique_id_data <- data %>%
+          dplyr$select(protein_id, gene, id) %>%
+          dplyr$rename(unique_gene_names = gene) %>%
+          get_dupes(unique_gene_names) %>%
+          dplyr$mutate(unique_gene_names = dplyr$case_when(
+            unique_gene_names != "" ~ paste0(unique_gene_names,
+                                             "__",
+                                             protein_id),
+            TRUE ~ protein_id
+          )) %>%
+          dplyr$select(unique_gene_names, id) %>%
+          dplyr$right_join(data, by = "id") %>%
+          dplyr$mutate(gene = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
+                                                TRUE ~ gene)) %>%
+          dplyr$select(-unique_gene_names) %>%
+          dplyr$mutate(gene = dplyr$if_else(gene == "",
+                                              protein_id,
+                                              gene)) 
+        
+          data_standardized <- unique_id_data %>% 
+          dplyr$filter(!entry_name %in% contaminant$contaminant_list) %>% 
+          dplyr$select(gene, dplyr$all_of(expdesign$key)) %>% 
+          tidyr$pivot_longer(!gene, names_to = "key", values_to = "raw_intensity") %>% 
+          dplyr$inner_join(expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$rename(gene_names = gene) %>% 
+          dplyr$select(-key)
+        
+        self$data <- data_standardized
+        self$raw_data_unique <- unique_id_data
+      }
+      
+      if(self$input_type == "external"){
         data_standardized <- self$raw_data %>% 
           dplyr$mutate(dplyr$across(dplyr$matches(self$intensity_type), ~ log2(.))) %>%
           dplyr$mutate(dplyr$across(dplyr$matches(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
@@ -379,6 +501,7 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
+        self$raw_data_unique <- self$raw_data
       }
       
       
@@ -909,6 +1032,12 @@ QProMS <- R6Class(
     },
     go_ora = function(list_from, test, alpha, p_adj_method, background) {
       
+      if(self$organism == "human"){
+        orgdb <- org.Hs.eg.db
+      } else {
+        orgdb <- org.Mm.eg.db
+      }
+      
       if (list_from == "univariate") {
         groupped_data <-
           map(
@@ -957,7 +1086,7 @@ QProMS <- R6Class(
         .f = possibly(
           ~ enrichGO(
             gene          = .x,
-            OrgDb         = org.Hs.eg.db,
+            OrgDb         = orgdb,
             keyType       = 'SYMBOL',
             ont           = "ALL",
             pAdjustMethod = p_adj_method,
@@ -1015,6 +1144,12 @@ QProMS <- R6Class(
     },
     go_gsea = function(test, alpha, p_adj_method) {
       
+      if(self$organism == "human"){
+        orgdb <- org.Hs.eg.db
+      } else {
+        orgdb <- org.Mm.eg.db
+      }
+      
       list_of_gesa_vector <- map(
         .x = test,
         .f = ~ self$go_gsea_rank_vector(test = .x)
@@ -1029,7 +1164,7 @@ QProMS <- R6Class(
         .f = possibly(
           ~ gseGO(
             geneList     = .x,
-            OrgDb        = org.Hs.eg.db,
+            OrgDb        = orgdb,
             ont          = "ALL",
             keyType      = 'SYMBOL',
             pAdjustMethod = p_adj_method,
@@ -1111,11 +1246,17 @@ QProMS <- R6Class(
       edges_string_table <- NULL
       edges_corum_table <- NULL
       
+      if(self$organism == "human"){
+        tax_id <- 9606
+      } else {
+        tax_id <- 10090
+      }
+      
       if("string" %in% source) {
         
         edges_string_table <-
           self$name_for_edges %>%
-          rba_string_interactions_network(species = 9606, verbose = FALSE) %>%
+          rba_string_interactions_network(species = tax_id, verbose = FALSE) %>%
           dplyr$filter(escore != 0, dscore != 0) %>%
           tidyr$unite("stringId", stringId_A:stringId_B, remove = TRUE) %>%
           dplyr$distinct(stringId, .keep_all = TRUE) %>%
