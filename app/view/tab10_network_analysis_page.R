@@ -360,7 +360,7 @@ server <- function(id, r6) {
         input_error <- case_when(
           nrow(filter(
             r6$stat_table, if_all(ends_with("significant"))
-          )) == 0 ~ "There are no significant, no functional analysis will be performed",
+          )) == 0 ~ "There are no significant, no network analysis will be performed",
           TRUE ~ ""
         )
         
@@ -368,7 +368,7 @@ server <- function(id, r6) {
       } else if (input$from_statistic_input == "multivariate") {
         
         input_error <- case_when(
-          nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no functional analysis will be performed",
+          nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no network analysis will be performed",
           TRUE ~ ""
         )
         
@@ -399,7 +399,7 @@ server <- function(id, r6) {
       r6$make_edges(source = input$db_source)
       
       updatePrettyCheckbox(
-        inputId = session$ns("keep_selected"),
+        inputId = "keep_selected",
         value = FALSE
       )
       
@@ -414,10 +414,6 @@ server <- function(id, r6) {
     observeEvent(input$update, {
       
       req(input$generate_network)
-      
-      # if (input$keep_selected) {
-      #   
-      # }
       
       trigger("ppi_network")
       

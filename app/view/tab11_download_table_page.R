@@ -1,10 +1,10 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, div, downloadHandler, selectInput, hr, icon, observeEvent, h1, uiOutput, renderUI],
+  shiny[moduleServer, NS, fluidRow, div, downloadHandler, selectInput, hr, icon, observeEvent, h1, uiOutput, renderUI, isolate],
   bs4Dash[tabItem, toast, accordion, accordionItem, updateAccordion],
   shinyWidgets[downloadBttn, pickerInput],
   reactable[reactableOutput, renderReactable, reactable, colDef],
   utils[write.csv, write.table],
-  dplyr,
+  dplyr[`%>%`, select, left_join],
   shiny.emptystate[use_empty_state, EmptyStateManager],
   gargoyle[watch],
 )
@@ -214,7 +214,7 @@ server <- function(id, r6) {
     
     output$add_column <- renderUI({
       
-      test <- colnames(r6$raw_data)
+      test <- colnames(r6$raw_data_unique)
       
       pickerInput(
         inputId = session$ns("extra_cols"),
@@ -230,6 +230,7 @@ server <- function(id, r6) {
       
       
     })
+    
     
     output$download_processed_table <- downloadHandler(
       filename = function() {
@@ -294,12 +295,17 @@ server <- function(id, r6) {
       content = function(file) {
         
         if(input$stat_table_input == "Univariate") {
-          data <- r6$print_stat_table()
+          data0 <- r6$print_stat_table()
         }
         
         if(input$stat_table_input == "Multivariate") {
-          data <- r6$print_anova_table()
+          data0 <- r6$print_anova_table()
         }
+        
+        extra_clos_data <- r6$raw_data_unique %>% 
+          select(gene_names, isolate(input$extra_cols))
+        
+        data <- left_join(data0, extra_clos_data, by = "gene_names")
         
         if(input$stat_table_extension == ".xlsx") {
           r6$download_excel(

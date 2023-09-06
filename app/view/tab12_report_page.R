@@ -306,6 +306,7 @@ server <- function(id, r6) {
       content = function(file) {
         
         parameters_list <- list(
+          input_file_name = r6$input_file_name,
           expdesign = r6$expdesign,
           valid_val_filter = r6$valid_val_filter,
           valid_val_thr = r6$valid_val_thr,

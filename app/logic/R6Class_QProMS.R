@@ -40,13 +40,15 @@ QProMS <- R6Class(
     ####################
     # Input parameters #
     raw_data = NULL,
+    raw_data_unique = NULL,
     parameters_loaded = FALSE,
+    input_file_name = NULL,
     path = NULL,
     data = NULL,
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
     external_genes_column = NULL,
-    organism = NULL, #questo potrebbe essere tolto visto usiamo solo humans
+    organism = NULL, 
     expdesign = NULL,
     palette = "D",
     color_palette = NULL,
@@ -138,7 +140,7 @@ QProMS <- R6Class(
     pdb_database = NULL,
     ###########
     # Methods #
-    loading_data = function(input_path, input_type) {
+    loading_data = function(input_path, input_type, input_name) {
       
       self$raw_data <- fread(input = input_path) %>%
         as_tibble(.name_repair = make_clean_names)
@@ -146,13 +148,15 @@ QProMS <- R6Class(
       self$path <- input_path
       
       self$input_type <- input_type
+      
+      self$input_file_name <- input_name
     },
     loading_patameters = function(input_path) {
       
       parameters_list <- read_yaml(file = input_path)
       
       self$expdesign <- as_tibble(parameters_list$expdesign)
-      
+      self$input_file_name <- parameters_list$input_file_name
       ## for wrangling data page
       self$valid_val_filter <- parameters_list$valid_val_filter
       self$valid_val_thr <- parameters_list$valid_val_thr
@@ -341,16 +345,6 @@ QProMS <- R6Class(
       self$all_test_combination <- tests
     },
     pg_preprocessing = function() {
-      ########################################################################
-      #### This function prepare the proteing groups in the QProMS format ####
-      #### and remove duplicates.                                         ####
-      ########################################################################
-      
-      ### this firts part remove duplicate and missing gene names
-      ### in proteinGroups.txt input
-      
-      ## Indentify all duplicate gene names 
-      ## and add after __ the protein iD
       
       expdesign <- self$expdesign
       
@@ -363,7 +357,7 @@ QProMS <- R6Class(
           dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ log2(.))) %>%
           dplyr$mutate(dplyr$across(dplyr$starts_with(self$intensity_type), ~ dplyr$na_if(.,-Inf)))
         
-        data_standardized <- data %>%
+        unique_id_data <- data %>%
           dplyr$select(protein_i_ds, gene_names, id) %>%
           dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>%
           ## every protein gorups now have only 1 gene name associated to it
@@ -391,7 +385,9 @@ QProMS <- R6Class(
             stringr$str_extract(protein_i_ds, "[^;]*"),
             gene_names
           )) %>%
-          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) %>% 
+          dplyr$mutate(gene_names = stringr$str_extract(gene_names, "[^;]*")) 
+          
+          data_standardized <- unique_id_data %>% 
           dplyr$select(
             gene_names,
             dplyr$all_of(expdesign$key),
@@ -418,6 +414,7 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
+        self$raw_data_unique <- unique_id_data
       }
       
       if(self$input_type == "dia_nn"){
@@ -435,6 +432,7 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
+        self$raw_data_unique <- self$raw_data
         
       }
       
@@ -445,7 +443,7 @@ QProMS <- R6Class(
           dplyr$mutate(dplyr$across(dplyr$ends_with(self$intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
           dplyr$mutate(id = 1:dplyr$n())
         
-        data_standardized <- data %>%
+        unique_id_data <- data %>%
           dplyr$select(protein_id, gene, id) %>%
           dplyr$rename(unique_gene_names = gene) %>%
           get_dupes(unique_gene_names) %>%
@@ -462,7 +460,9 @@ QProMS <- R6Class(
           dplyr$select(-unique_gene_names) %>%
           dplyr$mutate(gene = dplyr$if_else(gene == "",
                                               protein_id,
-                                              gene)) %>%
+                                              gene)) 
+        
+          data_standardized <- unique_id_data %>% 
           dplyr$filter(!entry_name %in% contaminant$contaminant_list) %>% 
           dplyr$select(gene, dplyr$all_of(expdesign$key)) %>% 
           tidyr$pivot_longer(!gene, names_to = "key", values_to = "raw_intensity") %>% 
@@ -472,6 +472,7 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
+        self$raw_data_unique <- unique_id_data
       }
       
       if(self$input_type == "external"){
@@ -493,6 +494,7 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
+        self$raw_data_unique <- self$raw_data
       }
       
       

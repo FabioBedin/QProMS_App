@@ -407,10 +407,28 @@ server <- function(id, r6) {
       
       r6$palette <- input$palette
       
-      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type, input_name = input$upload_file$name)
       
       if(!is.null(input$upload_params)) {
         r6$loading_patameters(input_path = input$upload_params$datapath)
+        
+        input_error <- dplyr$case_when(
+          input$upload_file$name != r6$input_file_name ~ "the file name is different form the one saved in parameters file",
+          TRUE ~ ""
+        )
+        if (input_error != "") {
+          toast(
+            title = "Imput table have different name",
+            body = input_error,
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+          return() 
+        }
       }
       
       if(r6$input_type == "max_quant"){
@@ -577,7 +595,7 @@ server <- function(id, r6) {
       req(input$upload_file)
       req(input$intensity_type)
       
-      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type)
+      r6$loading_data(input_path = input$upload_file$datapath, input_type = input$source_type, input_name = input$upload_file$name)
       
       if(r6$input_type != "external"){
         if(!r6$parameters_loaded) {
