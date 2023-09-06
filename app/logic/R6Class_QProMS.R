@@ -135,7 +135,9 @@ QProMS <- R6Class(
     name_for_edges = NULL,
     network_from_statistic = NULL,
     network_score_thr = NULL,
-    network_focus =  "cluster_1",
+    network_focus_uni = NULL,
+    network_focus_multi = NULL,
+    network_uni_direction = NULL,
     selected_nodes = NULL,
     pdb_database = NULL,
     ###########
@@ -176,12 +178,17 @@ QProMS <- R6Class(
       self$fold_change <- parameters_list$fold_change
       self$univariate_alpha <- parameters_list$univariate_alpha
       self$univariate_p_adj_method <- parameters_list$univariate_p_adj_method
+      self$primary_condition <- parameters_list$primary_condition
+      self$additional_condition <- parameters_list$additional_condition
       ## for multivariate page
       self$anova_alpha <- parameters_list$anova_alpha
       self$z_score <- parameters_list$z_score
       self$anova_p_adj_method <- parameters_list$anova_p_adj_method
       self$anova_clust_method <- parameters_list$anova_clust_method
       self$clusters_number <- parameters_list$clusters_number
+      ## for network page
+      self$pdb_database <- parameters_list$pdb_database
+      self$network_score_thr <- parameters_list$network_score_thr
       
       self$parameters_loaded <- TRUE
       

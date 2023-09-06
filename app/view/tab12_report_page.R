@@ -324,11 +324,15 @@ server <- function(id, r6) {
           fold_change = r6$fold_change,
           univariate_alpha = r6$univariate_alpha,
           univariate_p_adj_method = r6$univariate_p_adj_method,
+          primary_condition = r6$primary_condition,
+          additional_condition = r6$additional_condition,
           anova_alpha = r6$anova_alpha,
           z_score = r6$z_score,
           anova_p_adj_method = r6$anova_p_adj_method,
           anova_clust_method = r6$anova_clust_method,
-          clusters_number = r6$clusters_number
+          clusters_number = r6$clusters_number,
+          pdb_database = r6$pdb_database,
+          network_score_thr = r6$network_score_thr
         )
         
         write_yaml(x = parameters_list, file = file)
