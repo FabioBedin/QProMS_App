@@ -48,6 +48,7 @@ QProMS <- R6Class(
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
     external_genes_column = NULL,
+    spectronaut_new_names = NULL,
     organism = NULL, 
     expdesign = NULL,
     palette = "D",
@@ -263,8 +264,40 @@ QProMS <- R6Class(
       
       colnames(self$raw_data) <- c("gene_names", modified_list)
     },
-    make_expdesign = function(intensity_type = "lfq_intensity_", genes_column = NULL) {
-      ## qui mettere tutti gli if in base all'intensity type
+    spectronaut_colnames_adjust = function(type) {
+      
+      match <- "quantity"
+      
+      if(type == "_quantity") {
+        match <- type
+      }
+      
+      vector_list <- self$raw_data %>% 
+        dplyr$select(contains(match)) %>% 
+        colnames() %>% 
+        stringr$str_split(pattern = "_")
+      
+      # Step 1: Find common elements
+      common_elements <- vector_list %>%
+        reduce(intersect)
+      
+      # Step 2: Remove common elements from each vector
+      modified_list <- vector_list %>%
+        map_chr(~ paste(.[!. %in% common_elements], collapse = "_")) 
+      
+      new_name <- self$raw_data %>% 
+        dplyr::select(pg_protein_groups, dplyr::contains(match))
+      
+      colnames(new_name) <- c("pg_protein_groups", modified_list)
+      
+      self$raw_data <- self$raw_data %>%
+        dplyr$select(!contains(match)) %>% 
+        dplyr$right_join(new_name, by ="pg_protein_groups") 
+      
+      self$spectronaut_new_names <- modified_list
+      
+    },
+    make_expdesign = function(intensity_type, genes_column = NULL) {
       
       self$intensity_type <- intensity_type
       self$external_genes_column <- genes_column
@@ -316,6 +349,31 @@ QProMS <- R6Class(
           dplyr$mutate(label = stringr$str_remove(key, intensity_type)) %>% 
           dplyr$mutate(condition = stringr$str_remove(label, "_[^_]*$")) %>% 
           dplyr$mutate(replicate = stringr$str_remove(label, ".*_")) 
+        
+      }
+      
+      if(self$input_type == "spectronaut") {
+        
+        self$spectronaut_colnames_adjust(type = intensity_type)
+        
+        if(intensity_type == "_quantity") {
+          data <- self$raw_data %>% 
+            dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ log2(.))) %>%
+            dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ dplyr$na_if(.,-Inf))) %>% 
+            dplyr$select(pg_protein_groups, dplyr$all_of(self$spectronaut_new_names))
+        } else {
+          data <- self$raw_data %>% 
+            dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ log2(.))) %>%
+            dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+            dplyr$select(pg_protein_groups, dplyr$ends_with(intensity_type))
+        }
+        
+        self$expdesign <- data %>%
+          tidyr$pivot_longer(!pg_protein_groups, names_to = "key", values_to = "intensity") %>% 
+          dplyr$distinct(key) %>% 
+          dplyr$mutate(label = "") %>%
+          dplyr$mutate(condition = "") %>%
+          dplyr$mutate(replicate = "")
         
       }
       
@@ -477,6 +535,49 @@ QProMS <- R6Class(
           dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
           dplyr$rename(gene_names = gene) %>% 
           dplyr$select(-key)
+        
+        self$data <- data_standardized
+        self$raw_data_unique <- unique_id_data
+      }
+      
+      if(self$input_type == "spectronaut") {
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ log2(.))) %>% 
+          dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ dplyr$na_if(.,-Inf))) %>%
+          dplyr$mutate(id = 1:dplyr$n())
+        
+        unique_id_data <- data %>%
+          dplyr$select(pg_protein_groups, pg_genes, id) %>%
+          dplyr$mutate(pg_genes = stringr$str_extract(pg_genes, "[^;]*")) %>% 
+          dplyr$rename(unique_gene_names = pg_genes) %>%
+          get_dupes(unique_gene_names) %>% 
+          dplyr$mutate(
+            unique_gene_names = dplyr$case_when(
+              unique_gene_names != "" ~ paste0(
+                unique_gene_names,
+                "__",
+                stringr$str_extract(pg_protein_groups, "[^;]*")
+              ),
+              TRUE ~ stringr$str_extract(pg_protein_groups, "[^;]*")
+            )
+          ) %>% 
+          dplyr$select(unique_gene_names, id) %>%
+          dplyr$right_join(data, by = "id") %>%
+          dplyr$mutate(pg_genes = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
+                                                    TRUE ~ pg_genes)) %>%
+          dplyr$select(-unique_gene_names) %>%
+          dplyr$mutate(pg_genes = dplyr$if_else(pg_genes == "",
+                                                  stringr$str_extract(pg_protein_groups, "[^;]*"),
+                                                  pg_genes)) %>% 
+          dplyr$mutate(pg_genes = stringr$str_extract(pg_genes, "[^;]*")) 
+        
+        data_standardized <- unique_id_data %>% 
+          dplyr$select(pg_genes, dplyr$all_of(expdesign$key)) %>% 
+          tidyr$pivot_longer(!pg_genes, names_to = "key", values_to = "raw_intensity") %>% 
+          dplyr$inner_join(expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$select(-key) %>% 
+          dplyr$rename(gene_names = pg_genes)
         
         self$data <- data_standardized
         self$raw_data_unique <- unique_id_data

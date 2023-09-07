@@ -82,7 +82,13 @@ ui <- function(id) {
                 selectInput(
                   inputId = ns("source_type"),
                   label = "Table source",
-                  choices = c("MaxQuant" = "max_quant", "DIA-NN" = "dia_nn", "FragPipe" = "fragpipe", "External table" = "external"),
+                  choices = c(
+                    "MaxQuant" = "max_quant",
+                    "DIA-NN" = "dia_nn",
+                    "FragPipe" = "fragpipe",
+                    "Spectronaut" = "spectronaut",
+                    "External table" = "external"
+                  ),
                   selected = "max_quant"
                 ),
                 conditionalJS(
@@ -109,7 +115,7 @@ ui <- function(id) {
                     choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_"),
                     selected = "lfq_intensity_"
                   ),
-                  condition = "input.source_type == 'max_quant' | input.source_type == 'fragpipe'",
+                  condition = "input.source_type == 'max_quant' | input.source_type == 'fragpipe' | input.source_type == 'spectronaut'",
                   jsCall = jsCalls$show(),
                   ns = ns
                 )
@@ -395,6 +401,14 @@ server <- function(id, r6) {
         )
       }
       
+      if (input$source_type == "spectronaut") {
+        updateSelectInput(
+          inputId = "intensity_type",
+          choices = c("Quantity" = "_quantity", "MS1 Quantity" = "_ms1quantity", "MS2 Quantity" = "_ms2quantity"),
+          selected = "_quantity"
+        )
+      }
+      
     })
     
     
@@ -498,6 +512,33 @@ server <- function(id, r6) {
           nrow(r6$raw_data) < 1 ~ "The file is empty",
           !"gene" %in% names(r6$raw_data) ~ "The Genes column is missing",
           !"protein_id" %in% names(r6$raw_data) ~ "The Protein ID column is missing",
+          TRUE ~ ""
+        )
+        if (input_error != "") {
+          toast(
+            title = "Incomplete data",
+            body = input_error,
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+          return() 
+        }
+        
+        if(!r6$parameters_loaded) {
+          r6$make_expdesign(intensity_type = input$intensity_type)
+        }
+      }
+      
+      if(r6$input_type == "spectronaut") {
+        
+        input_error <- dplyr$case_when(
+          nrow(r6$raw_data) < 1 ~ "The file is empty",
+          !"pg_genes" %in% names(r6$raw_data) ~ "The Genes column is missing",
+          !"pg_protein_groups" %in% names(r6$raw_data) ~ "The PG Protein Groups column is missing",
           TRUE ~ ""
         )
         if (input_error != "") {
