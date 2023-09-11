@@ -17,3 +17,10 @@ The app guides you through a typical analysis workflow for proteomics:
 Upload search engine results. Files should have a column for gene IDs, and columns for quantitation of each protein in the respective conditions. Several search engines are supported by default.
 
 
+| Software    | File to upload                 | Comment                                                                                                                                                            | 
+|-------------|--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------| 
+| MaxQuant    | ProteinGroups.txt              | Must contain "Gene Names" column. QProMS includes automatic parsing of reverse, contaminants and only identified by site and handling of ambiguous protein groups. |
+| FragPipe    | combined_protein.tsv           | QProMS has automatic annotation of contaminants included by Philosopher/FragPipe.  |
+| Spectronaut |  |  | 
+| Dia-NN      | report.unique_genes_matrix.txt    | |  
+| AlphaPept   |     | |  
