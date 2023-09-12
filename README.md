@@ -53,6 +53,10 @@ The user can tweak filtering based by valid values based on percentage valid val
 
 Normalization across samples using variance stabilizing normalization (VSN) can be toggled on here.
 
-Some options available here are dependent on the search engine used: for MaxQuant, the app automatically filters proteins to those with minimum 2 peptides detected (editable by the user), and removes contaminants, reverse and only identified by site (also editable by the user). For FragPipe, contaminants are automatically removed based on the [CrapOme list](https://reprint-apms.org/?q=about) utilized by FragPipe and Philosopher during database construction.
+Other options available here are dependent on the search engine used in the upload page: 
+
+- For MaxQuant, the app automatically filters proteins to those with minimum 2 peptides detected (editable by the user), and removes contaminants, reverse and only identified by site (also editable by the user).
+
+- For FragPipe, contaminants are automatically removed based on the [CrapOme list](https://reprint-apms.org/?q=about) utilized by FragPipe and Philosopher during database construction.
 
 At the bottom of the page, the table post data filtering is available for export and interactive searching.
