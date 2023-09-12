@@ -301,7 +301,7 @@ server <- function(id, r6) {
     
     output$save_params <- downloadHandler(
       filename = function() {
-        paste0("QProMS_parameters", ".yaml")
+        paste0("QProMS_parameters", Sys.Date(), ".yaml")
       },
       content = function(file) {
         

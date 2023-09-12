@@ -53,6 +53,7 @@ QProMS <- R6Class(
     expdesign = NULL,
     palette = "D",
     color_palette = NULL,
+    #################################
     # parameters for data wrangling #
     filtered_data = NULL,
     valid_val_filter = "alog",
@@ -62,12 +63,12 @@ QProMS <- R6Class(
     rev = TRUE,
     cont = TRUE,
     oibs = TRUE,
-    ###############################
+    ################################
     # parameters for normalization #
     normalized_data = NULL,
     norm_methods = "None",
     is_norm = FALSE,
-    ############################
+    #############################
     # parameters for imputation #
     imputed_data = NULL,
     imp_methods = "mixed",
@@ -77,7 +78,13 @@ QProMS <- R6Class(
     cor_method = "pearson",
     is_mixed = NULL,
     is_imp = FALSE,
-    #################
+    ################
+    # protein rank #
+    protein_rank_target = NULL,
+    protein_rank_by_cond = FALSE,
+    protein_rank_top_n = NULL,
+    protein_rank_list = NULL,
+    #############################
     # parameters For Statistics #
     all_test_combination = NULL, 
     primary_condition = NULL,
@@ -98,7 +105,7 @@ QProMS <- R6Class(
     anova_col_order = NULL,
     clusters_def = NULL,
     clusters_number = 0,
-    #################
+    ######################
     # parameters For ORA #
     ora_result_list = NULL,
     ora_result_list_simplified = NULL,
@@ -2158,6 +2165,92 @@ QProMS <- R6Class(
         dia_histogram(fill = "white", color = 1) +
         lotri(geom_point(alpha = 0.5, size = 0.8)) +
         scale_fill_viridis_c(direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+      
+      return(p)
+      
+    },
+    plot_protein_rank = function(target, by_condition, top_n, highlights_names) {
+      
+      colors <- viridis(n = 2 , direction = 1, end = 0.90, begin = 0.10, option = self$palette)
+      
+      if(by_condition) {
+        data <- self$imputed_data %>%
+          dplyr$filter(condition == target) %>%
+          dplyr$group_by(gene_names) %>%
+          dplyr$summarise(mean_intenisty = mean(intensity)) %>%
+          dplyr$ungroup() %>%
+          dplyr$arrange(-mean_intenisty) %>%
+          dplyr$mutate(rank = rank(-mean_intenisty)) %>% 
+          dplyr$rename(intensity = mean_intenisty)
+      } else {
+        data <- self$imputed_data %>%
+          dplyr$filter(label == target) %>%
+          dplyr$arrange(-intensity) %>%
+          dplyr$mutate(rank = rank(-intensity))
+      }
+      
+      top_list <- data %>% 
+        dplyr$slice_head(prop = top_n) %>%
+        dplyr$pull(gene_names)
+      
+      self$protein_rank_list <- top_list
+      
+      p <- data %>% 
+        dplyr$mutate(color = dplyr$if_else(gene_names %in% top_list, colors[1], colors[2])) %>% 
+        echarts4r$e_chart(rank, renderer = "svg") %>%
+        echarts4r$e_scatter(intensity,
+                             legend = FALSE,
+                             symbol_size = 5,
+                             bind = gene_names) %>%
+        echarts4r$e_add_nested("itemStyle", color) %>%
+        echarts4r$e_tooltip(formatter = JS(
+          "
+            function(params){
+              return('<strong>' + params.name + '</strong>');
+            }
+          "
+        )) %>%
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataZoom")) %>%
+        echarts4r$e_y_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_x_axis(
+          name = "Protein Rank",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 14,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_title(target, left = "center") %>%
+        echarts4r$e_grid(containLabel = TRUE)
+      
+      if (!is.null(highlights_names)) {
+        for (name in highlights_names) {
+          highlights_name <- data %>%
+            dplyr$filter(gene_names == name) %>%
+            dplyr$select(xAxis = rank,
+                          yAxis = intensity,
+                          value = gene_names) %>% as.list()
+          
+          p <- p %>%
+            echarts4r$e_mark_point(
+              data = highlights_name,
+              symbol = "pin",
+              symbolSize = 50,
+              silent = TRUE,
+              label = list(color = "black", fontWeight = "normal", fontSize = 16),
+              itemStyle = list(color = "yellow",  borderColor = "yellow", borderWidth = 0.2)
+            )
+        }
+      }
       
       return(p)
       

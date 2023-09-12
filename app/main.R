@@ -19,6 +19,7 @@ box::use(
   app/view/tab10_network_analysis_page,
   app/view/tab11_download_table_page,
   app/view/tab12_report_page,
+  app/view/tab13_protein_rank_page,
 )
 
 box::use(
@@ -107,6 +108,8 @@ ui <- function(id) {
         menuItemOutput(ns("missing_data")),
         menuItemOutput(ns("correlation_blocked")),
         menuItemOutput(ns("correlation")),
+        menuItemOutput(ns("protein_rank_blocked")),
+        menuItemOutput(ns("protein_rank")),
         menuItemOutput(ns("pca_blocked")),
         menuItemOutput(ns("pca")),
         menuItemOutput(ns("statistics_blocked")),
@@ -142,6 +145,7 @@ ui <- function(id) {
         tab2_wrangling_data_page$ui(ns("tab2_wrangling_data_page")),
         tab3_missing_data_page$ui(ns("tab3_missing_data_page")),
         tab4_correlation_page$ui(ns("tab4_correlation_page")),
+        tab13_protein_rank_page$ui(ns("tab13_protein_rank_page")),
         tab5_pca_page$ui(ns("tab5_pca_page")),
         tab6_statistics_univariate_page$ui(ns("tab6_statistics_univariate_page")),
         tab7_statistics_multivariate_page$ui(ns("tab7_statistics_multivariate_page")),
@@ -165,6 +169,7 @@ server <- function(id) {
     output$wrangling_data_blocked <- renderMenu({ menuItem("Filter Data", icon = icon("lock"), tabName = "") })
     output$missing_data_blocked    <- renderMenu({ menuItem("Missing Data", icon = icon("lock"), tabName = "") })
     output$correlation_blocked  <- renderMenu({ menuItem("Correlation", icon = icon("lock"), tabName = "") })
+    output$protein_rank_blocked <- renderMenu({ menuItem("Protein Rank", icon = icon("lock"), tabName = "") })
     output$pca_blocked <- renderMenu({ menuItem("PCA", icon = icon("lock"), tabName = "") })
     output$statistics_blocked <- renderMenu({ menuItem("Statistics", icon = icon("lock"), tabName = "") })
     output$function_analysis_blocked <- renderMenu({ menuItem("Functional Analysis", icon = icon("lock"), tabName = "") })
@@ -176,6 +181,7 @@ server <- function(id) {
     tab2_wrangling_data_page$server("tab2_wrangling_data_page", r6 = object)
     tab3_missing_data_page$server("tab3_missing_data_page", r6 = object)
     tab4_correlation_page$server("tab4_correlation_page", r6 = object)
+    tab13_protein_rank_page$server("tab13_protein_rank_page", r6 = object)
     tab5_pca_page$server("tab5_pca_page", r6 = object)
     tab6_statistics_univariate_page$server("tab6_statistics_univariate_page", r6 = object)
     tab7_statistics_multivariate_page$server("tab7_statistics_multivariate_page", r6 = object)
@@ -196,6 +202,9 @@ server <- function(id) {
 
       output$correlation  <- renderMenu({ menuItem("Correlation", icon = icon("link"), tabName = "correlation") })
       removeUI(selector = "#app-correlation_blocked")
+      
+      output$protein_rank <- renderMenu({ menuItem("Protein Rank", icon = icon("up-long"), tabName = "protein_rank") })
+      removeUI(selector = "#app-protein_rank_blocked")
 
       output$pca <- renderMenu({ menuItem("PCA", icon = icon("slack"), tabName = "pca") })
       removeUI(selector = "#app-pca_blocked")
