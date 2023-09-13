@@ -289,7 +289,7 @@ server <- function(id, r6) {
     
     w <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
-    init("make_expdesign", "boxes", "params")
+    init("make_expdesign", "boxes", "params", "ui_element")
     
     output$n_proteins <- renderValueBox({
       
@@ -731,6 +731,10 @@ server <- function(id, r6) {
       
       r6$expdesign <- des
       
+      if(!r6$parameters_loaded) {
+        r6$protein_rank_target <- r6$expdesign$label[1]
+      }
+      
       r6$pg_preprocessing()
       
       trigger("boxes")
@@ -780,6 +784,12 @@ server <- function(id, r6) {
         unique_visual = FALSE
       )
       
+      r6$rank_protein(
+        target = r6$protein_rank_target,
+        by_condition = r6$protein_rank_by_cond,
+        top_n = r6$protein_rank_top_n
+      )
+      
       w$hide()
       
       toast(
@@ -815,6 +825,17 @@ server <- function(id, r6) {
           icon = icon("unlock")
         )
       )
+      
+      Sys.sleep(0.2)
+      toast(
+        title = "Protein rank page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
       Sys.sleep(0.2)
       toast(
         title = "PCA page unlock!",
@@ -835,9 +856,30 @@ server <- function(id, r6) {
           icon = icon("unlock")
         )
       )
+      Sys.sleep(0.2)
+      toast(
+        title = "Network page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
+      Sys.sleep(0.2)
+      toast(
+        title = "Functional page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
       
       trigger("plot")
       trigger("boxes")
+      trigger("ui_element")
       
       if(r6$parameters_loaded) {
         trigger("params")

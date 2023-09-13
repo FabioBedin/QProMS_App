@@ -80,9 +80,10 @@ QProMS <- R6Class(
     is_imp = FALSE,
     ################
     # protein rank #
+    rank_data = NULL,
     protein_rank_target = NULL,
     protein_rank_by_cond = FALSE,
-    protein_rank_top_n = NULL,
+    protein_rank_top_n = 0.1,
     protein_rank_list = NULL,
     #############################
     # parameters For Statistics #
@@ -180,6 +181,10 @@ QProMS <- R6Class(
       self$imp_methods <- parameters_list$imp_methods
       self$imp_shift <- parameters_list$imp_shift
       self$imp_scale <- parameters_list$imp_scale
+      ## for protein rank page
+      self$protein_rank_target <- parameters_list$protein_rank_target
+      self$protein_rank_by_cond <- parameters_list$protein_rank_by_cond
+      self$protein_rank_top_n <- parameters_list$protein_rank_top_n
       ## for univariate page
       self$univariate_test_type <- parameters_list$univariate_test_type
       self$univariate_paired <- parameters_list$univariate_paired
@@ -402,7 +407,7 @@ QProMS <- R6Class(
           dplyr$mutate(condition = "") %>%
           dplyr$mutate(replicate = "")
       }
-      
+  
     },
     define_tests = function() {
       conditions <-
@@ -793,6 +798,34 @@ QProMS <- R6Class(
       }else{
         self$is_imp <- FALSE
       }
+    },
+    rank_protein = function(target, by_condition, top_n) {
+      
+      if(by_condition) {
+        data <- self$imputed_data %>%
+          dplyr$filter(condition == target) %>%
+          dplyr$group_by(gene_names) %>%
+          dplyr$summarise(mean_intenisty = mean(intensity)) %>%
+          dplyr$ungroup() %>%
+          dplyr$arrange(-mean_intenisty) %>%
+          dplyr$mutate(rank = rank(-mean_intenisty)) %>% 
+          dplyr$rename(intensity = mean_intenisty) %>% 
+          dplyr$select(gene_names, intensity, rank)
+      } else {
+        data <- self$imputed_data %>%
+          dplyr$filter(label == target) %>%
+          dplyr$arrange(-intensity) %>%
+          dplyr$mutate(rank = rank(-intensity)) %>% 
+          dplyr$select(gene_names, intensity, rank)
+      }
+      
+      top_list <- data %>% 
+        dplyr$slice_head(prop = top_n) %>%
+        dplyr$pull(gene_names)
+      
+      self$rank_data <- data
+      self$protein_rank_list <- top_list
+      
     },
     print_table = function(data, df = FALSE) {
       
@@ -1328,7 +1361,7 @@ QProMS <- R6Class(
             dplyr$filter(category == "down")
         }
         
-      } else {
+      } else if (list_from == "multivariate") {
         
         nodes_table <- self$anova_table %>% 
           dplyr$filter(significant) %>%
@@ -1342,6 +1375,15 @@ QProMS <- R6Class(
             size = p_val * 2
           )
         
+      } else {
+        nodes_table <- self$rank_data %>% 
+          dplyr$slice_head(prop = self$protein_rank_top_n) %>%
+          dplyr$mutate(
+            category = self$protein_rank_target,
+            p_val = 1,
+            p_adj = 1,
+            size = 10
+          )
       }
       
       self$nodes_table <- nodes_table
@@ -2169,34 +2211,12 @@ QProMS <- R6Class(
       return(p)
       
     },
-    plot_protein_rank = function(target, by_condition, top_n, highlights_names) {
+    plot_protein_rank = function(highlights_names = NULL) {
       
       colors <- viridis(n = 2 , direction = 1, end = 0.90, begin = 0.10, option = self$palette)
       
-      if(by_condition) {
-        data <- self$imputed_data %>%
-          dplyr$filter(condition == target) %>%
-          dplyr$group_by(gene_names) %>%
-          dplyr$summarise(mean_intenisty = mean(intensity)) %>%
-          dplyr$ungroup() %>%
-          dplyr$arrange(-mean_intenisty) %>%
-          dplyr$mutate(rank = rank(-mean_intenisty)) %>% 
-          dplyr$rename(intensity = mean_intenisty)
-      } else {
-        data <- self$imputed_data %>%
-          dplyr$filter(label == target) %>%
-          dplyr$arrange(-intensity) %>%
-          dplyr$mutate(rank = rank(-intensity))
-      }
-      
-      top_list <- data %>% 
-        dplyr$slice_head(prop = top_n) %>%
-        dplyr$pull(gene_names)
-      
-      self$protein_rank_list <- top_list
-      
-      p <- data %>% 
-        dplyr$mutate(color = dplyr$if_else(gene_names %in% top_list, colors[1], colors[2])) %>% 
+      p <- self$rank_data %>% 
+        dplyr$mutate(color = dplyr$if_else(gene_names %in% self$protein_rank_list, colors[2], colors[1])) %>% 
         echarts4r$e_chart(rank, renderer = "svg") %>%
         echarts4r$e_scatter(intensity,
                              legend = FALSE,
@@ -2229,12 +2249,12 @@ QProMS <- R6Class(
             lineHeight = 60
           )
         ) %>%
-        echarts4r$e_title(target, left = "center") %>%
+        echarts4r$e_title(self$protein_rank_target, left = "center") %>%
         echarts4r$e_grid(containLabel = TRUE)
       
       if (!is.null(highlights_names)) {
         for (name in highlights_names) {
-          highlights_name <- data %>%
+          highlights_name <- self$rank_data %>%
             dplyr$filter(gene_names == name) %>%
             dplyr$select(xAxis = rank,
                           yAxis = intensity,

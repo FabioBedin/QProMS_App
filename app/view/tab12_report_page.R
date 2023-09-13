@@ -301,7 +301,7 @@ server <- function(id, r6) {
     
     output$save_params <- downloadHandler(
       filename = function() {
-        paste0("QProMS_parameters", Sys.Date(), ".yaml")
+        paste0("QProMS_parameters_", Sys.Date(), ".yaml")
       },
       content = function(file) {
         
@@ -319,6 +319,9 @@ server <- function(id, r6) {
           imp_methods = r6$imp_methods,
           imp_shift = r6$imp_shift,
           imp_scale = r6$imp_scale,
+          protein_rank_target = r6$protein_rank_target,
+          protein_rank_by_cond = r6$protein_rank_by_cond,
+          protein_rank_top_n = r6$protein_rank_top_n,
           univariate_test_type = r6$univariate_test_type,
           univariate_paired = r6$univariate_paired,
           fold_change = r6$fold_change,

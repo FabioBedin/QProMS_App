@@ -38,7 +38,11 @@ ui <- function(id) {
                 selectInput(
                   inputId = ns("from_statistic_input"),
                   label = "Genes from",
-                  choices = c("Univariate" = "univariate", "Multivariate" = "multivariate"),
+                  choices = c(
+                    "Univariate" = "univariate",
+                    "Multivariate" = "multivariate",
+                    "Top rank proteins" = "top_rank"
+                  ),
                   selected = "univariate", 
                   width = "auto"
                 )
@@ -359,7 +363,7 @@ server <- function(id, r6) {
         r6$network_focus_uni <- input$test_uni_input
         focus_net <- r6$network_focus_uni
         
-      } else {
+      } else if (r6$network_from_statistic == "multivariate") {
         
         if(is.null(r6$anova_table)) {
           input_error <- "You need to perform Multivariate statistics in order to run this analysis."
@@ -373,6 +377,9 @@ server <- function(id, r6) {
         r6$network_focus_multi <- input$clusters_input
         focus_net <- r6$network_focus_multi
           
+      } else {
+        focus_net <- NULL
+        input_error <- ""
       }
       
       if (input_error != "") {

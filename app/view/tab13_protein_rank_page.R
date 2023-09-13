@@ -1,11 +1,11 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, column, icon, h3, selectInput, div, h4, p, plotOutput, sliderInput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate, reactive],
+  shiny[moduleServer, NS, fluidRow, column, icon, h3, selectInput, div, h4, p, plotOutput, sliderInput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate, reactive, observe, updateSelectInput, updateSliderInput],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel, accordion, accordionItem],
   echarts4r[echarts4rOutput, renderEcharts4r, e_show_loading],
-  shinyWidgets[actionBttn, prettyCheckbox],
+  shinyWidgets[actionBttn, prettyCheckbox, updatePrettyCheckbox],
   stringr[str_to_title],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
-  dplyr[`%>%`, select, distinct, pull],
+  dplyr[`%>%`, select, distinct, pull, mutate],
   gargoyle[init, watch, trigger],
 )
 
@@ -38,7 +38,13 @@ ui <- function(id) {
                   style = "display: flex; justify-content: center; align-items: center; gap: 20px",
                   div(
                     style = "width: 100%; flex: 3 1 0;",
-                    uiOutput(ns("target_ui"))
+                    selectInput(
+                      inputId = ns("target"),
+                      label = "Genes from",
+                      choices = NULL,
+                      selected = NULL, 
+                      width = "auto"
+                    )
                   ),
                   div(
                     style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
@@ -109,13 +115,13 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    init("plot", "boxes", "check")
+    init("check")
     
     output$n_highlights <- renderValueBox({
 
       watch("boxes")
 
-      total <- nrow(r6$imputed_data)
+      total <- nrow(r6$rank_data)
 
       value <- paste0(length(r6$protein_rank_list), " out of ", total)
       
@@ -134,7 +140,7 @@ server <- function(id, r6) {
 
       watch("boxes")
 
-      value <- round(max(r6$imputed_data$intensity, na.rm = TRUE), 2)
+      value <- round(max(r6$rank_data$intensity, na.rm = TRUE), 2)
 
       valueBox(
         subtitle = NULL,
@@ -151,7 +157,7 @@ server <- function(id, r6) {
 
       watch("boxes")
 
-      value <- round(min(r6$imputed_data$intensity, na.rm = TRUE), 2)
+      value <- round(min(r6$rank_data$intensity, na.rm = TRUE), 2)
 
       valueBox(
         subtitle = NULL,
@@ -164,6 +170,29 @@ server <- function(id, r6) {
 
     })
     
+    observe({
+      
+      watch("ui_element")
+      watch("check")
+      
+      if(!is.null(r6$expdesign)) {
+        if(r6$protein_rank_by_cond){
+          scelte <- r6$expdesign %>% 
+            select(condition) %>% 
+            distinct() %>% 
+            pull()
+        } else {
+          scelte <- r6$expdesign %>% 
+            select(label) %>% 
+            distinct() %>% 
+            pull()
+        }
+        
+        updateSelectInput(inputId = "target", choices = scelte, selected = r6$protein_rank_target)
+      }
+      
+    })
+    
     observeEvent(input$by_cond_input, {
       
       r6$protein_rank_by_cond <- input$by_cond_input
@@ -172,34 +201,13 @@ server <- function(id, r6) {
       
     })
     
-    output$target_ui <- renderUI({
+    observe({
       
-      watch("check")
+      watch("params")
       
-      if(r6$protein_rank_by_cond){
-        scelte <- r6$expdesign %>% 
-          select(condition) %>% 
-          distinct() %>% 
-          pull()
-        
-        sel <- scelte[1]
-      } else {
-        scelte <- r6$expdesign %>% 
-          select(label) %>% 
-          distinct() %>% 
-          pull()
-        
-        sel <- scelte[1]
-      }
-      
-      
-      selectInput(
-        inputId = session$ns("target"),
-        label = "Genes from",
-        choices = scelte,
-        selected = sel, 
-        width = "auto"
-      )
+      updateSelectInput(inputId = "target", selected = r6$protein_rank_target)
+      updatePrettyCheckbox(inputId = "by_cond_input", value = r6$protein_rank_by_cond)
+      updateSliderInput(inputId = "top_n_slider", value =  r6$protein_rank_top_n * 100)
       
     })
     
@@ -209,9 +217,15 @@ server <- function(id, r6) {
       req(input$target)
       req(input$top_n_slider)
       
-      r6$protein_rank_by_cond <- input$by_cond_input
       r6$protein_rank_target <- input$target
+      r6$protein_rank_by_cond <- input$by_cond_input
       r6$protein_rank_top_n <- as.numeric(input$top_n_slider) / 100
+      
+      r6$rank_protein(
+        target = r6$protein_rank_target,
+        by_condition = r6$protein_rank_by_cond,
+        top_n = r6$protein_rank_top_n
+      )
 
       trigger("plot")
       trigger("boxes")
@@ -221,17 +235,12 @@ server <- function(id, r6) {
     output$table <- renderReactable({
 
       watch("plot")
-
-      if(r6$imp_methods == "none"){
-        data <- r6$normalized_data
-      }else{
-        data <- r6$imputed_data
-      }
-
-      table <- r6$print_table(data, df = TRUE)
+      
+      data <- r6$rank_data %>% 
+        mutate(intensity = round(intensity, 2))
 
       reactable(
-        table,
+        data,
         searchable = TRUE,
         resizable = TRUE,
         highlight = TRUE,
@@ -240,6 +249,7 @@ server <- function(id, r6) {
         selection = "multiple",
         defaultPageSize = 12,
         onClick = "select",
+        defaultSelected = 1,
         defaultColDef = colDef(align = "center", minWidth = 200),
         columns = list(
           gene_names = colDef(
@@ -258,23 +268,10 @@ server <- function(id, r6) {
       
       watch("plot")
       
-      if(is.null(r6$protein_rank_target)){
-        r6$plot_protein_rank(
-          target = r6$expdesign$label[1],
-          by_condition = FALSE,
-          top_n = 0.1,
-          highlights_names = NULL
-        )
-      } else {
-        r6$plot_protein_rank(
-          target = r6$protein_rank_target,
-          by_condition = r6$protein_rank_by_cond,
-          top_n = r6$protein_rank_top_n,
-          highlights_names = NULL
-        )
-      }
+      highlights <- r6$rank_data[gene_selected(),] %>%
+        pull(gene_names)
       
-      
+      r6$plot_protein_rank(highlights_names = highlights)
       
     })
     
