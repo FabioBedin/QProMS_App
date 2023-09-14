@@ -710,7 +710,7 @@ server <- function(id, r6) {
       
       input_warning <- dplyr$case_when(
         min(dplyr$count(des, condition)$n) < 3 ~ "One or more condition group as less then 3 replicates! Statistics is discouraged",
-        min(dplyr$count(des, replicate)$n) < 2 ~ "There is only one condition",
+        min(dplyr$count(des, replicate)$n) < 2 ~ "There is only one condition. Otherwise replicate names are not coherent between conditions",
         min(stringr$str_length(des$condition)) < 2 ~ "Condition names should be at least 2 letters long",
         TRUE ~ ""
       )

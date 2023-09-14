@@ -103,11 +103,31 @@ ui <- function(id) {
               ),
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                uiOutput(ns("ui_primary_input"))
+                pickerInput(
+                  inputId = ns("primary_input"),
+                  label = "Primary comparison",
+                  choices = NULL, 
+                  selected = NULL,
+                  multiple = FALSE,
+                  options = list(
+                    `live-search` = TRUE, 
+                    size = 5)
+                )
               ),
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                uiOutput(ns("ui_additional_input"))
+                pickerInput(
+                  inputId = ns("additional_input"),
+                  label = "Additional comparison",
+                  choices = NULL,
+                  selected = NULL,
+                  multiple = TRUE,
+                  options = list(
+                    `live-search` = TRUE, 
+                    title = "None",
+                    `selected-text-format` = "count > 2",
+                    size = 5)
+                )
               )
             )
           ),
@@ -241,50 +261,45 @@ server <- function(id, r6) {
     
     init("stat")
     
-    output$ui_primary_input <- renderUI({
+    observe({
       
       watch("stat")
+      watch("ui_element")
       
       test <- r6$all_test_combination
       
-      pickerInput(
-        inputId = session$ns("primary_input"),
-        label = "Primary comparison",
-        choices = test, 
-        selected = r6$primary_condition,
-        multiple = FALSE,
-        # width = "auto",
-        options = list(
-          `live-search` = TRUE, 
-          size = 5)
-      )
+      test_add <- test[! test %in% r6$primary_condition]
       
+      updatePickerInput(
+        session = session,
+        inputId = "primary_input",
+        choices = test,
+        selected = r6$primary_condition
+      )
+      updatePickerInput(
+        session = session,
+        choices = test_add,
+        inputId = "additional_input",
+        selected = r6$additional_condition
+      )
       
     })
     
-    output$ui_additional_input <- renderUI({
-      
-      watch("stat")
+    observeEvent(input$primary_input, {
       
       test <- r6$all_test_combination
       
-      test <- test[! test %in% r6$primary_condition]
+      test_add <- test[! test %in% input$primary_input]
       
-      pickerInput(
-        inputId = session$ns("additional_input"),
-        label = "Additional comparison",
-        choices = test,
-        selected = r6$additional_condition,
-        multiple = TRUE,
-        options = list(
-          `live-search` = TRUE, 
-          title = "None",
-          `selected-text-format` = "count > 2",
-          size = 5)
+      updatePickerInput(
+        session = session,
+        choices = test_add,
+        inputId = "additional_input",
+        selected = r6$additional_condition
       )
       
-      
     })
+    
     
     output$tested_cond <- renderValueBox({
       

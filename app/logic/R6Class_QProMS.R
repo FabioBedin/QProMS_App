@@ -1214,7 +1214,12 @@ QProMS <- R6Class(
         unnamed_gene_lists <- self$selected_nodes %>% list()
         gene_vector <- set_names(unnamed_gene_lists, "nodes")
         uni <- NULL
+      } else if (list_from == "top_rank"){
+        unnamed_gene_lists <- self$protein_rank_list %>% list()
+        gene_vector <- set_names(unnamed_gene_lists, self$protein_rank_target)
+        uni <- NULL
       } else {
+      
         unnamed_gene_lists <-
           groupped_data %>% dplyr$group_map(~ dplyr$pull(.x, gene_names))
         

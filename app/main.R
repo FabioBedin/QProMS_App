@@ -108,8 +108,6 @@ ui <- function(id) {
         menuItemOutput(ns("missing_data")),
         menuItemOutput(ns("correlation_blocked")),
         menuItemOutput(ns("correlation")),
-        menuItemOutput(ns("protein_rank_blocked")),
-        menuItemOutput(ns("protein_rank")),
         menuItemOutput(ns("pca_blocked")),
         menuItemOutput(ns("pca")),
         menuItemOutput(ns("statistics_blocked")),
@@ -169,7 +167,6 @@ server <- function(id) {
     output$wrangling_data_blocked <- renderMenu({ menuItem("Filter Data", icon = icon("lock"), tabName = "") })
     output$missing_data_blocked    <- renderMenu({ menuItem("Missing Data", icon = icon("lock"), tabName = "") })
     output$correlation_blocked  <- renderMenu({ menuItem("Correlation", icon = icon("lock"), tabName = "") })
-    output$protein_rank_blocked <- renderMenu({ menuItem("Protein Rank", icon = icon("lock"), tabName = "") })
     output$pca_blocked <- renderMenu({ menuItem("PCA", icon = icon("lock"), tabName = "") })
     output$statistics_blocked <- renderMenu({ menuItem("Statistics", icon = icon("lock"), tabName = "") })
     output$function_analysis_blocked <- renderMenu({ menuItem("Functional Analysis", icon = icon("lock"), tabName = "") })
@@ -203,9 +200,6 @@ server <- function(id) {
       output$correlation  <- renderMenu({ menuItem("Correlation", icon = icon("link"), tabName = "correlation") })
       removeUI(selector = "#app-correlation_blocked")
       
-      output$protein_rank <- renderMenu({ menuItem("Protein Rank", icon = icon("up-long"), tabName = "protein_rank") })
-      removeUI(selector = "#app-protein_rank_blocked")
-
       output$pca <- renderMenu({ menuItem("PCA", icon = icon("slack"), tabName = "pca") })
       removeUI(selector = "#app-pca_blocked")
 
@@ -222,6 +216,11 @@ server <- function(id) {
             text = "Multivariate",
             tabName = "statistics_multi",
             icon = icon("cubes")
+          ),
+          menuSubItem(
+            text = "Protein Rank",
+            tabName = "protein_rank",
+            icon = icon("up-long")
           )
         )
       })

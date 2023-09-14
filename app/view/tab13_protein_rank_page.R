@@ -104,6 +104,7 @@ ui <- function(id) {
         width = 6,
         height = 700,
         maximizable = TRUE,
+        label = boxLabel("Auto save!", "info", "The top n % selected protein are saved for downstream analysis. You can use it for network and functional analysis."),
         reactableOutput(ns("table"))
       )
     )

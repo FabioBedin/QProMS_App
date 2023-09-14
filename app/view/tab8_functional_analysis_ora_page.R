@@ -1,7 +1,7 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, column, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal, downloadHandler, tagList, img, h3],
+  shiny[moduleServer, NS, fluidRow, column, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, observe, isolate, req, reactive, reactiveVal, downloadHandler, tagList, img, h3],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion, toast],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn, updatePickerInput],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   dplyr[group_by, `%>%`, pull, slice_max, filter, case_when, if_all, ends_with],
@@ -39,9 +39,33 @@ ui <- function(id) {
               style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                uiOutput(ns("ui_from_statistic_input")),
+                # uiOutput(ns("ui_from_statistic_input")),
+                selectInput(
+                  inputId = ns("from_statistic_input"),
+                  label = "Genes from",
+                  choices = c(
+                    "Univariate" = "univariate",
+                    "Multivariate" = "multivariate",
+                    "Top rank proteins" = "top_rank",
+                    "Selected nodes" = "nodes"
+                  ),
+                  selected = "univariate", 
+                  width = "auto"
+                ),
                 conditionalJS(
-                  uiOutput(ns("ui_groups_input")),
+                  # uiOutput(ns("ui_groups_input")),
+                  pickerInput(
+                    inputId = ns("test_uni_input"),
+                    label = "Contrasts",
+                    choices = NULL,
+                    selected = NULL,
+                    multiple = TRUE,
+                    options = list(
+                      `live-search` = TRUE,
+                      title = "None",
+                      `selected-text-format` = "count > 2",
+                      size = 5)
+                  ),
                   condition = "input.from_statistic_input == 'univariate'",
                   jsCall = jsCalls$show(),
                   ns = ns
@@ -92,7 +116,7 @@ ui <- function(id) {
           accordionItem(
             title = "Visual settings",
             status = "gray",
-            collapsed = TRUE,
+            collapsed = FALSE,
             solidHeader = TRUE,
             div(
               style = "display: flex; justify-content: center; align-items: start; gap: 5rem",
@@ -112,7 +136,19 @@ ui <- function(id) {
                   conditionalJS(
                     div(
                       style = "width: 100%; flex: 1 1 0;",
-                      uiOutput(ns("ui_direction_input"))
+                      # uiOutput(ns("ui_direction_input"))
+                      pickerInput(
+                        inputId = ns("direction_input"),
+                        label = "Contrasts direction",
+                        choices = NULL,
+                        selected = NULL,
+                        multiple = TRUE,
+                        options = list(
+                          `live-search` = TRUE, 
+                          title = "None",
+                          `selected-text-format` = "count > 1",
+                          size = 5)
+                      )
                     ),
                     condition = "input.from_statistic_input == 'univariate'",
                     jsCall = jsCalls$show(),
@@ -121,7 +157,19 @@ ui <- function(id) {
                   conditionalJS(
                     div(
                       style = "width: 100%; flex: 1 1 0;",
-                      uiOutput(ns("ui_cluster_input"))
+                      # uiOutput(ns("ui_cluster_input"))
+                      pickerInput(
+                        inputId = ns("cluster_input"),
+                        label = "Clusters",
+                        choices = NULL,
+                        selected = NULL,
+                        multiple = TRUE,
+                        options = list(
+                          `live-search` = TRUE, 
+                          title = "None",
+                          `selected-text-format` = "count > 1",
+                          size = 5)
+                      )
                     ),
                     condition = "input.from_statistic_input == 'multivariate'",
                     jsCall = jsCalls$show(),
@@ -299,115 +347,50 @@ server <- function(id, r6) {
     
     init("functional")
     
-    output$ui_from_statistic_input <- renderUI({
+    observe({
       
-      watch("functional")
       watch("stat")
-      watch("anova")
-      
-      if(is.null(r6$stat_table) & is.null(r6$anova_table)) {
-        scelte <- c("External table" = "external")
-        sel <- "external"
-      } else if (!is.null(r6$stat_table) & is.null(r6$anova_table)) {
-        scelte <- c("Univariate" = "univariate", "Selected nodes" = "nodes", "External table" = "external")
-        sel <- input$from_statistic_input
-      } else if (is.null(r6$stat_table) & !is.null(r6$anova_table)) {
-        scelte <- c("Multivariate" = "multivariate", "Selected nodes" = "nodes", "External table" = "external")
-        sel <- input$from_statistic_input
-      } else {
-        scelte <- c("Univariate" = "univariate", "Multivariate" = "multivariate", "Selected nodes" = "nodes", "External table" = "external")
-        sel <- input$from_statistic_input
-      }
-      
-      selectInput(
-        inputId = session$ns("from_statistic_input"),
-        label = "Genes from",
-        choices = scelte,
-        selected = sel, 
-        width = "auto"
-      )
-      
-    })
-    
-    output$ui_groups_input <- renderUI({
-      
+      watch("ui_element")
       watch("functional")
-      watch("stat")
-      watch("anova")
       
       tests <- c(r6$primary_condition, r6$additional_condition)
       
-      pickerInput(
-        inputId = session$ns("test_uni_input"),
-        label = "Contrasts",
+      updatePickerInput(
+        session = session,
+        inputId = "test_uni_input",
         choices = tests,
-        selected = r6$primary_condition,
-        multiple = TRUE,
-        options = list(
-          `live-search` = TRUE,
-          title = "None",
-          `selected-text-format` = "count > 2",
-          size = 5)
+        selected = r6$primary_condition
       )
       
+      if(is.null(r6$ora_table)) {
+
+        updatePickerInput(
+          session = session,
+          inputId = "direction_input",
+          choices = c(paste0(r6$primary_condition, "_up"), paste0(r6$primary_condition, "_down")),
+          selected = paste0(r6$primary_condition, "_up")
+        )
+
+        updatePickerInput(
+          session = session,
+          inputId = "cluster_input",
+          choices = "cluster_1",
+          selected = "cluster_1"
+        )
+
+      }
       
     })
     
-    output$ui_direction_input <- renderUI({
+    observeEvent(input$from_statistic_input, {
       
-      watch("functional")
-      
-      if(is.null(r6$ora_table)) {
-        tests <- paste0(r6$primary_condition, "_up")
-        sel <- tests
-      } else {
-        tests <- names(r6$ora_result_list)
-        sel <- r6$go_ora_focus
+      if (input$from_statistic_input == "univariate") {
+        
       }
-      
-      pickerInput(
-        inputId = session$ns("direction_input"),
-        label = "Contrasts direction",
-        choices = tests,
-        selected = sel,
-        multiple = TRUE,
-        options = list(
-          `live-search` = TRUE, 
-          title = "None",
-          `selected-text-format` = "count > 1",
-          size = 5)
-      )
-      
       
     })
     
-    output$ui_cluster_input <- renderUI({
-      
-      watch("functional")
-      
-      if(is.null(r6$ora_table)) {
-        tests <- "cluster_1"
-        sel <- tests
-      } else {
-        tests <- names(r6$ora_result_list)
-        sel <- r6$go_ora_focus
-      }
-      
-      pickerInput(
-        inputId = session$ns("cluster_input"),
-        label = "Clusters",
-        choices = tests,
-        selected = sel,
-        multiple = TRUE,
-        options = list(
-          `live-search` = TRUE, 
-          title = "None",
-          `selected-text-format` = "count > 1",
-          size = 5)
-      )
-      
-      
-    })
+    
     
     output$significant_bp <- renderValueBox({
       
@@ -502,42 +485,50 @@ server <- function(id, r6) {
         r6$go_ora_plot_value <- input$plot_value_input
       }
       
-      
       if (input$from_statistic_input == "univariate") {
         
-        input_error <- case_when(
-          nrow(filter(
-            r6$stat_table, if_all(ends_with("significant"))
-          )) == 0 ~ "There are no significant, no functional analysis will be performed",
-          TRUE ~ ""
-        )
-        
-        if(is.null(input$direction_input)) {
-          r6$go_ora_focus <- paste0(r6$primary_condition, "_up")
+        if(is.null(r6$stat_table)) {
+          input_error <- "You need to perform Univariate statistics in order to run this analysis."
         } else {
-          r6$go_ora_focus <- input$direction_input
+          input_error <- case_when(
+            nrow(filter(
+              r6$stat_table, if_all(ends_with("significant"))
+            )) == 0 ~ "There are no significant, no network analysis will be performed",
+            TRUE ~ ""
+          )
         }
+        
+        r6$go_ora_focus <- input$direction_input
+        
       } else if (input$from_statistic_input == "multivariate") {
         
-        input_error <- case_when(
-          nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no functional analysis will be performed",
-          TRUE ~ ""
-        )
-        
-        if(is.null(input$cluster_input)) {
-          r6$go_ora_focus <- "cluster_1"
+        if(is.null(r6$anova_table)) {
+          input_error <- "You need to perform Multivariate statistics in order to run this analysis."
         } else {
-          r6$go_ora_focus <- input$cluster_input
+          input_error <- case_when(
+            nrow(filter(r6$anova_table, significant)) == 0 ~ "There are no significant, no network analysis will be performed",
+            TRUE ~ ""
+          )
         }
+        
+        r6$go_ora_focus <- input$cluster_input
+        
       } else if (input$from_statistic_input == "nodes") {
         input_error <- case_when(
-          length(r6$selected_nodes) == 0 ~ "There are no significant, no functional analysis will be performed",
+          length(r6$selected_nodes) == 0 ~ "You need to select at least some nodes in order to run this analysis.",
           TRUE ~ ""
         )
         
         r6$go_ora_focus <- "nodes"
       } else {
-        r6$go_ora_focus <- NULL ## da sistemare per external table
+        
+        input_error <- case_when(
+          is.null(r6$protein_rank_list) |
+            length(r6$protein_rank_list) == 0 ~ "You need to select at least some proteins in order to run this analysis.",
+          TRUE ~ ""
+        )
+        
+        r6$go_ora_focus <- r6$protein_rank_target
       }
       
       if (input$simplify_thr == "highly simplified") {
@@ -579,9 +570,16 @@ server <- function(id, r6) {
 
       r6$print_ora_table(ontology = r6$go_ora_term, groups = r6$go_ora_focus, value = r6$go_ora_plot_value)
       
+      updatePickerInput(
+        session = session,
+        inputId = "direction_input",
+        choices = names(r6$ora_result_list),
+        selected = r6$go_ora_focus
+      )
+      
       enable("update")
       
-      updateAccordion(id = "advance_params", selected = 2)
+      updateAccordion(id = "advance_params", selected = 1)
 
       trigger("functional")
 
@@ -610,7 +608,7 @@ server <- function(id, r6) {
       } else if (input$from_statistic_input == "nodes") {
         r6$go_ora_focus <- "nodes"
       } else {
-        r6$go_ora_focus <- NULL ## da sistemare per external table
+        r6$go_ora_focus <- r6$protein_rank_target
       }
       
       if (input$simplify_thr == "highly simplified") {

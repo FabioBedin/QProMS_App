@@ -5,7 +5,6 @@ box::use(
   reactable[reactableOutput, renderReactable, reactable, colDef],
   utils[write.csv, write.table],
   dplyr[`%>%`, select, left_join],
-  shiny.emptystate[use_empty_state, EmptyStateManager],
   gargoyle[watch],
 )
 
@@ -204,13 +203,6 @@ ui <- function(id) {
 #' @export
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
-    
-    # empty_state_manager <- EmptyStateManager$new(
-    #   id = session$ns("stat_table"),
-    #   html_content = h1(
-    #     "This is example empty state content"
-    #   )
-    # )
     
     output$add_column <- renderUI({
       
