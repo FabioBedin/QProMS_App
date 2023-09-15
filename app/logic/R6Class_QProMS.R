@@ -105,7 +105,7 @@ QProMS <- R6Class(
     anova_manual_order = FALSE,
     anova_col_order = NULL,
     clusters_def = NULL,
-    clusters_number = 0,
+    clusters_number = 3,
     ######################
     # parameters For ORA #
     ora_result_list = NULL,
