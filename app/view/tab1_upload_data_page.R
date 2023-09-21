@@ -112,7 +112,7 @@ ui <- function(id) {
                   selectInput(
                     inputId = ns("intensity_type"),
                     label = "Select Intensity type",
-                    choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_"),
+                    choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "i_baq_"),
                     selected = "lfq_intensity_"
                   ),
                   condition = "input.source_type == 'max_quant' | input.source_type == 'fragpipe' | input.source_type == 'spectronaut'",
@@ -396,7 +396,7 @@ server <- function(id, r6) {
       if (input$source_type == "max_quant") {
         updateSelectInput(
           inputId = "intensity_type",
-          choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_"),
+          choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "i_baq_"),
           selected = "lfq_intensity_"
         )
       }
@@ -787,7 +787,8 @@ server <- function(id, r6) {
       r6$rank_protein(
         target = r6$protein_rank_target,
         by_condition = r6$protein_rank_by_cond,
-        top_n = r6$protein_rank_top_n
+        selection = r6$protein_rank_selection,
+        n_perc = r6$protein_rank_top_n
       )
       
       w$hide()
@@ -826,16 +827,6 @@ server <- function(id, r6) {
         )
       )
       
-      Sys.sleep(0.2)
-      toast(
-        title = "Protein rank page unlock!",
-        options = list(
-          class = "bg-white",
-          autohide = TRUE,
-          delay = 5000,
-          icon = icon("unlock")
-        )
-      )
       Sys.sleep(0.2)
       toast(
         title = "PCA page unlock!",

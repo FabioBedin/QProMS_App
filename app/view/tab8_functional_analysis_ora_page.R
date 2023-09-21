@@ -45,7 +45,7 @@ ui <- function(id) {
                   choices = c(
                     "Univariate" = "univariate",
                     "Multivariate" = "multivariate",
-                    "Top rank proteins" = "top_rank",
+                    "Ranked proteins" = "top_rank",
                     "Selected nodes" = "nodes"
                   ),
                   selected = "univariate", 

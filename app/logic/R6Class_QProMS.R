@@ -83,6 +83,7 @@ QProMS <- R6Class(
     rank_data = NULL,
     protein_rank_target = NULL,
     protein_rank_by_cond = FALSE,
+    protein_rank_selection = "top",
     protein_rank_top_n = 0.1,
     protein_rank_list = NULL,
     #############################
@@ -126,6 +127,8 @@ QProMS <- R6Class(
     # parameters for GSEA #
     gsea_result_list = NULL,
     gsea_result_list_simplified = NULL,
+    protein_rank_by_cond_gsea = FALSE,
+    protein_rank_target_gsea = NULL,
     gsea_table = NULL,
     gsea_table_all_download = NULL,
     gsea_table_counts = NULL,
@@ -721,6 +724,7 @@ QProMS <- R6Class(
         self$is_imp <- TRUE
         
         if(self$is_mixed){
+          set.seed(11)
           data_mixed <- data %>%
             rownames_to_column() %>% 
             dplyr$group_by(gene_names, condition) %>%
@@ -799,7 +803,7 @@ QProMS <- R6Class(
         self$is_imp <- FALSE
       }
     },
-    rank_protein = function(target, by_condition, top_n) {
+    rank_protein = function(target, by_condition, selection, n_perc) {
       
       if(by_condition) {
         data <- self$imputed_data %>%
@@ -819,12 +823,21 @@ QProMS <- R6Class(
           dplyr$select(gene_names, intensity, rank)
       }
       
-      top_list <- data %>% 
-        dplyr$slice_head(prop = top_n) %>%
-        dplyr$pull(gene_names)
+      if(selection == "top") {
+        selected_list <- data %>% 
+          dplyr$slice_head(prop = n_perc) %>%
+          dplyr$pull(gene_names)
+      } else if (selection == "bot") {
+        selected_list <- data %>% 
+          dplyr$slice_tail(prop = n_perc) %>%
+          dplyr$pull(gene_names)
+      } else {
+        selected_list <- NULL
+      }
+      
       
       self$rank_data <- data
-      self$protein_rank_list <- top_list
+      self$protein_rank_list <- selected_list
       
     },
     print_table = function(data, df = FALSE) {
@@ -1204,11 +1217,7 @@ QProMS <- R6Class(
         
         uni <- self$anova_table %>%
           dplyr$pull(gene_names)
-      }
-      
-      if (!background) {
-        uni <- NULL
-      }
+      } 
       
       if (list_from == "nodes") {
         unnamed_gene_lists <- self$selected_nodes %>% list()
@@ -1217,7 +1226,8 @@ QProMS <- R6Class(
       } else if (list_from == "top_rank"){
         unnamed_gene_lists <- self$protein_rank_list %>% list()
         gene_vector <- set_names(unnamed_gene_lists, self$protein_rank_target)
-        uni <- NULL
+        uni <- self$rank_data %>%
+          dplyr$pull(gene_names)
       } else {
       
         unnamed_gene_lists <-
@@ -1225,6 +1235,10 @@ QProMS <- R6Class(
         
         gene_vector <-
           set_names(unnamed_gene_lists, dplyr$group_keys(groupped_data) %>% dplyr$pull())
+      }
+      
+      if (!background) {
+        uni <- NULL
       }
       
       self$ora_result_list <- map(
@@ -1258,37 +1272,55 @@ QProMS <- R6Class(
       }
       
     },
-    go_gsea_rank_vector = function(test) {
+    go_gsea_rank_vector = function(test, rank, cond) {
       
-      cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
-      cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      if(rank == "fc") {
+        
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+        
+        gsea_vec <- self$imputed_data %>%
+          dplyr$filter(condition == cond_1 | condition == cond_2) %>%
+          dplyr$group_by(gene_names, condition) %>%
+          dplyr$summarise(mean = mean(intensity)) %>%
+          tidyr$pivot_wider(id_cols = gene_names, names_from = condition, values_from = mean) %>%
+          dplyr$ungroup() %>%
+          dplyr$mutate(fold_change = get(cond_1) - get(cond_2)) %>%
+          dplyr$arrange(-fold_change) %>%
+          dplyr$select(gene_names, fold_change) %>%
+          deframe() %>%
+          list() 
+        
+      } else {
+        
+        if(cond) {
+          gsea_vec <- self$imputed_data %>%
+            dplyr$filter(condition == test) %>%
+            dplyr$group_by(gene_names) %>%
+            dplyr$summarise(mean_intenisty = mean(intensity)) %>%
+            dplyr$ungroup() %>%
+            dplyr$arrange(-mean_intenisty) %>%
+            deframe() %>%
+            list()
+        } else {
+          gsea_vec <- self$imputed_data %>%
+            dplyr$filter(label == test) %>%
+            dplyr$arrange(-intensity) %>%
+            dplyr$select(gene_names, intensity) %>%
+            deframe() %>%
+            list()
+        }
+        
+      }
       
-      # if (!self$is_norm & !self$is_imp) {
-      #   data <- self$filtered_data
-      # } else if (self$is_norm & !self$is_imp) {
-      #   data <- self$normalized_data
-      # } else{
-      #   data <- self$imputed_data
-      # }
       
-      gsea_vec <- self$imputed_data %>%
-        dplyr$filter(condition == cond_1 | condition == cond_2) %>%
-        dplyr$group_by(gene_names, condition) %>%
-        dplyr$summarise(mean = mean(intensity)) %>%
-        tidyr$pivot_wider(id_cols = gene_names, names_from = condition, values_from = mean) %>%
-        dplyr$ungroup() %>%
-        dplyr$mutate(fold_change = get(cond_1) - get(cond_2)) %>%
-        dplyr$arrange(-fold_change) %>%
-        dplyr$select(gene_names, fold_change) %>%
-        deframe() %>%
-        list() 
       
       gsea_list_vec <- set_names(gsea_vec, test)
       
       return(gsea_list_vec)
       
     },
-    go_gsea = function(test, alpha, p_adj_method) {
+    go_gsea = function(test, rank_type, by_condition, alpha, p_adj_method) {
       
       if(self$organism == "human"){
         orgdb <- org.Hs.eg.db
@@ -1298,7 +1330,7 @@ QProMS <- R6Class(
       
       list_of_gesa_vector <- map(
         .x = test,
-        .f = ~ self$go_gsea_rank_vector(test = .x)
+        .f = ~ self$go_gsea_rank_vector(test = .x, rank = rank_type, cond = by_condition)
       ) %>% flatten()
       
       defaultW <- getOption("warn") 
@@ -1381,8 +1413,7 @@ QProMS <- R6Class(
           )
         
       } else {
-        nodes_table <- self$rank_data %>% 
-          dplyr$slice_head(prop = self$protein_rank_top_n) %>%
+        nodes_table <- tibble(gene_names = self$protein_rank_list) %>%
           dplyr$mutate(
             category = self$protein_rank_target,
             p_val = 1,

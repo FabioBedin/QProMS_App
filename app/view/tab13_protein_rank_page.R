@@ -7,6 +7,7 @@ box::use(
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
   dplyr[`%>%`, select, distinct, pull, mutate],
   gargoyle[init, watch, trigger],
+  shinyGizmo[conditionalJS, jsCalls],
 )
 
 #' @export
@@ -33,7 +34,7 @@ ui <- function(id) {
             div(
               style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
-                style = "width: 100%; flex: 1 1 0;",
+                style = "width: 100%; flex: 2 1 0;",
                 div(
                   style = "display: flex; justify-content: center; align-items: center; gap: 20px",
                   div(
@@ -60,13 +61,28 @@ ui <- function(id) {
               ),
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                sliderInput(
-                  inputId = ns("top_n_slider"),
-                  label = "Select top n % proteins",
-                  min = 0,
-                  max = 50,
-                  value = 10,
-                  step = 1
+                selectInput(
+                  inputId = ns("selections"),
+                  label = "Protein selection",
+                  choices = c("From top" = "top", "From bottom" = "bot", "Manual" = "manual"),
+                  selected = "top", 
+                  width = "auto"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                conditionalJS(
+                  sliderInput(
+                    inputId = ns("top_n_slider"),
+                    label = "n % of proteins",
+                    min = 0,
+                    max = 50,
+                    value = 10,
+                    step = 1
+                  ),
+                  condition = "input.selections != 'manual'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
                 )
               )
             )
@@ -104,6 +120,22 @@ ui <- function(id) {
         width = 6,
         height = 700,
         maximizable = TRUE,
+        conditionalJS(
+          div(
+            style = "position: absolute; z-index: 999; left: 30px",
+            actionBttn(
+              inputId = ns("save_selected"),
+              label = "Save selected proteins",
+              style = "bordered",
+              color = "primary",
+              size = "sm",
+              block = TRUE
+            )
+          ),
+          condition = "input.selections == 'manual'",
+          jsCall = jsCalls$show(),
+          ns = ns
+        ),
         label = boxLabel("Auto save!", "info", "The top n % selected protein are saved for downstream analysis. You can use it for network and functional analysis."),
         reactableOutput(ns("table"))
       )
@@ -220,12 +252,14 @@ server <- function(id, r6) {
       
       r6$protein_rank_target <- input$target
       r6$protein_rank_by_cond <- input$by_cond_input
+      r6$protein_rank_selection <- input$selections
       r6$protein_rank_top_n <- as.numeric(input$top_n_slider) / 100
       
       r6$rank_protein(
         target = r6$protein_rank_target,
         by_condition = r6$protein_rank_by_cond,
-        top_n = r6$protein_rank_top_n
+        selection = r6$protein_rank_selection,
+        n_perc = r6$protein_rank_top_n
       )
 
       trigger("plot")
@@ -273,6 +307,14 @@ server <- function(id, r6) {
         pull(gene_names)
       
       r6$plot_protein_rank(highlights_names = highlights)
+      
+    })
+    
+    observeEvent(input$save_selected, {
+      highlights <- r6$rank_data[gene_selected(), ] %>%
+        pull(gene_names)
+      
+      r6$protein_rank_list <- highlights
       
     })
     
