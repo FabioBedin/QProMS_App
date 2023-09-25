@@ -38,7 +38,11 @@ ui <- function(id) {
                 selectInput(
                   inputId = ns("from_statistic_input"),
                   label = "Genes from",
-                  choices = c("Univariate" = "univariate", "Multivariate" = "multivariate"),
+                  choices = c(
+                    "Univariate" = "univariate",
+                    "Multivariate" = "multivariate",
+                    "Ranked proteins" = "top_rank"
+                  ),
                   selected = "univariate", 
                   width = "auto"
                 )
@@ -46,7 +50,6 @@ ui <- function(id) {
               div(
                 style = "width: 100%; flex: 1 1 0;",
                 conditionalJS(
-                  # uiOutput(ns("ui_test_input")),
                   selectInput(
                     inputId = ns("test_uni_input"),
                     label = "Contrasts",
@@ -71,7 +74,6 @@ ui <- function(id) {
                   ns = ns
                 ),
                 conditionalJS(
-                  # uiOutput(ns("ui_cluster_input")),
                   pickerInput(
                     inputId = ns("clusters_input"),
                     label = "Clusters",
@@ -359,7 +361,7 @@ server <- function(id, r6) {
         r6$network_focus_uni <- input$test_uni_input
         focus_net <- r6$network_focus_uni
         
-      } else {
+      } else if (r6$network_from_statistic == "multivariate") {
         
         if(is.null(r6$anova_table)) {
           input_error <- "You need to perform Multivariate statistics in order to run this analysis."
@@ -373,6 +375,13 @@ server <- function(id, r6) {
         r6$network_focus_multi <- input$clusters_input
         focus_net <- r6$network_focus_multi
           
+      } else {
+        focus_net <- NULL
+        if(is.null(r6$protein_rank_list) | length(r6$protein_rank_list) == 0) {
+          input_error <- "You need to select at least some proteins in order to run this analysis."
+        } else {
+          input_error <- ""
+        }
       }
       
       if (input_error != "") {

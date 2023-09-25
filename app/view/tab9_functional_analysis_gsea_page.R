@@ -1,10 +1,10 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, column, div, selectInput, uiOutput, numericInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal, downloadHandler, tagList, img, h3],
+  shiny[moduleServer, NS, fluidRow, column, div, selectInput, uiOutput, numericInput, updateSelectInput, h4, br, icon, p, renderUI, observeEvent, isolate, req, reactive, reactiveVal, downloadHandler, tagList, img, h3, observe],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, sliderTextInput, downloadBttn, updatePickerInput],
   gargoyle[init, watch, trigger],
   reactable[reactableOutput, renderReactable, reactable, colDef, getReactableState],
-  dplyr[group_by, `%>%`, pull, slice_max, filter],
+  dplyr[group_by, `%>%`, pull, slice_max, filter, distinct, select],
   tibble[rowid_to_column],
   shinyjs[disabled, enable],
   echarts4r[echarts4rOutput, renderEcharts4r, echarts4rProxy, e_focus_adjacency_p],
@@ -38,7 +38,68 @@ ui <- function(id) {
               style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                uiOutput(ns("ui_test_input"))
+                selectInput(
+                  inputId = ns("rank_with"),
+                  label = "Rank with",
+                  choices = c("Fold change" = "fc", "Intensity" = "intensity"),
+                  selected = "fc", 
+                  width = "auto"
+                ),
+                conditionalJS(
+                  pickerInput(
+                    inputId = ns("tests_input"),
+                    label = "Contrast",
+                    choices = NULL,
+                    multiple = TRUE,
+                    selected = NULL,
+                    options = list(
+                      `live-search` = TRUE, 
+                      title = "None",
+                      `selected-text-format` = "count > 2",
+                      size = 5)
+                  ),
+                  condition = "input.rank_with == 'fc'",
+                  jsCall = jsCalls$show(),
+                  ns = ns
+                ),
+                div(
+                  style = "display: flex; justify-content: center; align-items: center; gap: 20px",
+                  div(
+                    style = "width: 100%; flex: 3 1 0;",
+                    conditionalJS(
+                      pickerInput(
+                        inputId = ns("target"),
+                        label = "Target",
+                        choices = NULL,
+                        multiple = TRUE,
+                        selected = NULL,
+                        options = list(
+                          `live-search` = TRUE, 
+                          title = "None",
+                          `selected-text-format` = "count > 2",
+                          size = 5)
+                      ),
+                      condition = "input.rank_with != 'fc'",
+                      jsCall = jsCalls$show(),
+                      ns = ns
+                    )
+                  ),
+                  div(
+                    style = "width: 100%; flex: 1 1 0; text-align: center; margin-top: 1.5rem;",
+                    conditionalJS(
+                      prettyCheckbox(
+                        inputId = ns("by_cond_input"),
+                        label = "Use mean of condition", 
+                        value = FALSE,
+                        shape = "curve", 
+                        width = "auto"
+                      ),
+                      condition = "input.rank_with != 'fc'",
+                      jsCall = jsCalls$show(),
+                      ns = ns
+                    )
+                  )
+                )
               ),
               div(
                 style = "width: 100%; flex: 1 1 0;",
@@ -69,7 +130,7 @@ ui <- function(id) {
           accordionItem(
             title = "Visual settings",
             status = "gray",
-            collapsed = TRUE,
+            collapsed = FALSE,
             solidHeader = TRUE,
             div(
               style = "display: flex; justify-content: center; align-items: start; gap: 5rem",
@@ -170,21 +231,6 @@ ui <- function(id) {
         height = 700,
         maximizable = TRUE,
         collapsible = TRUE, 
-        sidebar = boxSidebar(
-          id = ns("table_sidebar"),
-          div(
-            style = "padding-right: 0.5rem",
-            h4("Download table"),
-            downloadBttn(
-              outputId  = ns("download_table"),
-              label = "Download", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
         reactableOutput(ns("table"))
       )
     )
@@ -205,36 +251,54 @@ server <- function(id, r6) {
     
     w2 <- Waiter$new(html = spin_5(), color = "#adb5bd")
 
-    init("gsea")
+    init("gsea", "trigger2")
+    
+    observe({
 
-    output$ui_test_input <- renderUI({
-
-      watch("gsea")
-
-      test <- r6$all_test_combination
+      watch("ui_element")
+      watch("trigger2")
       
-      if (is.null(input$tests_input)) {
-        sel <- r6$primary_condition
-      } else {
-        sel <- isolate(input$tests_input)
+      tests <- r6$all_test_combination
+      
+      updatePickerInput(
+        session = session,
+        inputId = "tests_input",
+        choices = tests,
+        selected = r6$primary_condition
+      )
+      
+      if(!is.null(r6$expdesign)) {
+        if(r6$protein_rank_by_cond_gsea){
+          scelte <- r6$expdesign %>% 
+            select(condition) %>% 
+            distinct() %>% 
+            pull()
+        } else {
+          scelte <- r6$expdesign %>% 
+            select(label) %>% 
+            distinct() %>% 
+            pull()
+        }
+        
+        updatePickerInput(
+          session = session,
+          inputId = "target",
+          choices = scelte,
+          selected = scelte[1]
+        )
       }
       
-      pickerInput(
-        inputId = session$ns("tests_input"),
-        label = "Contrast",
-        choices = test,
-        multiple = TRUE,
-        selected = sel,
-        options = list(
-          `live-search` = TRUE, 
-          title = "None",
-          `selected-text-format` = "count > 2",
-          size = 5)
-      )
-
     })
     
-    
+    observeEvent(input$by_cond_input, {
+      
+      r6$protein_rank_by_cond_gsea <- input$by_cond_input
+      
+      trigger("trigger2")
+      
+    })
+
+
     output$significant_bp <- renderValueBox({
       
       watch("gsea")
@@ -309,26 +373,26 @@ server <- function(id, r6) {
 
       w$show()
 
+      req(input$rank_with)
       req(input$tests_input)
       req(input$alpha_input)
       req(input$truncation_input)
 
-      r6$go_gsea_tested_condition <- input$tests_input
+      # r6$go_gsea_tested_condition <- input$tests_input
       r6$go_gsea_alpha <- as.double(input$alpha_input)
       r6$go_gsea_p_adj_method <- input$truncation_input
-      if(!is.null(input$ontology)) {
-        r6$go_gsea_term <- input$ontology
-      }
+      r6$go_gsea_term <- input$ontology
+      r6$go_gsea_top_n <- as.double(input$top_n_input)
+      r6$go_gsea_common_terms <- input$common_terms_input
+      # r6$go_gsea_focus <- input$tests_input
       
-      if(!is.null(input$top_n_input)) {
-        r6$go_gsea_top_n <- as.double(input$top_n_input)
+      if(input$rank_with == "fc") {
+        r6$go_gsea_tested_condition <- input$tests_input
+        r6$go_gsea_focus <- input$tests_input
+      } else {
+        r6$go_gsea_tested_condition <- input$target
+        r6$go_gsea_focus <- input$target
       }
-      
-      if(!is.null(input$common_terms_input)) {
-        r6$go_gsea_common_terms <- input$common_terms_input
-      }
-      
-      r6$go_gsea_focus <- input$tests_input
       
       if (input$simplify_thr == "highly simplified") {
         simp_thr <- 0.1
@@ -342,7 +406,9 @@ server <- function(id, r6) {
       r6$go_gsea_simplify_thr <- simp_thr
 
       r6$go_gsea(
-        test = r6$go_gsea_tested_condition,
+        test = r6$go_gsea_tested_condition, 
+        rank_type = isolate(input$rank_with), 
+        by_condition = isolate(input$by_cond_input),
         alpha = r6$go_gsea_alpha,
         p_adj_method = r6$go_gsea_p_adj_method
       )
@@ -353,7 +419,7 @@ server <- function(id, r6) {
       
       enable("update")
       
-      updateAccordion(id = "advance_params", selected = 2)
+      updateAccordion(id = "advance_params", selected = 1)
 
       trigger("gsea")
 
@@ -469,14 +535,6 @@ server <- function(id, r6) {
 
     })
    
-    output$download_table <- downloadHandler(
-      filename = function() {
-        paste("gsea_table", ".csv", sep="")
-      },
-      content = function(file) {
-        write.csv(r6$gsea_table, file)
-      }
-    )
     
   })
 }

@@ -5,7 +5,7 @@ box::use(
   tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe, rowid_to_column],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median, runif],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median, runif, model.matrix],
   utils[combn],
   htmltools,
   dplyr,
@@ -26,7 +26,8 @@ box::use(
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
   openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook],
-  yaml[write_yaml, read_yaml]
+  yaml[write_yaml, read_yaml],
+  limma[lmFit, eBayes, topTable]
 )
 
 box::use(
@@ -48,10 +49,13 @@ QProMS <- R6Class(
     input_type = "max_quant",
     intensity_type = "lfq_intensity_",
     external_genes_column = NULL,
+    spectronaut_new_names = NULL,
     organism = NULL, 
     expdesign = NULL,
     palette = "D",
     color_palette = NULL,
+    is_ok = TRUE,
+    #################################
     # parameters for data wrangling #
     filtered_data = NULL,
     valid_val_filter = "alog",
@@ -61,12 +65,12 @@ QProMS <- R6Class(
     rev = TRUE,
     cont = TRUE,
     oibs = TRUE,
-    ###############################
+    ################################
     # parameters for normalization #
     normalized_data = NULL,
     norm_methods = "None",
     is_norm = FALSE,
-    ############################
+    #############################
     # parameters for imputation #
     imputed_data = NULL,
     imp_methods = "mixed",
@@ -76,7 +80,15 @@ QProMS <- R6Class(
     cor_method = "pearson",
     is_mixed = NULL,
     is_imp = FALSE,
-    #################
+    ################
+    # protein rank #
+    rank_data = NULL,
+    protein_rank_target = NULL,
+    protein_rank_by_cond = FALSE,
+    protein_rank_selection = "top",
+    protein_rank_top_n = 0.1,
+    protein_rank_list = NULL,
+    #############################
     # parameters For Statistics #
     all_test_combination = NULL, 
     primary_condition = NULL,
@@ -96,8 +108,8 @@ QProMS <- R6Class(
     anova_manual_order = FALSE,
     anova_col_order = NULL,
     clusters_def = NULL,
-    clusters_number = 0,
-    #################
+    clusters_number = 3,
+    ######################
     # parameters For ORA #
     ora_result_list = NULL,
     ora_result_list_simplified = NULL,
@@ -112,11 +124,13 @@ QProMS <- R6Class(
     go_ora_focus = NULL,
     go_ora_top_n = 10,
     go_ora_simplify_thr = NULL,
-    go_ora_plot_value = "fold_change",
+    go_ora_plot_value = "fold_enrichment",
     #######################
     # parameters for GSEA #
     gsea_result_list = NULL,
     gsea_result_list_simplified = NULL,
+    protein_rank_by_cond_gsea = FALSE,
+    protein_rank_target_gsea = NULL,
     gsea_table = NULL,
     gsea_table_all_download = NULL,
     gsea_table_counts = NULL,
@@ -172,6 +186,11 @@ QProMS <- R6Class(
       self$imp_methods <- parameters_list$imp_methods
       self$imp_shift <- parameters_list$imp_shift
       self$imp_scale <- parameters_list$imp_scale
+      ## for protein rank page
+      self$protein_rank_target <- parameters_list$protein_rank_target
+      self$protein_rank_by_cond <- parameters_list$protein_rank_by_cond
+      self$protein_rank_selection <- parameters_list$protein_rank_selection
+      self$protein_rank_top_n <- parameters_list$protein_rank_top_n
       ## for univariate page
       self$univariate_test_type <- parameters_list$univariate_test_type
       self$univariate_paired <- parameters_list$univariate_paired
@@ -263,8 +282,40 @@ QProMS <- R6Class(
       
       colnames(self$raw_data) <- c("gene_names", modified_list)
     },
-    make_expdesign = function(intensity_type = "lfq_intensity_", genes_column = NULL) {
-      ## qui mettere tutti gli if in base all'intensity type
+    spectronaut_colnames_adjust = function(type) {
+      
+      match <- "quantity"
+      
+      if(type == "_quantity") {
+        match <- type
+      }
+      
+      vector_list <- self$raw_data %>% 
+        dplyr$select(contains(match)) %>% 
+        colnames() %>% 
+        stringr$str_split(pattern = "_")
+      
+      # Step 1: Find common elements
+      common_elements <- vector_list %>%
+        reduce(intersect)
+      
+      # Step 2: Remove common elements from each vector
+      modified_list <- vector_list %>%
+        map_chr(~ paste(.[!. %in% common_elements], collapse = "_")) 
+      
+      new_name <- self$raw_data %>% 
+        dplyr::select(pg_protein_groups, dplyr::contains(match))
+      
+      colnames(new_name) <- c("pg_protein_groups", modified_list)
+      
+      self$raw_data <- self$raw_data %>%
+        dplyr$select(!contains(match)) %>% 
+        dplyr$right_join(new_name, by ="pg_protein_groups") 
+      
+      self$spectronaut_new_names <- modified_list
+      
+    },
+    make_expdesign = function(intensity_type, genes_column = NULL) {
       
       self$intensity_type <- intensity_type
       self$external_genes_column <- genes_column
@@ -319,6 +370,31 @@ QProMS <- R6Class(
         
       }
       
+      if(self$input_type == "spectronaut") {
+        
+        self$spectronaut_colnames_adjust(type = intensity_type)
+        
+        if(intensity_type == "_quantity") {
+          data <- self$raw_data %>% 
+            dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ log2(.))) %>%
+            dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ dplyr$na_if(.,-Inf))) %>% 
+            dplyr$select(pg_protein_groups, dplyr$all_of(self$spectronaut_new_names))
+        } else {
+          data <- self$raw_data %>% 
+            dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ log2(.))) %>%
+            dplyr$mutate(dplyr$across(dplyr$ends_with(intensity_type), ~ dplyr$na_if(.,-Inf))) %>% 
+            dplyr$select(pg_protein_groups, dplyr$ends_with(intensity_type))
+        }
+        
+        self$expdesign <- data %>%
+          tidyr$pivot_longer(!pg_protein_groups, names_to = "key", values_to = "intensity") %>% 
+          dplyr$distinct(key) %>% 
+          dplyr$mutate(label = "") %>%
+          dplyr$mutate(condition = "") %>%
+          dplyr$mutate(replicate = "")
+        
+      }
+      
       if(self$input_type == "external") {
         if (is.null(genes_column)) {
           stop("Error! Provide a valid column for gene names.")
@@ -337,7 +413,7 @@ QProMS <- R6Class(
           dplyr$mutate(condition = "") %>%
           dplyr$mutate(replicate = "")
       }
-      
+  
     },
     define_tests = function() {
       conditions <-
@@ -482,6 +558,49 @@ QProMS <- R6Class(
         self$raw_data_unique <- unique_id_data
       }
       
+      if(self$input_type == "spectronaut") {
+        data <- self$raw_data %>% 
+          dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ log2(.))) %>% 
+          dplyr$mutate(dplyr$across(dplyr$all_of(self$spectronaut_new_names), ~ dplyr$na_if(.,-Inf))) %>%
+          dplyr$mutate(id = 1:dplyr$n())
+        
+        unique_id_data <- data %>%
+          dplyr$select(pg_protein_groups, pg_genes, id) %>%
+          dplyr$mutate(pg_genes = stringr$str_extract(pg_genes, "[^;]*")) %>% 
+          dplyr$rename(unique_gene_names = pg_genes) %>%
+          get_dupes(unique_gene_names) %>% 
+          dplyr$mutate(
+            unique_gene_names = dplyr$case_when(
+              unique_gene_names != "" ~ paste0(
+                unique_gene_names,
+                "__",
+                stringr$str_extract(pg_protein_groups, "[^;]*")
+              ),
+              TRUE ~ stringr$str_extract(pg_protein_groups, "[^;]*")
+            )
+          ) %>% 
+          dplyr$select(unique_gene_names, id) %>%
+          dplyr$right_join(data, by = "id") %>%
+          dplyr$mutate(pg_genes = dplyr$case_when(unique_gene_names != "" ~ unique_gene_names,
+                                                    TRUE ~ pg_genes)) %>%
+          dplyr$select(-unique_gene_names) %>%
+          dplyr$mutate(pg_genes = dplyr$if_else(pg_genes == "",
+                                                  stringr$str_extract(pg_protein_groups, "[^;]*"),
+                                                  pg_genes)) %>% 
+          dplyr$mutate(pg_genes = stringr$str_extract(pg_genes, "[^;]*")) 
+        
+        data_standardized <- unique_id_data %>% 
+          dplyr$select(pg_genes, dplyr$all_of(expdesign$key)) %>% 
+          tidyr$pivot_longer(!pg_genes, names_to = "key", values_to = "raw_intensity") %>% 
+          dplyr$inner_join(expdesign, by = "key") %>%
+          dplyr$mutate(bin_intensity = dplyr$if_else(is.na(raw_intensity), 0, 1)) %>%
+          dplyr$select(-key) %>% 
+          dplyr$rename(gene_names = pg_genes)
+        
+        self$data <- data_standardized
+        self$raw_data_unique <- unique_id_data
+      }
+      
       if(self$input_type == "external"){
         data_standardized <- self$raw_data %>% 
           dplyr$mutate(dplyr$across(dplyr$matches(self$intensity_type), ~ log2(.))) %>%
@@ -608,6 +727,7 @@ QProMS <- R6Class(
         self$is_imp <- TRUE
         
         if(self$is_mixed){
+          set.seed(11)
           data_mixed <- data %>%
             rownames_to_column() %>% 
             dplyr$group_by(gene_names, condition) %>%
@@ -686,6 +806,43 @@ QProMS <- R6Class(
         self$is_imp <- FALSE
       }
     },
+    rank_protein = function(target, by_condition, selection, n_perc) {
+      
+      if(by_condition) {
+        data <- self$imputed_data %>%
+          dplyr$filter(condition == target) %>%
+          dplyr$group_by(gene_names) %>%
+          dplyr$summarise(mean_intenisty = mean(intensity)) %>%
+          dplyr$ungroup() %>%
+          dplyr$arrange(-mean_intenisty) %>%
+          dplyr$mutate(rank = rank(-mean_intenisty)) %>% 
+          dplyr$rename(intensity = mean_intenisty) %>% 
+          dplyr$select(gene_names, intensity, rank)
+      } else {
+        data <- self$imputed_data %>%
+          dplyr$filter(label == target) %>%
+          dplyr$arrange(-intensity) %>%
+          dplyr$mutate(rank = rank(-intensity)) %>% 
+          dplyr$select(gene_names, intensity, rank)
+      }
+      
+      if(selection == "top") {
+        selected_list <- data %>% 
+          dplyr$slice_head(prop = n_perc) %>%
+          dplyr$pull(gene_names)
+      } else if (selection == "bot") {
+        selected_list <- data %>% 
+          dplyr$slice_tail(prop = n_perc) %>%
+          dplyr$pull(gene_names)
+      } else {
+        selected_list <- NULL
+      }
+      
+      
+      self$rank_data <- data
+      self$protein_rank_list <- selected_list
+      
+    },
     print_table = function(data, df = FALSE) {
       
       table <- data %>% 
@@ -743,13 +900,13 @@ QProMS <- R6Class(
       self$ora_table_all_download <- ora_table_all %>% 
         tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
         tidyr$separate(BgRatio, into = c("c", "d"), sep = "/", remove = FALSE) %>%
-        dplyr$mutate(fold_change = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
+        dplyr$mutate(fold_enrichment = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
         dplyr$select(-c(a,b,c,d)) %>% 
         dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
-        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_enrichment"), ~ round(., 2))) %>% 
         dplyr$relocate(ID) %>% 
         dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
-        dplyr$relocate(Count, .after = fold_change) 
+        dplyr$relocate(Count, .after = fold_enrichment) 
       
       self$ora_table_counts <- ora_table_all %>% 
         dplyr$group_by(ONTOLOGY) %>% 
@@ -760,17 +917,17 @@ QProMS <- R6Class(
         dplyr$filter(group %in% groups) %>% 
         tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
         tidyr$separate(BgRatio, into = c("c", "d"), sep = "/", remove = FALSE) %>%
-        dplyr$mutate(fold_change = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
+        dplyr$mutate(fold_enrichment = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
         dplyr$select(-c(a,b,c,d)) %>% 
         dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
-        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_enrichment"), ~ round(., 2))) %>% 
         dplyr$relocate(ID) %>% 
         dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
-        dplyr$relocate(Count, .after = fold_change) 
+        dplyr$relocate(Count, .after = fold_enrichment) 
       
-      if(value == "fold_change") {
+      if(value == "fold_enrichment") {
         self$ora_table <- self$ora_table %>% 
-          dplyr$arrange(-fold_change)
+          dplyr$arrange(-fold_enrichment)
       } else {
         self$ora_table <- self$ora_table %>% 
           dplyr$arrange(-pvalue)
@@ -860,14 +1017,25 @@ QProMS <- R6Class(
     },
     stat_t_test_single = function(data, test, fc, alpha, p_adj_method, paired_test, test_type) {
       
-      cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
-      cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      
+      if(test_type == "limma"){
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][2]
+      } else {
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      }
       
       if(test_type == "student"){
         var_equal <- TRUE
       }else{
         var_equal <- FALSE
       }
+      
+      # if(test_type == "wilcox"){
+      #   data <- data %>% 
+      #     dplyr$mutate(intensity = jitter(intensity))
+      # }
       
       self$univariate <- TRUE
       
@@ -882,33 +1050,58 @@ QProMS <- R6Class(
         na.omit() %>% 
         as.matrix()
       
-      a <- grep(cond_1, colnames(mat))
-      b <- grep(cond_2, colnames(mat))
-      
-      if(test_type == "wilcox"){
-        p_values_vec <- apply(mat, 1, function(x) wilcox.test(x[a], x[b], paired = paired_test)$p.value)
-      }else{
-        p_values_vec <- apply(mat, 1, function(x) t.test(x[a], x[b], paired = paired_test, var.equal = var_equal)$p.value)
+      if(test_type == "limma") {
+        cond_design <- mat %>% 
+          colnames() %>% 
+          stringr$str_remove("_[^_]*$")
+        
+        group_list <- factor(x=cond_design, levels = unique(cond_design))
+        
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+        
+        design <- model.matrix(~group_list)
+        limma_fit <- lmFit(mat, design) 
+        fit <- eBayes(limma_fit)
+        stat_data <- topTable(fit, number = nrow(mat), adjust.method = p_adj_method) %>% 
+          rownames_to_column("gene_names") %>%
+          dplyr$mutate(significant = dplyr$if_else(abs(logFC) >= fc &
+                                                       adj.P.Val <= alpha, TRUE, FALSE)) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_significant") := significant) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_val") := P.Value) %>%
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_fold_change") := logFC) %>%
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := adj.P.Val) %>% 
+          dplyr$select(-c(AveExpr, t, B))
+      } else {
+        a <- grep(cond_1, colnames(mat))
+        b <- grep(cond_2, colnames(mat))
+        
+        if(test_type == "wilcox"){
+          p_values_vec <- apply(mat, 1, function(x) wilcox.test(x[a], x[b], paired = paired_test)$p.value)
+        }else{
+          p_values_vec <- apply(mat, 1, function(x) t.test(x[a], x[b], paired = paired_test, var.equal = var_equal)$p.value)
+        }
+        
+        p_values <- p_values_vec %>%
+          self$stat_tidy_vector(name = "p_val")
+        
+        fold_change <- apply(mat, 1, function(x) mean(x[a]) - mean(x[b])) %>% 
+          self$stat_tidy_vector(name = "fold_change")
+        
+        p_ajusted <- p.adjust(p_values_vec, method = p_adj_method) %>% 
+          self$stat_tidy_vector(name = "p_adj")
+        
+        stat_data <- fold_change %>% 
+          dplyr$full_join(., p_values, by = "gene_names") %>% 
+          dplyr$full_join(., p_ajusted, by = "gene_names") %>% 
+          dplyr$mutate(significant = dplyr$if_else(abs(fold_change) >= fc & p_adj <= alpha, TRUE, FALSE)) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_significant") := significant) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_val") := p_val) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_fold_change") := fold_change) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := p_adj)
       }
       
       
-      p_values <- p_values_vec %>%
-        self$stat_tidy_vector(name = "p_val")
-      
-      fold_change <- apply(mat, 1, function(x) mean(x[a]) - mean(x[b])) %>% 
-        self$stat_tidy_vector(name = "fold_change")
-      
-      p_ajusted <- p.adjust(p_values_vec, method = p_adj_method) %>% 
-        self$stat_tidy_vector(name = "p_adj")
-      
-      stat_data <- fold_change %>% 
-        dplyr$full_join(., p_values, by = "gene_names") %>% 
-        dplyr$full_join(., p_ajusted, by = "gene_names") %>% 
-        dplyr$mutate(significant = dplyr$if_else(abs(fold_change) >= fc & p_adj <= alpha, TRUE, FALSE)) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_significant") := significant) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_val") := p_val) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_fold_change") := fold_change) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := p_adj)
       
       return(stat_data)
     },
@@ -1063,22 +1256,28 @@ QProMS <- R6Class(
         
         uni <- self$anova_table %>%
           dplyr$pull(gene_names)
-      }
-      
-      if (!background) {
-        uni <- NULL
-      }
+      } 
       
       if (list_from == "nodes") {
         unnamed_gene_lists <- self$selected_nodes %>% list()
         gene_vector <- set_names(unnamed_gene_lists, "nodes")
         uni <- NULL
+      } else if (list_from == "top_rank"){
+        unnamed_gene_lists <- self$protein_rank_list %>% list()
+        gene_vector <- set_names(unnamed_gene_lists, self$protein_rank_target)
+        uni <- self$rank_data %>%
+          dplyr$pull(gene_names)
       } else {
+      
         unnamed_gene_lists <-
           groupped_data %>% dplyr$group_map(~ dplyr$pull(.x, gene_names))
         
         gene_vector <-
           set_names(unnamed_gene_lists, dplyr$group_keys(groupped_data) %>% dplyr$pull())
+      }
+      
+      if (!background) {
+        uni <- NULL
       }
       
       self$ora_result_list <- map(
@@ -1112,37 +1311,55 @@ QProMS <- R6Class(
       }
       
     },
-    go_gsea_rank_vector = function(test) {
+    go_gsea_rank_vector = function(test, rank, cond) {
       
-      cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
-      cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      if(rank == "fc") {
+        
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+        
+        gsea_vec <- self$imputed_data %>%
+          dplyr$filter(condition == cond_1 | condition == cond_2) %>%
+          dplyr$group_by(gene_names, condition) %>%
+          dplyr$summarise(mean = mean(intensity)) %>%
+          tidyr$pivot_wider(id_cols = gene_names, names_from = condition, values_from = mean) %>%
+          dplyr$ungroup() %>%
+          dplyr$mutate(fold_change = get(cond_1) - get(cond_2)) %>%
+          dplyr$arrange(-fold_change) %>%
+          dplyr$select(gene_names, fold_change) %>%
+          deframe() %>%
+          list() 
+        
+      } else {
+        
+        if(cond) {
+          gsea_vec <- self$imputed_data %>%
+            dplyr$filter(condition == test) %>%
+            dplyr$group_by(gene_names) %>%
+            dplyr$summarise(mean_intenisty = mean(intensity)) %>%
+            dplyr$ungroup() %>%
+            dplyr$arrange(-mean_intenisty) %>%
+            deframe() %>%
+            list()
+        } else {
+          gsea_vec <- self$imputed_data %>%
+            dplyr$filter(label == test) %>%
+            dplyr$arrange(-intensity) %>%
+            dplyr$select(gene_names, intensity) %>%
+            deframe() %>%
+            list()
+        }
+        
+      }
       
-      # if (!self$is_norm & !self$is_imp) {
-      #   data <- self$filtered_data
-      # } else if (self$is_norm & !self$is_imp) {
-      #   data <- self$normalized_data
-      # } else{
-      #   data <- self$imputed_data
-      # }
       
-      gsea_vec <- self$imputed_data %>%
-        dplyr$filter(condition == cond_1 | condition == cond_2) %>%
-        dplyr$group_by(gene_names, condition) %>%
-        dplyr$summarise(mean = mean(intensity)) %>%
-        tidyr$pivot_wider(id_cols = gene_names, names_from = condition, values_from = mean) %>%
-        dplyr$ungroup() %>%
-        dplyr$mutate(fold_change = get(cond_1) - get(cond_2)) %>%
-        dplyr$arrange(-fold_change) %>%
-        dplyr$select(gene_names, fold_change) %>%
-        deframe() %>%
-        list() 
       
       gsea_list_vec <- set_names(gsea_vec, test)
       
       return(gsea_list_vec)
       
     },
-    go_gsea = function(test, alpha, p_adj_method) {
+    go_gsea = function(test, rank_type, by_condition, alpha, p_adj_method) {
       
       if(self$organism == "human"){
         orgdb <- org.Hs.eg.db
@@ -1152,7 +1369,7 @@ QProMS <- R6Class(
       
       list_of_gesa_vector <- map(
         .x = test,
-        .f = ~ self$go_gsea_rank_vector(test = .x)
+        .f = ~ self$go_gsea_rank_vector(test = .x, rank = rank_type, cond = by_condition)
       ) %>% flatten()
       
       defaultW <- getOption("warn") 
@@ -1220,7 +1437,7 @@ QProMS <- R6Class(
             dplyr$filter(category == "down")
         }
         
-      } else {
+      } else if (list_from == "multivariate") {
         
         nodes_table <- self$anova_table %>% 
           dplyr$filter(significant) %>%
@@ -1234,6 +1451,14 @@ QProMS <- R6Class(
             size = p_val * 2
           )
         
+      } else {
+        nodes_table <- tibble(gene_names = self$protein_rank_list) %>%
+          dplyr$mutate(
+            category = self$protein_rank_target,
+            p_val = 1,
+            p_adj = 1,
+            size = 10
+          )
       }
       
       self$nodes_table <- nodes_table
@@ -2057,6 +2282,70 @@ QProMS <- R6Class(
         dia_histogram(fill = "white", color = 1) +
         lotri(geom_point(alpha = 0.5, size = 0.8)) +
         scale_fill_viridis_c(direction = -1, end = 0.90, begin = 0.10, option = self$palette)
+      
+      return(p)
+      
+    },
+    plot_protein_rank = function(highlights_names = NULL) {
+      
+      colors <- viridis(n = 2 , direction = 1, end = 0.90, begin = 0.10, option = self$palette)
+      
+      p <- self$rank_data %>% 
+        dplyr$mutate(color = dplyr$if_else(gene_names %in% self$protein_rank_list, colors[2], colors[1])) %>% 
+        echarts4r$e_chart(rank, renderer = "svg") %>%
+        echarts4r$e_scatter(intensity,
+                             legend = FALSE,
+                             symbol_size = 5,
+                             bind = gene_names) %>%
+        echarts4r$e_add_nested("itemStyle", color) %>%
+        echarts4r$e_tooltip(formatter = JS(
+          "
+            function(params){
+              return('<strong>' + params.name + '</strong>');
+            }
+          "
+        )) %>%
+        echarts4r$e_toolbox_feature(feature = c("saveAsImage", "dataZoom")) %>%
+        echarts4r$e_y_axis(
+          name = "log2 Intensity",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 16,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_x_axis(
+          name = "Protein Rank",
+          nameLocation = "center",
+          nameTextStyle = list(
+            fontWeight = "bold",
+            fontSize = 14,
+            lineHeight = 60
+          )
+        ) %>%
+        echarts4r$e_title(self$protein_rank_target, left = "center") %>%
+        echarts4r$e_grid(containLabel = TRUE)
+      
+      if (!is.null(highlights_names)) {
+        for (name in highlights_names) {
+          highlights_name <- self$rank_data %>%
+            dplyr$filter(gene_names == name) %>%
+            dplyr$select(xAxis = rank,
+                          yAxis = intensity,
+                          value = gene_names) %>% as.list()
+          
+          p <- p %>%
+            echarts4r$e_mark_point(
+              data = highlights_name,
+              symbol = "pin",
+              symbolSize = 50,
+              silent = TRUE,
+              label = list(color = "black", fontWeight = "normal", fontSize = 16),
+              itemStyle = list(color = "yellow",  borderColor = "yellow", borderWidth = 0.2)
+            )
+        }
+      }
       
       return(p)
       

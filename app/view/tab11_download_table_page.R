@@ -5,7 +5,6 @@ box::use(
   reactable[reactableOutput, renderReactable, reactable, colDef],
   utils[write.csv, write.table],
   dplyr[`%>%`, select, left_join],
-  shiny.emptystate[use_empty_state, EmptyStateManager],
   gargoyle[watch],
 )
 
@@ -204,13 +203,6 @@ ui <- function(id) {
 #' @export
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
-    
-    # empty_state_manager <- EmptyStateManager$new(
-    #   id = session$ns("stat_table"),
-    #   html_content = h1(
-    #     "This is example empty state content"
-    #   )
-    # )
     
     output$add_column <- renderUI({
       
@@ -541,7 +533,7 @@ server <- function(id, r6) {
                 style = list(borderRight  = "1px solid #eee")
               ), 
               group = colDef(minWidth = 250),
-              fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+              fold_enrichment = colDef(minWidth = 150, align = "center", name = "Fold Enrichment"),
               Description = colDef(minWidth = 400),
               geneID = colDef(minWidth = 1000),
               GeneRatio = colDef(align = "center", name = "Gene ratio"),

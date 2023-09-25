@@ -48,41 +48,16 @@ ui <- function(id) {
               style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                fileInput(
-                  inputId = ns("upload_file"),
-                  label = "Input table",
-                  multiple = FALSE,
-                  width = "100%",
-                  placeholder = "Input_table",
-                  accept = c(".txt", ".tsv")
-                ),
-                prettyCheckbox(
-                  inputId = ns("use_params"),
-                  label = "Load parameters", 
-                  value = FALSE,
-                  shape = "curve", 
-                  width = "auto"
-                ),
-                conditionalJS(
-                  fileInput(
-                    inputId = ns("upload_params"),
-                    label = NULL,
-                    multiple = FALSE,
-                    width = "100%",
-                    placeholder = "QProMS_parameters.yaml",
-                    accept = ".yaml"
-                  ),
-                  condition = "input.use_params",
-                  jsCall = jsCalls$show(),
-                  ns = ns
-                )
-              ),
-              div(
-                style = "width: 100%; flex: 1 1 0;",
                 selectInput(
                   inputId = ns("source_type"),
                   label = "Table source",
-                  choices = c("MaxQuant" = "max_quant", "DIA-NN" = "dia_nn", "FragPipe" = "fragpipe", "External table" = "external"),
+                  choices = c(
+                    "MaxQuant" = "max_quant",
+                    "DIA-NN" = "dia_nn",
+                    "FragPipe" = "fragpipe",
+                    "Spectronaut" = "spectronaut",
+                    "External table" = "external"
+                  ),
                   selected = "max_quant"
                 ),
                 conditionalJS(
@@ -106,10 +81,10 @@ ui <- function(id) {
                   selectInput(
                     inputId = ns("intensity_type"),
                     label = "Select Intensity type",
-                    choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_"),
+                    choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "i_baq_"),
                     selected = "lfq_intensity_"
                   ),
-                  condition = "input.source_type == 'max_quant' | input.source_type == 'fragpipe'",
+                  condition = "input.source_type == 'max_quant' | input.source_type == 'fragpipe' | input.source_type == 'spectronaut'",
                   jsCall = jsCalls$show(),
                   ns = ns
                 )
@@ -184,6 +159,37 @@ ui <- function(id) {
                     )
                   ),
                   selected = "D"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                fileInput(
+                  inputId = ns("upload_file"),
+                  label = "Input table",
+                  multiple = FALSE,
+                  width = "100%",
+                  placeholder = "Input_table",
+                  accept = c(".txt", ".tsv", ".csv")
+                ),
+                prettyCheckbox(
+                  inputId = ns("use_params"),
+                  label = "Load parameters", 
+                  value = FALSE,
+                  shape = "curve", 
+                  width = "auto"
+                ),
+                conditionalJS(
+                  fileInput(
+                    inputId = ns("upload_params"),
+                    label = NULL,
+                    multiple = FALSE,
+                    width = "100%",
+                    placeholder = "QProMS_parameters.yaml",
+                    accept = ".yaml"
+                  ),
+                  condition = "input.use_params",
+                  jsCall = jsCalls$show(),
+                  ns = ns
                 )
               )
             )
@@ -283,7 +289,7 @@ server <- function(id, r6) {
     
     w <- Waiter$new(html = spin_5(), color = "#adb5bd")
     
-    init("make_expdesign", "boxes", "params")
+    init("make_expdesign", "boxes", "params", "ui_element")
     
     output$n_proteins <- renderValueBox({
       
@@ -390,8 +396,16 @@ server <- function(id, r6) {
       if (input$source_type == "max_quant") {
         updateSelectInput(
           inputId = "intensity_type",
-          choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_"),
+          choices = c("Intensity" = "intensity_", "LFQ Intensity" = "lfq_intensity_", "iBAQ Intensity" = "i_baq_"),
           selected = "lfq_intensity_"
+        )
+      }
+      
+      if (input$source_type == "spectronaut") {
+        updateSelectInput(
+          inputId = "intensity_type",
+          choices = c("Quantity" = "_quantity", "MS1 Quantity" = "_ms1quantity", "MS2 Quantity" = "_ms2quantity"),
+          selected = "_quantity"
         )
       }
       
@@ -498,6 +512,33 @@ server <- function(id, r6) {
           nrow(r6$raw_data) < 1 ~ "The file is empty",
           !"gene" %in% names(r6$raw_data) ~ "The Genes column is missing",
           !"protein_id" %in% names(r6$raw_data) ~ "The Protein ID column is missing",
+          TRUE ~ ""
+        )
+        if (input_error != "") {
+          toast(
+            title = "Incomplete data",
+            body = input_error,
+            options = list(
+              class = "bg-danger",
+              autohide = TRUE,
+              delay = 5000,
+              icon = icon("exclamation-circle", verify_fa = FALSE)
+            )
+          )
+          return() 
+        }
+        
+        if(!r6$parameters_loaded) {
+          r6$make_expdesign(intensity_type = input$intensity_type)
+        }
+      }
+      
+      if(r6$input_type == "spectronaut") {
+        
+        input_error <- dplyr$case_when(
+          nrow(r6$raw_data) < 1 ~ "The file is empty",
+          !"pg_genes" %in% names(r6$raw_data) ~ "The Genes column is missing",
+          !"pg_protein_groups" %in% names(r6$raw_data) ~ "The PG Protein Groups column is missing",
           TRUE ~ ""
         )
         if (input_error != "") {
@@ -648,6 +689,8 @@ server <- function(id, r6) {
         dplyr$filter(keep) %>% 
         dplyr$select(-keep)
       
+      r6$is_ok <- TRUE
+      
       input_error <- dplyr$case_when(
         nrow(des) < 1 ~ "The Experimental design is empty",
         !isTRUE(all(duplicated(des$label) == FALSE)) ~ "duplicate names in label column",
@@ -664,12 +707,13 @@ server <- function(id, r6) {
             icon = icon("exclamation-circle", verify_fa = FALSE)
           )
         )
+        r6$is_ok <- FALSE
         return() 
       }
       
       input_warning <- dplyr$case_when(
         min(dplyr$count(des, condition)$n) < 3 ~ "One or more condition group as less then 3 replicates! Statistics is discouraged",
-        min(dplyr$count(des, replicate)$n) < 2 ~ "There is only one condition",
+        min(dplyr$count(des, replicate)$n) < 2 ~ "There is only one condition. Otherwise replicate names are not consistent between conditions",
         min(stringr$str_length(des$condition)) < 2 ~ "Condition names should be at least 2 letters long",
         TRUE ~ ""
       )
@@ -685,10 +729,15 @@ server <- function(id, r6) {
             icon = icon("exclamation-circle", verify_fa = FALSE)
           )
         )
+        r6$is_ok <- FALSE
         return() 
       }
       
       r6$expdesign <- des
+      
+      if(!r6$parameters_loaded) {
+        r6$protein_rank_target <- r6$expdesign$label[1]
+      }
       
       r6$pg_preprocessing()
       
@@ -709,8 +758,6 @@ server <- function(id, r6) {
     
     observeEvent(input$start, {
       
-      w$show()
-      
       req(input$upload)
       req(input$upload_file)
       req(input$intensity_type)
@@ -719,6 +766,26 @@ server <- function(id, r6) {
       req(input$organism)
       
       r6$organism <- input$organism
+      
+      input_error <- dplyr$case_when(
+        !r6$is_ok ~ "The Experimental design isn't correct!",
+        TRUE ~ ""
+      )
+      if (input_error != "") {
+        toast(
+          title = "Experimental design error",
+          body = input_error,
+          options = list(
+            class = "bg-danger",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
+      
+      w$show()
       
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,
@@ -774,6 +841,7 @@ server <- function(id, r6) {
           icon = icon("unlock")
         )
       )
+      
       Sys.sleep(0.2)
       toast(
         title = "PCA page unlock!",
@@ -794,9 +862,30 @@ server <- function(id, r6) {
           icon = icon("unlock")
         )
       )
+      Sys.sleep(0.2)
+      toast(
+        title = "Network page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
+      Sys.sleep(0.2)
+      toast(
+        title = "Functional page unlock!",
+        options = list(
+          class = "bg-white",
+          autohide = TRUE,
+          delay = 5000,
+          icon = icon("unlock")
+        )
+      )
       
       trigger("plot")
       trigger("boxes")
+      trigger("ui_element")
       
       if(r6$parameters_loaded) {
         trigger("params")

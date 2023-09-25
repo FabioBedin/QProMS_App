@@ -1,6 +1,6 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate, reactive],
-  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel],
+  shiny[moduleServer, NS, fluidRow, column, icon, h3, selectInput, div, h4, p, plotOutput, renderPlot, observeEvent, req, reactiveVal, uiOutput, renderUI, isolate, reactive],
+  bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, boxLabel, accordion, accordionItem, updateAccordion],
   echarts4r[echarts4rOutput, renderEcharts4r, e_show_loading],
   shinyWidgets[actionBttn, pickerInput],
   stringr[str_to_title],
@@ -20,33 +20,59 @@ ui <- function(id) {
       valueBoxOutput(ns("corr_method"), width = 6)
     ),
     fluidRow(
+      column(
+        width = 11,
+        accordion(
+          id = ns("advance_params"),
+          accordionItem(
+            title = "Parameters",
+            status = "primary",
+            collapsed = TRUE,
+            solidHeader = TRUE,
+            div(
+              style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                selectInput(
+                  inputId = ns("correlation_input"),
+                  label = "Correlation method",
+                  choices = c("Pearson" = "pearson", "Kendall" = "kendall", "Spearman" = "spearman"),
+                  selected = "pearson"
+                ),
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+              )
+            )
+          ),
+          width = 12
+        )
+      ),
+      column(
+        width = 1,
+        div(
+          style = "margin-top: 2.5px;",
+          actionBttn(
+            inputId = ns("update"),
+            label = "Update", 
+            style = "material-flat",
+            color = "success",
+            size = "md",
+            block = TRUE
+          ) 
+        )
+      )
+    ),
+    fluidRow(
       box(
         title = "Correlation plot",
         status = "primary",
         width = 6,
         height = 700,
         maximizable = TRUE,
-        sidebar = boxSidebar(
-          id = ns("correlation_sidebar"),
-          div(
-            style = "padding-right: 0.5rem",
-            h3("Correlation methods"),
-            selectInput(
-              inputId = ns("correlation_input"),
-              label = NULL,
-              choices = c("Pearson" = "pearson", "Kendall" = "kendall", "Spearman" = "spearman"),
-              selected = "pearson"
-            ),
-            actionBttn(
-              inputId = ns("update"),
-              label = "Update", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
         echarts4rOutput(ns("correlation_interactive_plot"), height = "650")
       ),
       box(
@@ -56,7 +82,6 @@ ui <- function(id) {
         height = 700,
         maximizable = TRUE,
         echarts4rOutput(ns("scatter_plot"), height = "650")
-        # plotOutput(ns("correlation_static_plot"), height = "650")
       )
     ),
     fluidRow(
@@ -211,6 +236,8 @@ server <- function(id, r6) {
       req(input$correlation_input)
       
       r6$cor_method <- input$correlation_input
+      
+      updateAccordion(id = "advance_params", selected = NULL)
       
       trigger("plot")
       trigger("boxes")

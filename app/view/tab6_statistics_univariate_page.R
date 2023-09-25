@@ -1,8 +1,8 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateNumericInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler, column, observe],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateNumericInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, column, observe],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn, updatePrettyCheckbox, updatePickerInput],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, updatePrettyCheckbox, updatePickerInput],
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
   magrittr[`%>%`],
@@ -46,7 +46,7 @@ ui <- function(id) {
                     selectInput(
                       inputId = ns("test_input"),
                       label = "Test type",
-                      choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "Wilcox's test" = "wilcox"),
+                      choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "limma", "Wilcox's test" = "wilcox"),
                       selected = "welch", 
                       width = "auto"
                     )
@@ -103,11 +103,31 @@ ui <- function(id) {
               ),
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                uiOutput(ns("ui_primary_input"))
+                pickerInput(
+                  inputId = ns("primary_input"),
+                  label = "Primary comparison",
+                  choices = NULL, 
+                  selected = NULL,
+                  multiple = FALSE,
+                  options = list(
+                    `live-search` = TRUE, 
+                    size = 5)
+                )
               ),
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                uiOutput(ns("ui_additional_input"))
+                pickerInput(
+                  inputId = ns("additional_input"),
+                  label = "Additional comparison",
+                  choices = NULL,
+                  selected = NULL,
+                  multiple = TRUE,
+                  options = list(
+                    `live-search` = TRUE, 
+                    title = "None",
+                    `selected-text-format` = "count > 2",
+                    size = 5)
+                )
               )
             )
           ),
@@ -201,7 +221,6 @@ ui <- function(id) {
           )
         ),
         uiOutput(ns("profile_plot"))
-        # echarts4rOutput(ns("profile_plot"), height = "650")
       )
     ),
     fluidRow(
@@ -210,22 +229,7 @@ ui <- function(id) {
         status = "primary",
         width = 12,
         maximizable = TRUE,
-        collapsible = TRUE, 
-        sidebar = boxSidebar(
-          id = ns("table_sidebar"),
-          div(
-            style = "padding-right: 0.5rem",
-            h4("Download table"),
-            downloadBttn(
-              outputId  = ns("download_table"),
-              label = "Download", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
+        collapsible = TRUE,
         reactableOutput(ns("table"))
       )
     )
@@ -241,50 +245,45 @@ server <- function(id, r6) {
     
     init("stat")
     
-    output$ui_primary_input <- renderUI({
+    observe({
       
       watch("stat")
+      watch("ui_element")
       
       test <- r6$all_test_combination
       
-      pickerInput(
-        inputId = session$ns("primary_input"),
-        label = "Primary comparison",
-        choices = test, 
-        selected = r6$primary_condition,
-        multiple = FALSE,
-        # width = "auto",
-        options = list(
-          `live-search` = TRUE, 
-          size = 5)
-      )
+      test_add <- test[! test %in% r6$primary_condition]
       
+      updatePickerInput(
+        session = session,
+        inputId = "primary_input",
+        choices = test,
+        selected = r6$primary_condition
+      )
+      updatePickerInput(
+        session = session,
+        choices = test_add,
+        inputId = "additional_input",
+        selected = r6$additional_condition
+      )
       
     })
     
-    output$ui_additional_input <- renderUI({
-      
-      watch("stat")
+    observeEvent(input$primary_input, {
       
       test <- r6$all_test_combination
       
-      test <- test[! test %in% r6$primary_condition]
+      test_add <- test[! test %in% input$primary_input]
       
-      pickerInput(
-        inputId = session$ns("additional_input"),
-        label = "Additional comparison",
-        choices = test,
-        selected = r6$additional_condition,
-        multiple = TRUE,
-        options = list(
-          `live-search` = TRUE, 
-          title = "None",
-          `selected-text-format` = "count > 2",
-          size = 5)
+      updatePickerInput(
+        session = session,
+        choices = test_add,
+        inputId = "additional_input",
+        selected = r6$additional_condition
       )
       
-      
     })
+    
     
     output$tested_cond <- renderValueBox({
       
@@ -541,16 +540,6 @@ server <- function(id, r6) {
       
       
     })
-    
-    output$download_table <- downloadHandler(
-      filename = function() {
-        paste("table", ".csv", sep="")
-      },
-      content = function(file) {
-        write.csv(r6$stat_table, file)
-      }
-    )
-    
     
 
   })
