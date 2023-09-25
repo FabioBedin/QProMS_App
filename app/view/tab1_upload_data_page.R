@@ -48,37 +48,6 @@ ui <- function(id) {
               style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
               div(
                 style = "width: 100%; flex: 1 1 0;",
-                fileInput(
-                  inputId = ns("upload_file"),
-                  label = "Input table",
-                  multiple = FALSE,
-                  width = "100%",
-                  placeholder = "Input_table",
-                  accept = c(".txt", ".tsv")
-                ),
-                prettyCheckbox(
-                  inputId = ns("use_params"),
-                  label = "Load parameters", 
-                  value = FALSE,
-                  shape = "curve", 
-                  width = "auto"
-                ),
-                conditionalJS(
-                  fileInput(
-                    inputId = ns("upload_params"),
-                    label = NULL,
-                    multiple = FALSE,
-                    width = "100%",
-                    placeholder = "QProMS_parameters.yaml",
-                    accept = ".yaml"
-                  ),
-                  condition = "input.use_params",
-                  jsCall = jsCalls$show(),
-                  ns = ns
-                )
-              ),
-              div(
-                style = "width: 100%; flex: 1 1 0;",
                 selectInput(
                   inputId = ns("source_type"),
                   label = "Table source",
@@ -190,6 +159,37 @@ ui <- function(id) {
                     )
                   ),
                   selected = "D"
+                )
+              ),
+              div(
+                style = "width: 100%; flex: 1 1 0;",
+                fileInput(
+                  inputId = ns("upload_file"),
+                  label = "Input table",
+                  multiple = FALSE,
+                  width = "100%",
+                  placeholder = "Input_table",
+                  accept = c(".txt", ".tsv", ".csv")
+                ),
+                prettyCheckbox(
+                  inputId = ns("use_params"),
+                  label = "Load parameters", 
+                  value = FALSE,
+                  shape = "curve", 
+                  width = "auto"
+                ),
+                conditionalJS(
+                  fileInput(
+                    inputId = ns("upload_params"),
+                    label = NULL,
+                    multiple = FALSE,
+                    width = "100%",
+                    placeholder = "QProMS_parameters.yaml",
+                    accept = ".yaml"
+                  ),
+                  condition = "input.use_params",
+                  jsCall = jsCalls$show(),
+                  ns = ns
                 )
               )
             )

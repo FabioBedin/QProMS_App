@@ -1938,7 +1938,7 @@
     },
     "limma": {
       "Package": "limma",
-      "Version": "3.54.1",
+      "Version": "3.54.2",
       "Source": "Bioconductor",
       "Requirements": [
         "R",
@@ -1948,7 +1948,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "e23db0b76e0fe4ec94d4d46c42ecbd9f"
+      "Hash": "88e1f52195c7b500f19bc0c0f536ed1e"
     },
     "lintr": {
       "Package": "lintr",

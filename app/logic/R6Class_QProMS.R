@@ -5,7 +5,7 @@ box::use(
   tibble[tibble, as_tibble, column_to_rownames, rownames_to_column, deframe, enframe, rowid_to_column],
   viridis[viridis],
   magrittr[`%>%`],
-  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median, runif],
+  stats[sd, rnorm, prcomp, cor, na.omit, t.test, p.adjust, wilcox.test, aov, setNames, hclust, dist, cutree, qt, median, runif, model.matrix],
   utils[combn],
   htmltools,
   dplyr,
@@ -26,7 +26,8 @@ box::use(
   rbioapi[rba_string_interactions_network],
   OmnipathR[get_complex_genes, import_omnipath_complexes],
   openxlsx[createStyle, createWorkbook, addWorksheet, writeDataTable, setColWidths, addStyle, saveWorkbook],
-  yaml[write_yaml, read_yaml]
+  yaml[write_yaml, read_yaml],
+  limma[lmFit, eBayes, topTable]
 )
 
 box::use(
@@ -1016,14 +1017,25 @@ QProMS <- R6Class(
     },
     stat_t_test_single = function(data, test, fc, alpha, p_adj_method, paired_test, test_type) {
       
-      cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
-      cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      
+      if(test_type == "limma"){
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][2]
+      } else {
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+      }
       
       if(test_type == "student"){
         var_equal <- TRUE
       }else{
         var_equal <- FALSE
       }
+      
+      # if(test_type == "wilcox"){
+      #   data <- data %>% 
+      #     dplyr$mutate(intensity = jitter(intensity))
+      # }
       
       self$univariate <- TRUE
       
@@ -1038,33 +1050,58 @@ QProMS <- R6Class(
         na.omit() %>% 
         as.matrix()
       
-      a <- grep(cond_1, colnames(mat))
-      b <- grep(cond_2, colnames(mat))
-      
-      if(test_type == "wilcox"){
-        p_values_vec <- apply(mat, 1, function(x) wilcox.test(x[a], x[b], paired = paired_test)$p.value)
-      }else{
-        p_values_vec <- apply(mat, 1, function(x) t.test(x[a], x[b], paired = paired_test, var.equal = var_equal)$p.value)
+      if(test_type == "limma") {
+        cond_design <- mat %>% 
+          colnames() %>% 
+          stringr$str_remove("_[^_]*$")
+        
+        group_list <- factor(x=cond_design, levels = unique(cond_design))
+        
+        cond_1 <- stringr$str_split(test, "_vs_")[[1]][1]
+        cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
+        
+        design <- model.matrix(~group_list)
+        limma_fit <- lmFit(mat, design) 
+        fit <- eBayes(limma_fit)
+        stat_data <- topTable(fit, number = nrow(mat), adjust.method = p_adj_method) %>% 
+          rownames_to_column("gene_names") %>%
+          dplyr$mutate(significant = dplyr$if_else(abs(logFC) >= fc &
+                                                       adj.P.Val <= alpha, TRUE, FALSE)) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_significant") := significant) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_val") := P.Value) %>%
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_fold_change") := logFC) %>%
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := adj.P.Val) %>% 
+          dplyr$select(-c(AveExpr, t, B))
+      } else {
+        a <- grep(cond_1, colnames(mat))
+        b <- grep(cond_2, colnames(mat))
+        
+        if(test_type == "wilcox"){
+          p_values_vec <- apply(mat, 1, function(x) wilcox.test(x[a], x[b], paired = paired_test)$p.value)
+        }else{
+          p_values_vec <- apply(mat, 1, function(x) t.test(x[a], x[b], paired = paired_test, var.equal = var_equal)$p.value)
+        }
+        
+        p_values <- p_values_vec %>%
+          self$stat_tidy_vector(name = "p_val")
+        
+        fold_change <- apply(mat, 1, function(x) mean(x[a]) - mean(x[b])) %>% 
+          self$stat_tidy_vector(name = "fold_change")
+        
+        p_ajusted <- p.adjust(p_values_vec, method = p_adj_method) %>% 
+          self$stat_tidy_vector(name = "p_adj")
+        
+        stat_data <- fold_change %>% 
+          dplyr$full_join(., p_values, by = "gene_names") %>% 
+          dplyr$full_join(., p_ajusted, by = "gene_names") %>% 
+          dplyr$mutate(significant = dplyr$if_else(abs(fold_change) >= fc & p_adj <= alpha, TRUE, FALSE)) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_significant") := significant) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_val") := p_val) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_fold_change") := fold_change) %>% 
+          dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := p_adj)
       }
       
       
-      p_values <- p_values_vec %>%
-        self$stat_tidy_vector(name = "p_val")
-      
-      fold_change <- apply(mat, 1, function(x) mean(x[a]) - mean(x[b])) %>% 
-        self$stat_tidy_vector(name = "fold_change")
-      
-      p_ajusted <- p.adjust(p_values_vec, method = p_adj_method) %>% 
-        self$stat_tidy_vector(name = "p_adj")
-      
-      stat_data <- fold_change %>% 
-        dplyr$full_join(., p_values, by = "gene_names") %>% 
-        dplyr$full_join(., p_ajusted, by = "gene_names") %>% 
-        dplyr$mutate(significant = dplyr$if_else(abs(fold_change) >= fc & p_adj <= alpha, TRUE, FALSE)) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_significant") := significant) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_val") := p_val) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_fold_change") := fold_change) %>% 
-        dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := p_adj)
       
       return(stat_data)
     },
