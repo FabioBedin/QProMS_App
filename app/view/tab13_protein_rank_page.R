@@ -8,6 +8,7 @@ box::use(
   dplyr[`%>%`, select, distinct, pull, mutate],
   gargoyle[init, watch, trigger],
   shinyGizmo[conditionalJS, jsCalls],
+  waiter[Waiter, spin_5],
 )
 
 #' @export
@@ -96,11 +97,12 @@ ui <- function(id) {
           style = "margin-top: 2.5px;",
           actionBttn(
             inputId = ns("update"),
-            label = "Update", 
+            label = "Start", 
             style = "material-flat",
             color = "success",
             size = "md",
-            block = TRUE
+            block = TRUE,
+            width = "auto"
           ) 
         )
       )
@@ -148,15 +150,21 @@ ui <- function(id) {
 server <- function(id, r6) {
   moduleServer(id, function(input, output, session) {
     
-    init("check")
+    w <- Waiter$new(html = spin_5(), color = "#adb5bd")
+    
+    init("check", "rank")
     
     output$n_highlights <- renderValueBox({
 
-      watch("boxes")
-
-      total <- nrow(r6$rank_data)
-
-      value <- paste0(length(r6$protein_rank_list), " out of ", total)
+      watch("rank")
+      
+      if(is.null(r6$rank_data)){
+        value <- "Undefinded"
+      }else{
+        total <- nrow(r6$rank_data)
+        
+        value <- paste0(length(r6$protein_rank_list), " out of ", total)
+      }
       
       valueBox(
         subtitle = NULL,
@@ -171,9 +179,13 @@ server <- function(id, r6) {
 
     output$max_intensity <- renderValueBox({
 
-      watch("boxes")
-
-      value <- round(max(r6$rank_data$intensity, na.rm = TRUE), 2)
+      watch("rank")
+      
+      if(is.null(r6$rank_data)){
+        value <- "Undefinded"
+      }else{
+        value <- round(max(r6$rank_data$intensity, na.rm = TRUE), 2)
+      }
 
       valueBox(
         subtitle = NULL,
@@ -188,9 +200,13 @@ server <- function(id, r6) {
 
     output$min_intensity <- renderValueBox({
 
-      watch("boxes")
-
-      value <- round(min(r6$rank_data$intensity, na.rm = TRUE), 2)
+      watch("rank")
+      
+      if(is.null(r6$rank_data)){
+        value <- "Undefinded"
+      }else{
+        value <- round(min(r6$rank_data$intensity, na.rm = TRUE), 2)
+      }
 
       valueBox(
         subtitle = NULL,
@@ -221,7 +237,7 @@ server <- function(id, r6) {
             pull()
         }
         
-        updateSelectInput(inputId = "target", choices = scelte, selected = r6$protein_rank_target)
+        updateSelectInput(inputId = "target", choices = scelte, selected = scelte[1])
       }
       
     })
@@ -246,6 +262,8 @@ server <- function(id, r6) {
     
     
     observeEvent(input$update ,{
+      
+      w$show()
 
       req(input$target)
       req(input$top_n_slider)
@@ -262,14 +280,17 @@ server <- function(id, r6) {
         n_perc = r6$protein_rank_top_n
       )
 
-      trigger("plot")
-      trigger("boxes")
+      trigger("rank")
+      
+      w$hide()
 
     })
 
     output$table <- renderReactable({
 
-      watch("plot")
+      watch("rank")
+      
+      req(input$update)
       
       data <- r6$rank_data %>% 
         mutate(intensity = round(intensity, 2))
@@ -301,7 +322,9 @@ server <- function(id, r6) {
     
     output$protein_rank_plot <- renderEcharts4r({
       
-      watch("plot")
+      watch("rank")
+      
+      req(input$update)
       
       highlights <- r6$rank_data[gene_selected(),] %>%
         pull(gene_names)

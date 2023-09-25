@@ -53,6 +53,7 @@ QProMS <- R6Class(
     expdesign = NULL,
     palette = "D",
     color_palette = NULL,
+    is_ok = TRUE,
     #################################
     # parameters for data wrangling #
     filtered_data = NULL,
@@ -122,7 +123,7 @@ QProMS <- R6Class(
     go_ora_focus = NULL,
     go_ora_top_n = 10,
     go_ora_simplify_thr = NULL,
-    go_ora_plot_value = "fold_change",
+    go_ora_plot_value = "fold_enrichment",
     #######################
     # parameters for GSEA #
     gsea_result_list = NULL,
@@ -187,6 +188,7 @@ QProMS <- R6Class(
       ## for protein rank page
       self$protein_rank_target <- parameters_list$protein_rank_target
       self$protein_rank_by_cond <- parameters_list$protein_rank_by_cond
+      self$protein_rank_selection <- parameters_list$protein_rank_selection
       self$protein_rank_top_n <- parameters_list$protein_rank_top_n
       ## for univariate page
       self$univariate_test_type <- parameters_list$univariate_test_type
@@ -897,13 +899,13 @@ QProMS <- R6Class(
       self$ora_table_all_download <- ora_table_all %>% 
         tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
         tidyr$separate(BgRatio, into = c("c", "d"), sep = "/", remove = FALSE) %>%
-        dplyr$mutate(fold_change = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
+        dplyr$mutate(fold_enrichment = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
         dplyr$select(-c(a,b,c,d)) %>% 
         dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
-        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_enrichment"), ~ round(., 2))) %>% 
         dplyr$relocate(ID) %>% 
         dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
-        dplyr$relocate(Count, .after = fold_change) 
+        dplyr$relocate(Count, .after = fold_enrichment) 
       
       self$ora_table_counts <- ora_table_all %>% 
         dplyr$group_by(ONTOLOGY) %>% 
@@ -914,17 +916,17 @@ QProMS <- R6Class(
         dplyr$filter(group %in% groups) %>% 
         tidyr$separate(GeneRatio, into = c("a", "b"), sep = "/", remove = FALSE) %>%
         tidyr$separate(BgRatio, into = c("c", "d"), sep = "/", remove = FALSE) %>%
-        dplyr$mutate(fold_change = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
+        dplyr$mutate(fold_enrichment = (as.numeric(a)/as.numeric(b))/(as.numeric(c)/as.numeric(d))) %>% 
         dplyr$select(-c(a,b,c,d)) %>% 
         dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue"), ~ -log10(.))) %>%
-        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_change"), ~ round(., 2))) %>% 
+        dplyr$mutate(dplyr$across(c("pvalue", "p.adjust", "qvalue", "fold_enrichment"), ~ round(., 2))) %>% 
         dplyr$relocate(ID) %>% 
         dplyr$relocate(geneID, .after = dplyr$last_col()) %>% 
-        dplyr$relocate(Count, .after = fold_change) 
+        dplyr$relocate(Count, .after = fold_enrichment) 
       
-      if(value == "fold_change") {
+      if(value == "fold_enrichment") {
         self$ora_table <- self$ora_table %>% 
-          dplyr$arrange(-fold_change)
+          dplyr$arrange(-fold_enrichment)
       } else {
         self$ora_table <- self$ora_table %>% 
           dplyr$arrange(-pvalue)

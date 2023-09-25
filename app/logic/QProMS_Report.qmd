@@ -26,6 +26,7 @@ params:
   filtered_data: NULL
   normalized_data: NULL
   imputed_data: NULL
+  rank_data : NULL
   tests: ""
   stat_table: NULL
   anova_table: NULL
@@ -53,6 +54,9 @@ params:
   par_correlation: NULL
   par_univariate: NULL
   par_multivariate: NULL
+  par_protein_rank: NULL
+  protein_rank_target: NULL
+  protein_rank_list: NULL
   par_network: NULL
   par_ora: NULL
   par_gsea: NULL
@@ -225,7 +229,7 @@ r6$plot_correlation_interactive()
 
 `r if (params$par_pca == "no" & params$par_correlation == "no") ":::"`
 
-`r if (params$par_univariate == "no" & params$par_multivariate == "no") "::: {.content-hidden}"`
+`r if (params$par_univariate == "no" & params$par_multivariate == "no" & params$par_protein_rank == "no") "::: {.content-hidden}"`
 
 # Statistics
 
@@ -302,7 +306,7 @@ reactable(
   resizable = TRUE,
   wrap = FALSE,
   highlight = TRUE,
-  defaultPageSize = 7,
+  defaultPageSize = 10,
   height = "auto",
   columns = list(
     gene_names = colDef(align = "center", name = "Gene names"),
@@ -332,7 +336,54 @@ cat("NO multivariate analysis in your data")
 
 `r if (params$par_multivariate == "no") ":::"`
 
-`r if (params$par_univariate == "no" & params$par_multivariate == "no") ":::"`
+`r if (params$par_protein_rank == "no") "::: {.content-hidden}"`
+
+## Protein Rank
+
+```{r, rank, fig.height=10}
+#| eval: !expr if(!is.null(params$rank_data)) TRUE else FALSE
+
+r6$rank_data <- as_tibble(params$rank_data) %>% 
+  mutate(intensity = as.double(intensity))
+
+r6$protein_rank_target <- params$protein_rank_target
+r6$protein_rank_list <- params$protein_rank_list
+
+r6$plot_protein_rank()
+```
+
+```{r, result-rank}
+#| eval: !expr if(!is.null(params$rank_data)) TRUE else FALSE
+data <- r6$rank_data %>%
+  mutate(intensity = round(intensity, 2))
+
+reactable(
+  data,
+  searchable = TRUE,
+  resizable = TRUE,
+  highlight = TRUE,
+  wrap = FALSE,
+  height = "auto",
+  defaultPageSize = 10,
+  defaultColDef = colDef(align = "center", minWidth = 200),
+  columns = list(gene_names = colDef(
+    name = "Gene names",
+    sticky = "left",
+    style = list(borderRight  = "1px solid #eee")
+  ))
+)
+```
+
+
+```{r, message-no-rank}
+#| eval: !expr if(is.null(params$rank_data)) TRUE else FALSE
+
+cat("NO Protein Rank analysis in your data")
+```
+
+`r if (params$par_multivariate == "no") ":::"`
+
+`r if (params$par_univariate == "no" & params$par_multivariate == "no" & params$par_protein_rank == "no") ":::"`
 
 `r if (params$par_network == "no") "::: {.content-hidden}"`
 
@@ -471,7 +522,7 @@ reactable(
       style = list(borderRight  = "1px solid #eee")
     ), 
     group = colDef(minWidth = 250),
-    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    fold_enrichment = colDef(minWidth = 150, align = "center", name = "Fold Enrichment"),
     Description = colDef(minWidth = 400),
     geneID = colDef(minWidth = 1000),
     GeneRatio = colDef(align = "center", name = "Gene ratio"),
@@ -513,7 +564,7 @@ reactable(
       style = list(borderRight  = "1px solid #eee")
     ), 
     group = colDef(minWidth = 250),
-    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    fold_enrichment = colDef(minWidth = 150, align = "center", name = "Fold Enrichment"),
     Description = colDef(minWidth = 400),
     geneID = colDef(minWidth = 1000),
     GeneRatio = colDef(align = "center", name = "Gene ratio"),
@@ -555,7 +606,7 @@ reactable(
       style = list(borderRight  = "1px solid #eee")
     ), 
     group = colDef(minWidth = 250),
-    fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+    fold_enrichment = colDef(minWidth = 150, align = "center", name = "Fold Enrichment"),
     Description = colDef(minWidth = 400),
     geneID = colDef(minWidth = 1000),
     GeneRatio = colDef(align = "center", name = "Gene ratio"),

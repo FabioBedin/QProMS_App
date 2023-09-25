@@ -169,8 +169,8 @@ ui <- function(id) {
                     selectInput(
                       inputId = ns("plot_value_input"),
                       label = "Variable on X axis",
-                      choices = c("Fold change" = "fold_change", "p.value" = "pvalue", "p.adjust" = "p.adjust", "q.value" = "qvalue"),
-                      selected = "fold_change"
+                      choices = c("Fold Enrichment" = "fold_enrichment", "p.value" = "pvalue", "p.adjust" = "p.adjust", "q.value" = "qvalue"),
+                      selected = "fold_enrichment"
                     )
                   )
                 )
@@ -609,7 +609,7 @@ server <- function(id, r6) {
               style = list(borderRight  = "1px solid #eee")
             ), 
             group = colDef(minWidth = 250),
-            fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+            fold_enrichment = colDef(minWidth = 150, align = "center", name = "Fold Enrichment"),
             Description = colDef(minWidth = 400),
             geneID = colDef(minWidth = 1000),
             GeneRatio = colDef(align = "center", name = "Gene ratio"),

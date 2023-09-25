@@ -689,6 +689,8 @@ server <- function(id, r6) {
         dplyr$filter(keep) %>% 
         dplyr$select(-keep)
       
+      r6$is_ok <- TRUE
+      
       input_error <- dplyr$case_when(
         nrow(des) < 1 ~ "The Experimental design is empty",
         !isTRUE(all(duplicated(des$label) == FALSE)) ~ "duplicate names in label column",
@@ -705,12 +707,13 @@ server <- function(id, r6) {
             icon = icon("exclamation-circle", verify_fa = FALSE)
           )
         )
+        r6$is_ok <- FALSE
         return() 
       }
       
       input_warning <- dplyr$case_when(
         min(dplyr$count(des, condition)$n) < 3 ~ "One or more condition group as less then 3 replicates! Statistics is discouraged",
-        min(dplyr$count(des, replicate)$n) < 2 ~ "There is only one condition. Otherwise replicate names are not coherent between conditions",
+        min(dplyr$count(des, replicate)$n) < 2 ~ "There is only one condition. Otherwise replicate names are not consistent between conditions",
         min(stringr$str_length(des$condition)) < 2 ~ "Condition names should be at least 2 letters long",
         TRUE ~ ""
       )
@@ -726,6 +729,7 @@ server <- function(id, r6) {
             icon = icon("exclamation-circle", verify_fa = FALSE)
           )
         )
+        r6$is_ok <- FALSE
         return() 
       }
       
@@ -754,8 +758,6 @@ server <- function(id, r6) {
     
     observeEvent(input$start, {
       
-      w$show()
-      
       req(input$upload)
       req(input$upload_file)
       req(input$intensity_type)
@@ -764,6 +766,26 @@ server <- function(id, r6) {
       req(input$organism)
       
       r6$organism <- input$organism
+      
+      input_error <- dplyr$case_when(
+        !r6$is_ok ~ "The Experimental design isn't correct!",
+        TRUE ~ ""
+      )
+      if (input_error != "") {
+        toast(
+          title = "Experimental design error",
+          body = input_error,
+          options = list(
+            class = "bg-danger",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+        return() 
+      }
+      
+      w$show()
       
       r6$data_wrangling(
         valid_val_filter = r6$valid_val_filter,
@@ -782,13 +804,6 @@ server <- function(id, r6) {
         shift = r6$imp_shift,
         scale = r6$imp_scale,
         unique_visual = FALSE
-      )
-      
-      r6$rank_protein(
-        target = r6$protein_rank_target,
-        by_condition = r6$protein_rank_by_cond,
-        selection = r6$protein_rank_selection,
-        n_perc = r6$protein_rank_top_n
       )
       
       w$hide()

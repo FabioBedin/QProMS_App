@@ -1,8 +1,8 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateNumericInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, downloadHandler, column, observe],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateNumericInput, reactive, isolate, div, h4, p, plotOutput, renderPlot, observeEvent, req, numericInput, br, uiOutput, renderUI, column, observe],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   echarts4r[echarts4rOutput, renderEcharts4r],
-  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, downloadBttn, updatePrettyCheckbox, updatePickerInput],
+  shinyWidgets[actionBttn, prettyCheckbox, pickerInput, updatePrettyCheckbox, updatePickerInput],
   stringr[str_replace_all],
   gargoyle[init, watch, trigger],
   magrittr[`%>%`],
@@ -221,7 +221,6 @@ ui <- function(id) {
           )
         ),
         uiOutput(ns("profile_plot"))
-        # echarts4rOutput(ns("profile_plot"), height = "650")
       )
     ),
     fluidRow(
@@ -230,22 +229,7 @@ ui <- function(id) {
         status = "primary",
         width = 12,
         maximizable = TRUE,
-        collapsible = TRUE, 
-        sidebar = boxSidebar(
-          id = ns("table_sidebar"),
-          div(
-            style = "padding-right: 0.5rem",
-            h4("Download table"),
-            downloadBttn(
-              outputId  = ns("download_table"),
-              label = "Download", 
-              style = "material-flat",
-              color = "primary",
-              size = "md",
-              block = TRUE
-            )
-          )
-        ),
+        collapsible = TRUE,
         reactableOutput(ns("table"))
       )
     )
@@ -556,16 +540,6 @@ server <- function(id, r6) {
       
       
     })
-    
-    output$download_table <- downloadHandler(
-      filename = function() {
-        paste("table", ".csv", sep="")
-      },
-      content = function(file) {
-        write.csv(r6$stat_table, file)
-      }
-    )
-    
     
 
   })

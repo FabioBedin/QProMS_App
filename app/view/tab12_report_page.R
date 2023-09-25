@@ -1,6 +1,6 @@
 box::use(
   shiny[moduleServer, NS, fluidRow, div, downloadHandler, isolate],
-  bs4Dash[tabItem, accordion, accordionItem, toast],
+  bs4Dash[tabItem, accordion, accordionItem, toast, blockQuote],
   shinyGizmo[pickCheckboxInput],
   shinyWidgets[downloadBttn],
   esquisse[palettePicker],
@@ -36,7 +36,7 @@ ui <- function(id) {
                   "Quality control" = c("Protein counts", "Upset plot", "Intensity Distribution", "CV"),
                   "Missing data" = c("Counts", "Distribution", "Effect of Imputation"),
                   "Exploratory Data Analysis" = c("PCA", "Correlation heatmap"),
-                  "Statistics" = c("Univariate", "Multivariate"),
+                  "Statistics" = c("Univariate", "Multivariate", "Protein rank"),
                   "Network analysis" = "Network results",
                   "Functional analysis" = c("ORA", "GSEA")
                 ),
@@ -44,7 +44,7 @@ ui <- function(id) {
                   "Quality control" = c("Protein counts", "Upset plot", "Intensity Distribution", "CV"),
                   "Missing data" = c("Counts", "Distribution", "Effect of Imputation"),
                   "Exploratory Data Analysis" = c("PCA", "Correlation heatmap"),
-                  "Statistics" = c("Univariate", "Multivariate"),
+                  "Statistics" = c("Univariate", "Multivariate", "Protein rank"),
                   "Network analysis" = "Network results",
                   "Functional analysis" = c("ORA", "GSEA")
                 ),
@@ -138,12 +138,8 @@ ui <- function(id) {
           div(
             style = "display: flex; justify-content: center; gap: 5rem; align-items: start;",
             div(
-              style = "width: 100%; flex: 1 1 0;",
-              
-            ),
-            div(
-              style = "width: 100%; flex: 1 1 0;",
-              
+              style = "width: 100%; flex: 3 1 0;",
+              blockQuote("All parameters used during the analysis will be stored in the QProMS_parameters.yaml file.", color = "success")
             ),
             div(
               style = "width: 100%; flex: 1 1 0; padding-top: 1.6rem;",
@@ -222,6 +218,7 @@ server <- function(id, r6) {
         param_correlation = FALSE
         param_univariate = FALSE
         param_multivariate = FALSE
+        param_protein_rank = FALSE
         param_network = FALSE
         param_ora = FALSE
         param_gsea = FALSE
@@ -241,6 +238,7 @@ server <- function(id, r6) {
               "Correlation heatmap" = (param_correlation = TRUE),
               "Univariate" = (param_univariate = TRUE),
               "Multivariate" = (param_multivariate = TRUE),
+              "Protein rank" = (param_protein_rank = TRUE),
               "Network results" = (param_network = TRUE),
               "ORA" = (param_ora = TRUE),
               "GSEA" = (param_gsea = TRUE)
@@ -263,6 +261,7 @@ server <- function(id, r6) {
             par_correlation = param_correlation,
             par_univariate = param_univariate,
             par_multivariate = param_multivariate,
+            par_protein_rank = param_protein_rank,
             par_network = param_network,
             par_ora = param_ora,
             par_gsea = param_gsea, 
@@ -271,6 +270,9 @@ server <- function(id, r6) {
             filtered_data = r6$filtered_data,
             normalized_data = r6$normalized_data,
             imputed_data = r6$imputed_data,
+            rank_data = r6$rank_data,
+            protein_rank_target = r6$protein_rank_target,
+            protein_rank_list = r6$protein_rank_list,
             tests = c(r6$primary_condition, r6$additional_condition),
             stat_table = r6$stat_table,
             anova_table = r6$anova_table,
@@ -321,6 +323,7 @@ server <- function(id, r6) {
           imp_scale = r6$imp_scale,
           protein_rank_target = r6$protein_rank_target,
           protein_rank_by_cond = r6$protein_rank_by_cond,
+          protein_rank_selection = r6$protein_rank_selection,
           protein_rank_top_n = r6$protein_rank_top_n,
           univariate_test_type = r6$univariate_test_type,
           univariate_paired = r6$univariate_paired,

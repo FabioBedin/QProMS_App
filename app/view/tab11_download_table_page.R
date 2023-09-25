@@ -533,7 +533,7 @@ server <- function(id, r6) {
                 style = list(borderRight  = "1px solid #eee")
               ), 
               group = colDef(minWidth = 250),
-              fold_change = colDef(minWidth = 150, align = "center", name = "Fold change"),
+              fold_enrichment = colDef(minWidth = 150, align = "center", name = "Fold Enrichment"),
               Description = colDef(minWidth = 400),
               geneID = colDef(minWidth = 1000),
               GeneRatio = colDef(align = "center", name = "Gene ratio"),
