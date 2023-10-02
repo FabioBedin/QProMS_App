@@ -403,6 +403,19 @@ server <- function(id, r6) {
       r6$make_nodes(list_from = r6$network_from_statistic, focus = focus_net, direction = r6$network_uni_direction)
       r6$make_edges(source = r6$pdb_database)
       
+      if(r6$organism == "mouse"){
+        toast(
+          title = "Warning!",
+          body = "CORUM database is not avaiable for mouse",
+          options = list(
+            class = "bg-warning",
+            autohide = TRUE,
+            delay = 5000,
+            icon = icon("exclamation-circle", verify_fa = FALSE)
+          )
+        )
+      }
+      
       trigger("ppi_network") 
       
       updateAccordion(id = "advance_params", selected = NULL)
