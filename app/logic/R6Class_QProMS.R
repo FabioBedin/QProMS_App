@@ -1508,48 +1508,53 @@ QProMS <- R6Class(
       
       if("corum" %in% source) {
         
-        raw_corum_table <-
-          get_complex_genes(import_omnipath_complexes(resources = "CORUM"),
-                            self$name_for_edges,
-                            total_match = FALSE) %>%
-          unique() %>%
-          dplyr$select(name, components_genesymbols) %>%
-          tidyr$separate_rows(components_genesymbols, sep = "_") %>%
-          dplyr$filter(components_genesymbols %in% self$name_for_edges) %>%
-          unique() %>%
-          get_dupes(name)
-        
-        if (nrow(raw_corum_table) != 0) {
+        if(tax_id == 9606){
+          raw_corum_table <-
+            get_complex_genes(import_omnipath_complexes(resources = "CORUM"),
+                              self$name_for_edges,
+                              total_match = FALSE) %>%
+            unique() %>%
+            dplyr$select(name, components_genesymbols) %>%
+            tidyr$separate_rows(components_genesymbols, sep = "_") %>%
+            dplyr$filter(components_genesymbols %in% self$name_for_edges) %>%
+            unique() %>%
+            get_dupes(name)
           
-          expand_nodes <- raw_corum_table %>%
-            dplyr$group_by(name) %>%
-            dplyr$group_map( ~ dplyr$pull(.x, components_genesymbols))
-          
-          edges_corum_table <-
-            map(.x = expand_nodes, .f = ~ as.data.frame(t(combn(.x, 2)))) %>%
-            reduce(dplyr$bind_rows) %>%
-            dplyr$rename(target = V1,  source = V2) %>%
-            dplyr$left_join(raw_corum_table, by = c("source" = "components_genesymbols")) %>%
-            dplyr$select(-dupe_count) %>%
-            dplyr$rename(complex = name) %>%
-            unique() %>% 
-            dplyr$mutate(score = 1, color = "#4daf4a") %>% 
-            dplyr$group_by(source, target, color) %>% 
-            tidyr$nest() %>% 
-            tidyr$unnest_wider(data, names_sep = "_") %>%
-            dplyr$ungroup() %>% 
-            dplyr$mutate(complex = map_chr(data_complex, stringr$str_flatten, collapse = "/")) %>% 
-            dplyr$rowwise() %>% 
-            dplyr$mutate(
-              score = sum(data_score),
-              size = dplyr$if_else(score <= 5, score, 5),
-              database = "Corum"
-            ) %>% 
-            dplyr$select(source, target, complex, score, color, size, database)
-          
+          if (nrow(raw_corum_table) != 0) {
+            
+            expand_nodes <- raw_corum_table %>%
+              dplyr$group_by(name) %>%
+              dplyr$group_map( ~ dplyr$pull(.x, components_genesymbols))
+            
+            edges_corum_table <-
+              map(.x = expand_nodes, .f = ~ as.data.frame(t(combn(.x, 2)))) %>%
+              reduce(dplyr$bind_rows) %>%
+              dplyr$rename(target = V1,  source = V2) %>%
+              dplyr$left_join(raw_corum_table, by = c("source" = "components_genesymbols")) %>%
+              dplyr$select(-dupe_count) %>%
+              dplyr$rename(complex = name) %>%
+              unique() %>% 
+              dplyr$mutate(score = 1, color = "#4daf4a") %>% 
+              dplyr$group_by(source, target, color) %>% 
+              tidyr$nest() %>% 
+              tidyr$unnest_wider(data, names_sep = "_") %>%
+              dplyr$ungroup() %>% 
+              dplyr$mutate(complex = map_chr(data_complex, stringr$str_flatten, collapse = "/")) %>% 
+              dplyr$rowwise() %>% 
+              dplyr$mutate(
+                score = sum(data_score),
+                size = dplyr$if_else(score <= 5, score, 5),
+                database = "Corum"
+              ) %>% 
+              dplyr$select(source, target, complex, score, color, size, database)
+            
+          } else {
+            edges_corum_table <- NULL
+          }
         } else {
           edges_corum_table <- NULL
         }
+        
         
       }
       

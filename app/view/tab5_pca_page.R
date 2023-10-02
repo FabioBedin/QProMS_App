@@ -19,7 +19,7 @@ ui <- function(id) {
     ),
     fluidRow(
       box(
-        title = "2D PCA",
+        title = "2D Principal Component Analysis",
         status = "primary",
         width = 6,
         height = 700,
@@ -27,7 +27,7 @@ ui <- function(id) {
         echarts4rOutput(ns("pca_2d_plot"), height = "650")
       ),
       box(
-        title = "3D PCA",
+        title = "3D Principal Component Analysis",
         status = "primary",
         width = 6,
         height = 700,
@@ -70,7 +70,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("thermometer-3", verify_fa = FALSE),
         color = "primary",
-        footer = p("PC1", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Fraction of variance explained by PC1", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -86,7 +86,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("thermometer-2", verify_fa = FALSE),
         color = "primary",
-        footer = p("PC2", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Fraction of variance explained by PC2", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       
@@ -102,7 +102,7 @@ server <- function(id, r6) {
         value = h4(value, style = "margin-top: 0.5rem;"),
         icon = icon("thermometer-1", verify_fa = FALSE),
         color = "primary",
-        footer = p("PC3", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
+        footer = p("Fraction of variance explained by PC3", style = "margin: 0; padding-left: 0.5rem; text-align: left;"),
         elevation = 2
       )
       

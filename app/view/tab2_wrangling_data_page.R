@@ -1,5 +1,5 @@
 box::use(
-  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateSliderInput, sliderInput, br, div, observeEvent, observe, req, checkboxInput, h4, p, column, reactive],
+  shiny[moduleServer, NS, fluidRow, icon, h3, selectInput, updateSelectInput, updateSliderInput, sliderInput, br, div, observeEvent, observe, req, checkboxInput, h4, h5, p, column, reactive],
   bs4Dash[tabItem, box, boxSidebar, valueBoxOutput, renderValueBox, valueBox, bs4Callout, accordion, accordionItem, updateAccordion],
   shinyWidgets[actionBttn, prettyCheckbox, updatePrettyCheckbox],
   echarts4r[echarts4rOutput, renderEcharts4r],
@@ -36,7 +36,7 @@ ui <- function(id) {
                   selectInput(
                     inputId = ns("valid_values_input"),
                     label = "Valid values filters",
-                    choices = c("In at least one group" = "alog", "In each group" = "each_grp", "In toral" = "total"),
+                    choices = c("In at least one group" = "alog", "In each group" = "each_grp", "In total" = "total"),
                     selected = "alog"
                   ),
                   sliderInput(
@@ -73,7 +73,7 @@ ui <- function(id) {
                   value = 2,
                   step = 1
                 ),
-                br(),
+                h5("Remove:"),
                 div(
                   style = "display: flex; gap: 0.5rem; align-items: center;",
                   div(
