@@ -46,7 +46,7 @@ ui <- function(id) {
                     selectInput(
                       inputId = ns("test_input"),
                       label = "Test type",
-                      choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "limma", "Wilcox's test" = "wilcox"),
+                      choices = c("Welch's T-test" = "welch", "Student's T-test" = "student", "limma", "Wilcoxon test" = "wilcox"),
                       selected = "welch", 
                       width = "auto"
                     )
