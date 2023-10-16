@@ -2591,6 +2591,14 @@ QProMS <- R6Class(
         col_method = "hclust"
       }
       
+      m_sig <- self$anova_table %>%
+        dplyr$filter(significant) %>%
+        nrow()
+      
+      if(m_sig<n_cluster){
+        n_cluster <- 0
+      }
+      
       if (n_cluster == 0) {
         n_k <- NULL
       } else {
