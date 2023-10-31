@@ -56,6 +56,7 @@ ui <- function(id) {
                     "DIA-NN" = "dia_nn",
                     "FragPipe" = "fragpipe",
                     "Spectronaut" = "spectronaut",
+                    "AlphaPept" = "external", 
                     "External table" = "external"
                   ),
                   selected = "max_quant"
