@@ -56,6 +56,7 @@ ui <- function(id) {
                     "DIA-NN" = "dia_nn",
                     "FragPipe" = "fragpipe",
                     "Spectronaut" = "spectronaut",
+                    "AlphaPept" = "alpha_pept", 
                     "External table" = "external"
                   ),
                   selected = "max_quant"
@@ -73,7 +74,7 @@ ui <- function(id) {
                       value = ""
                     )
                   ),
-                  condition = "input.source_type == 'external'",
+                  condition = "input.source_type == 'external' | input.source_type == 'alpha_pept'",
                   jsCall = jsCalls$show(),
                   ns = ns
                 ),
@@ -560,7 +561,7 @@ server <- function(id, r6) {
         }
       }
       
-      if(r6$input_type == "external"){
+      if(r6$input_type == "external" | r6$input_type == "alpha_pept"){
         id_col <- make_clean_names(input$genes_col)
         intensity_regex <- make_clean_names(input$intensity_type2)
         
