@@ -555,7 +555,7 @@ QProMS <- R6Class(
           dplyr$select(-key)
         
         self$data <- data_standardized
-        self$raw_data_unique <- unique_id_data
+        self$raw_data_unique <- unique_id_data %>% dplyr$rename(gene_names = gene)
       }
       
       if(self$input_type == "spectronaut") {
@@ -598,7 +598,7 @@ QProMS <- R6Class(
           dplyr$rename(gene_names = pg_genes)
         
         self$data <- data_standardized
-        self$raw_data_unique <- unique_id_data
+        self$raw_data_unique <- unique_id_data %>% dplyr$rename(gene_names = pg_genes)
       }
       
       if(self$input_type == "external"){
@@ -1026,16 +1026,17 @@ QProMS <- R6Class(
         cond_2 <- stringr$str_split(test, "_vs_")[[1]][2]
       }
       
+      
+      cond_order <- self$expdesign %>% 
+        dplyr$filter(condition == cond_2) %>% 
+        dplyr$mutate(label_test = paste(condition, replicate, sep = "_")) %>%
+        dplyr$pull(label_test)
+      
       if(test_type == "student"){
         var_equal <- TRUE
       }else{
         var_equal <- FALSE
       }
-      
-      # if(test_type == "wilcox"){
-      #   data <- data %>% 
-      #     dplyr$mutate(intensity = jitter(intensity))
-      # }
       
       self$univariate <- TRUE
       
@@ -1046,7 +1047,7 @@ QProMS <- R6Class(
                            names_from = "label_test",
                            values_from = "intensity") %>%
         column_to_rownames("gene_names") %>%
-        dplyr$relocate(dplyr$contains(cond_2), .after = dplyr$last_col()) %>%
+        dplyr$relocate(dplyr$all_of(cond_order), .after = dplyr$last_col()) %>%
         na.omit() %>% 
         as.matrix()
       
@@ -1073,8 +1074,16 @@ QProMS <- R6Class(
           dplyr$rename(!!paste0(cond_1, "_vs_", cond_2, "_p_adj") := adj.P.Val) %>% 
           dplyr$select(-c(AveExpr, t, B))
       } else {
-        a <- grep(cond_1, colnames(mat))
-        b <- grep(cond_2, colnames(mat))
+        a <- self$expdesign %>% 
+          dplyr$filter(condition == cond_1) %>% 
+          dplyr$mutate(label_test = paste0("^",condition,"_", replicate, "$")) %>%
+          dplyr$pull(label_test) %>% 
+          map_dbl(~ stringr$str_which(colnames(mat), .x))
+        b <- self$expdesign %>% 
+          dplyr$filter(condition == cond_2) %>% 
+          dplyr$mutate(label_test = paste0("^",condition,"_", replicate, "$")) %>%
+          dplyr$pull(label_test) %>% 
+          map_dbl(~ stringr$str_which(colnames(mat), .x))
         
         if(test_type == "wilcox"){
           p_values_vec <- apply(mat, 1, function(x) wilcox.test(x[a], x[b], paired = paired_test)$p.value)
