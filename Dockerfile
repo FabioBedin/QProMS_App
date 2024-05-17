@@ -1,4 +1,4 @@
-FROM rocker/shiny:4.2.0
+FROM rocker/shiny:4.3.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -25,6 +25,13 @@ COPY --chown=shiny:shiny app.R ./
 COPY --chown=shiny:shiny config.yml ./
 COPY --chown=shiny:shiny rhino.yml ./
 COPY --chown=shiny:shiny app app/
+
+# Copy script for loading R packages
+COPY --chown=shiny:shiny load_packages.R ./
+
+# Load R packages
+RUN sudo -u shiny Rscript load_packages.R
+
 
 #COPY --chown=shiny:shiny docker/shiny-server.conf /etc/shiny-server/
 USER shiny
